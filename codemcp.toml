@@ -1,0 +1,9 @@
+[project]
+name = "hr_tool_core_v12"
+description = "Laravel 12 HR Tool with Filament"
+
+[commands]
+artisan = ["php", "artisan"]
+install = ["composer", "install"]
+update = ["composer", "update"]
+serve = ["php", "artisan", "serve"]
