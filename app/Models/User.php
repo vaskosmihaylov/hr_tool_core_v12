@@ -70,4 +70,109 @@ class User extends Authenticatable implements FilamentUser
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }
+
+    /**
+     * Check if user has permission for specific URL path
+     */
+    public function hasPermissionUrl($url)
+    {
+        $originalUrl = $url;
+
+        $resource = $this->findUrlResource($url, Resource::RESOURCE_TYPE_RELATIVE);
+
+        if (!$resource && strrpos($url, '/')) {
+
+            do {
+                $url = substr($url, 0, strrpos($url, '/'));
+
+                $resource = $this->findUrlResource($url, Resource::RESOURCE_TYPE_RELATIVE);
+
+                if ($resource) {
+                    break;
+                }
+
+            } while (strrpos($url, '/'));
+        }
+
+        if ($resource) {
+
+            $permission = $resource->permission()->first();
+
+            if ($permission && $this->can($permission->name)) {
+                return true;
+            } else if ($this->checkPermissionAbsolutePath($originalUrl)) {
+                return true;
+            } else {
+                return false;
+            }
+
+        } else {
+
+            $resource = $this->findUrlResource($originalUrl, Resource::RESOURCE_TYPE_ABSOLUTE);
+
+            if ($resource && $this->checkPermissionForResource($resource)) {
+                return true;
+            } else if ($resource) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    }
+
+    public function checkPermissionAbsolutePath($url)
+    {
+        $resource = $this->findUrlResource($url, Resource::RESOURCE_TYPE_ABSOLUTE);
+
+        if ($resource && $this->checkPermissionForResource($resource)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function findUrlResource($url, $type)
+    {
+        //url is identical to resource
+        $resource = $this->getUrlResource($url, $type);
+
+        //url is /some/action/5 and resource is /some/action/{?}
+        if (!$resource && strrpos($url, '/')) {
+
+            $wildcardUrl = substr($url, 0, strrpos($url, '/')) . '/{?}';
+
+            $resource = $this->getUrlResource($wildcardUrl, $type);
+        }
+
+        //url is /some/action and resource is /some/action/{?}
+        if (!$resource) {
+            $wildcardUrl = $url . '/{?}';
+            $resource = $this->getUrlResource($wildcardUrl, $type);
+        }
+
+        return $resource;
+
+    }
+
+    private function getUrlResource($url, $type)
+    {
+        return Resource::where('type', '=', $type)
+            ->whereIn('value', [
+                $url,
+                $url . '/',
+                '/'. $url,
+                '/' . $url . '/'])
+            ->first();
+    }
+
+    private function checkPermissionForResource($resource) {
+
+        $permission = $resource->permission()->first();
+
+        if ($permission && !$this->can($permission->name)) {
+            return false;
+        }
+
+        return true;
+    }
 }

@@ -11,7 +11,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Register Viki middleware
+        $middleware->alias([
+            'application.permission' => \App\Http\Middleware\ApplicationPermission::class,
+            'admin.permission' => \App\Http\Middleware\AdminPermission::class,
+            'check.role' => \App\Http\Middleware\CheckRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
