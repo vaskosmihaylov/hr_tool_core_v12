@@ -1,0 +1,30 @@
+/* Basic CSS for Viki service views */
+body {
+    font-family: Arial, sans-serif;
+}
+
+.custom-nav {
+    width: 250px;
+    float: left;
+}
+
+.table-content {
+    margin-left: 260px;
+}
+
+.workers-filter {
+    margin-bottom: 20px;
+}
+
+.header__logo {
+    background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMTAwIDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjx0ZXh0IHg9IjEwIiB5PSIyNSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE4IiBmaWxsPSIjMDA3YmZmIj5WaWtpPC90ZXh0Pjwvc3ZnPg==') no-repeat;
+    height: 40px;
+    display: block;
+}
+
+.footer__logo {
+    width: 100px;
+    height: 30px;
+    background: #007bff;
+    display: inline-block;
+}

@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 App::setLocale('bg');
 
-Route::group(['middleware' => ['web', 'auth']], function () {
+Route::group(['middleware' => ['web', 'auth', 'application.permission']], function () {
     Route::get('service/index', 'IndexController@index')->name('service.index');
 
     // Worker Routes
