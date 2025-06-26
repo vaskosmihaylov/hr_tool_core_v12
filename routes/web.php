@@ -6,7 +6,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Simple login route for middleware redirects
+// Login route for middleware redirects - now redirects to working Filament login
 Route::get('/login', function () {
-    return '<h1>Please Login</h1><p><a href="/admin">Go to Admin Panel</a></p>';
+    return redirect('/admin/login');
 })->name('login');
