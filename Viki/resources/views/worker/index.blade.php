@@ -24,7 +24,7 @@
 
 								@endif
 							</div>
-							{!! Form::open(['method' => 'GET', 'url' => '/service/worker', 'class' => 'form-inline my-2 my-lg-0 float-right col-lg-7 col-md-7 px-0 justify-content-end', 'role' => 'search'])  !!}
+							{!! html()->form('GET', '/service/worker')->class('form-inline my-2 my-lg-0 float-right col-lg-7 col-md-7 px-0 justify-content-end')->attribute('role', 'search')->open() !!}
 							<select  id="types" name="status" class="form-control col-lg-2 col-md-3 col-sm-12" onchange="this.form.submit()">
 							<option value="1" @if($status == 1) selected @endif>
 								активни
@@ -41,7 +41,7 @@
 								</button>
 							</span>
 						</div>
-                        {!! Form::close() !!}
+                        {!! html()->form()->close() !!}
 					@if ($message = Session::get('success'))
 
 						<div class="alert alert-success alert-block">

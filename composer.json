@@ -9,12 +9,13 @@
         "php": "^8.2",
         "bezhansalleh/filament-shield": "^3.3",
         "filament/filament": "^3.3",
+        "laravel-lang/lang": "^15.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
-        "laravel-lang/lang": "^15.0",
         "spatie/laravel-activitylog": "^4.10",
-        "spatie/laravel-permission": "^6.20",
+        "spatie/laravel-html": "^3.12",
         "spatie/laravel-pdf": "^1.0",
+        "spatie/laravel-permission": "^6.20",
         "viki/service": "dev-main"
     },
     "require-dev": {
