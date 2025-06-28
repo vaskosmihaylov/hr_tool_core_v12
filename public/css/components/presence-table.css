@@ -1,0 +1,183 @@
+.noselect {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+    -khtml-user-select: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Old versions of Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently
+                              supported by Chrome, Edge, Opera and Firefox */
+}
+.presence-content__select {
+    display: flex;
+    /* flex-flow: row; */
+    align-items: center;
+    justify-content: space-between;
+}
+
+.presence-content__buttons {
+    margin-bottom: 1.5rem;
+    text-align: end;
+}
+/* .presence-content__select .select {
+    padding: 0;
+} */
+.presence-content__select .select label {
+    margin-bottom: .5rem;
+}
+
+.presence-content__select .presence-content-link-and-texts {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.presence-content__links,
+.presence-content__text {
+    max-width: 50%;
+    flex: 0 0 50%;
+}
+
+.presence-content .dataTables_wrapper .dataTables_filter {
+    margin-bottom: 15px;
+}
+.DTFC_ScrollWrapper table{
+    margin: 0 auto;
+    clear: both;
+    border-collapse: collapse;
+    table-layout: fixed;
+    word-wrap: break-word;
+}
+div.presence-table div.DTFC_RightBodyLiner,
+div.presence-table div.DTFC_LeftBodyLiner {
+    overflow: hidden;
+}
+button.export_excel,
+button.ctrl_btn {
+    padding: .5rem 4rem;
+    background: #9fc5f8;
+    border: none;
+    box-shadow: 4px 4px 1px -2px #262626;
+    border: 2px solid #262626;
+    border-radius: 0;
+    transition: .3s;
+}
+button.ctrl_btn {
+    background: #e06566;
+    padding: .5rem;
+}
+button.dt-button.export_excel:hover:not(.disabled),
+div.dt-button.export_excel:hover:not(.disabled),
+a.dt-button.export_excel:hover:not(.disabled) {
+    background: #5e9ef5;
+    border: 2px solid #262626;
+    transform: scale(1.05);
+}
+button.dt-button.ctrl_btn:hover:not(.disabled),
+div.dt-button.ctrl_btn:hover:not(.disabled),
+a.dt-button.ctrl_btn:hover:not(.disabled) {
+    background: #ee1d25;
+    border: 2px solid #262626;
+    transform: scale(1.05);
+}
+
+/* .presence-table table.dataTable tbody th, 
+.presence-table table.dataTable tbody td {
+    padding: 0;
+} */
+
+.presence-table table th,
+.presence-table table td {
+    text-align: center;
+}
+.presence-table div.dt-buttons {
+    float: right !important;
+    margin-top: 10px;
+}
+.presence-table .dataTables_wrapper .dataTables_paginate {
+    float: left !important;
+}
+.presence-table .table .thead-dark th {
+    background: #262626;
+    border-color: #262626;
+    padding: 10px;
+}
+.presence-content table .profession th:first-child {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.presence-content table .profession th:hover {
+    white-space: normal;
+}
+.presence-content table tr td.price {
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+.presence-content table tr td.price:hover {
+    white-space: normal;
+}
+.presence-table table tr td.day-off,
+.presence-table table tr th.day-off {
+    background: #ee1d25;
+    color: white;
+}
+.presence-table table tr td {
+    white-space: nowrap;
+}
+.presence-table table tr td.unsaved-changes,
+.presence-table table tr th.unsaved-changes {
+    background: yellow;
+    color: black;
+}
+
+.dataTable tr th.head {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: pre;
+}
+
+/* .dataTable tr th.head:hover {
+    width: 25px !important;
+} */
+
+/* @media only screen and (max-width: 1024px) {
+    .presence-content.col-md-10 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+} */
+
+@media only screen and (max-width: 768px) {
+    .presence-content .card-body {
+        padding: 10px;
+    }
+    .presence-content__buttons {
+        display: flex;
+        /* flex-flow: column; */
+        flex-flow: row;
+    }
+    .presence-content__buttons .btn {
+        margin-bottom: 10px;
+        width: 58%;
+    }
+    .presence-content__select {
+        /* flex-flow: column; */
+        /* flex-flow: row; */
+        align-items: flex-start;
+    }
+    .presence-content .dataTables_wrapper .dataTables_filter {
+        text-align: right !important;
+    }
+}
+
+@media only screen and (max-width: 550px) {
+    .presence-content__buttons .btn {
+        width: 100%;
+    }
+    .presence-content .card-body {
+        padding: 10px 0;
+    }
+    .presence-table .dt-buttons .btn:not(:last-child) {
+        margin-bottom: 5px;
+    }
+}

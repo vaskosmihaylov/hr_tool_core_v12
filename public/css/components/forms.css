@@ -1,0 +1,46 @@
+.common-form .form-group {
+    margin-bottom: 1.6rem;
+}
+.common-form.vacation .table {
+    margin-bottom: 0;
+}
+.common-form .form-group.action__btn {
+    margin-bottom: 0;
+}
+.common-form.reports {
+    display: flex;
+    flex-flow: column;
+}
+.common-form.reports form{
+    display: flex;
+    flex-flow: column;
+    align-items: baseline;
+}
+.common-form.reports .table-filters .fa {
+    font-size: 21px;
+}
+.common-form.reports form .table-filters {
+    width: 100%;
+    flex-wrap: wrap;
+}
+.common-form.worker .form-horizontal .form-row {
+    align-items: baseline;
+}
+.common-form.worker .input-group.date {
+    display: flex;
+    flex-flow: column;
+}
+
+@media only screen and (max-width: 550px) {
+    .common-form.reports .table-filters {
+        width: 100%;
+    }
+    .common-form.reports .table-filters .col-5 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    .common-form.reports .table-filters.export {
+        width: initial;
+        flex-flow: row;
+    }
+}

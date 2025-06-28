@@ -1,0 +1,96 @@
+
+/* Main */
+main {
+    min-height: calc(100vh - 213px);
+    /* height: 100%; */
+    height: auto;
+}
+main.presence {
+    /* min-height: initial; */
+    height: initial;
+}
+.body-content {
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+}
+.table-filters {
+    display: flex;
+    flex-flow: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    margin-top: 5px;
+}
+.table-filters .search-btn {
+    background: #262626;
+}
+.table-content .table td,
+.table-content .table th {
+    vertical-align: middle;
+    text-align: center;
+}
+.table-content .table-hover tbody tr:hover {
+    color: #343a40;
+    background-color: rgb(255, 188, 190);
+    cursor: pointer;
+}
+.table-content .table thead th:not(:last-child) {
+    border-right: 1px solid white;
+}
+.table-content .table tbody td:last-child {
+    display: flex;
+    flex-flow: row;
+    justify-content: center;
+}
+.table-content .table tbody td:last-child a:not(:last-child),
+.table-content .table tbody td:last-child form {
+    margin-right: 5px;
+}
+
+/* alert */
+.alert.alert-success {
+    display: flex;
+    flex-flow: row-reverse;
+    align-items: center;
+    justify-content: space-between;
+}
+/* login */
+.login__form .card-header {
+    background-color: #343a40;
+    border-color: #454d55;
+    color: white;
+    font-weight: bolder;
+    letter-spacing: 1px;
+}
+.login__form .form-check-label {
+    vertical-align: sub;
+}
+
+@media only screen and (max-width: 1024px) {
+    .main-content.row {
+        flex-flow: column;
+    }
+    .table-content.col-md-10 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+@media only screen and (max-width: 768px) {
+    .table-content .card-body {
+        padding: 10px;
+    }
+
+    /* workers */
+    .workers-filter {
+        display: flex;
+        flex-flow: column;
+        align-items: baseline;
+    }
+}
+@media only screen and (max-width: 550px) {
+    .table-filters {
+        flex-flow: column;
+        align-items: end;
+    }
+}
