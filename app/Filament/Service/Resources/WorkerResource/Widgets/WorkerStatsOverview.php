@@ -14,10 +14,11 @@ class WorkerStatsOverview extends BaseWidget
     {
         $totalWorkers = Worker::count();
         $activeWorkers = Worker::where('status', Worker::WORKER_ACTIVE)->count();
-        $inactiveWorkers = Worker::where('status', Worker::WORKER_INACTIVE)->count();
+        $inactiveWorkers = Worker::where('status', Worker::USER_UNACTIVE)->count();
         
+        // Vacations has status column, bonuses don't - let's count all bonuses instead
         $pendingVacations = Vacation::where('status', 0)->count();
-        $pendingBonuses = WorkerBonus::where('status', 0)->count();
+        $totalBonuses = WorkerBonus::count(); // No status column, so count all
         
         $totalSalary = Worker::where('status', Worker::WORKER_ACTIVE)
             ->sum('neto_salary');
@@ -43,8 +44,8 @@ class WorkerStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-calendar')
                 ->color('warning'),
 
-            Stat::make('Чакащи бонуси/глоби', $pendingBonuses)
-                ->description('Бонуси и глоби за одобрение')
+            Stat::make('Общо бонуси/глоби', $totalBonuses)
+                ->description('Всички регистрирани бонуси и глоби')
                 ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color('info'),
 
