@@ -160,4 +160,11 @@ class WorkPlace extends Model
         return $this->hasMany(WorkerBonus::class);
     }
 
+    public function activities()
+    {
+        return $this->hasMany(WorkPlaceActivity::class, 'work_place_id');
+    }
+
  }
+
+use viki\Service\Models\Elequent\WorkPlaceActivity;

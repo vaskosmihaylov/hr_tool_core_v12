@@ -1,0 +1,225 @@
+<?php
+
+namespace App\Filament\Service\Resources\WorkPlaceResource\RelationManagers;
+
+use Filament\Forms;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Form;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Tables;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Columns\BadgeColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Viki\Service\Models\Elequent\WorkPlaceActivity;
+
+class ActivitiesRelationManager extends RelationManager
+{
+    protected static string $relationship = 'activities';
+
+    protected static ?string $title = 'Дейности';
+
+    protected static ?string $modelLabel = 'Дейност';
+
+    protected static ?string $pluralModelLabel = 'Дейности';
+
+    public function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Section::make('📋 Информация за дейността')
+                    ->schema([
+                        TextInput::make('activity')
+                            ->label('Име на дейността')
+                            ->required()
+                            ->maxLength(255)
+                            ->columnSpan(2),
+
+                        TextInput::make('worker_count')
+                            ->label('Брой работници')
+                            ->required()
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(1)
+                            ->columnSpan(1),
+
+                        Select::make('type_working')
+                            ->label('Тип работа')
+                            ->options([
+                                WorkPlaceActivity::WORKING_STANDART => 'Стандартно',
+                                WorkPlaceActivity::WORKING_BY_HOURS => 'Сумарно',
+                            ])
+                            ->required()
+                            ->default(WorkPlaceActivity::WORKING_STANDART)
+                            ->columnSpan(1),
+                    ])
+                    ->columns(2),
+
+                Section::make('💰 Финансова информация')
+                    ->schema([
+                        TextInput::make('neto_salary')
+                            ->label('Нето заплата (лв.)')
+                            ->required()
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.01)
+                            ->prefix('лв.')
+                            ->columnSpan(1),
+
+                        TextInput::make('social_plus')
+                            ->label('Социални доплащания (лв.)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.01)
+                            ->prefix('лв.')
+                            ->default(0)
+                            ->columnSpan(1),
+                    ])
+                    ->columns(2),
+
+                Section::make('📅 Планиране')
+                    ->schema([
+                        DatePicker::make('date')
+                            ->label('Дата на планиране')
+                            ->helperText('Оставете празно за постоянна дейност')
+                            ->columnSpan(1),
+                    ])
+                    ->columns(1),
+            ]);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->recordTitleAttribute('activity')
+            ->columns([
+                TextColumn::make('activity')
+                    ->label('Дейност')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('medium'),
+
+                TextColumn::make('worker_count')
+                    ->label('Работници')
+                    ->suffix(' чл.')
+                    ->sortable()
+                    ->badge()
+                    ->color('info'),
+
+                BadgeColumn::make('type_working')
+                    ->label('Тип работа')
+                    ->getStateUsing(fn (WorkPlaceActivity $record): string => 
+                        $record->type_working === WorkPlaceActivity::WORKING_STANDART ? 'Стандартно' : 'Сумарно'
+                    )
+                    ->colors([
+                        'primary' => static fn ($state): bool => $state === 'Стандартно',
+                        'warning' => static fn ($state): bool => $state === 'Сумарно',
+                    ]),
+
+                TextColumn::make('neto_salary')
+                    ->label('Нето заплата')
+                    ->money('BGN')
+                    ->sortable(),
+
+                TextColumn::make('social_plus')
+                    ->label('Социални')
+                    ->money('BGN')
+                    ->sortable(),
+
+                TextColumn::make('total_cost')
+                    ->label('Общо разходи')
+                    ->getStateUsing(fn (WorkPlaceActivity $record): float => 
+                        $record->neto_salary + $record->social_plus
+                    )
+                    ->money('BGN')
+                    ->sortable(),
+
+                TextColumn::make('date')
+                    ->label('Планирана дата')
+                    ->date('d.m.Y')
+                    ->sortable()
+                    ->placeholder('Постоянна'),
+
+                TextColumn::make('createdBy.name')
+                    ->label('Създадена от')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('created_at')
+                    ->label('Създадена на')
+                    ->dateTime('d.m.Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                SelectFilter::make('type_working')
+                    ->label('Тип работа')
+                    ->options([
+                        WorkPlaceActivity::WORKING_STANDART => 'Стандартно',
+                        WorkPlaceActivity::WORKING_BY_HOURS => 'Сумарно',
+                    ]),
+
+                Tables\Filters\Filter::make('permanent')
+                    ->label('Постоянни дейности')
+                    ->query(fn (Builder $query): Builder => $query->whereNull('date')),
+
+                Tables\Filters\Filter::make('planned')
+                    ->label('Планирани дейности')
+                    ->query(fn (Builder $query): Builder => $query->whereNotNull('date')),
+            ])
+            ->headerActions([
+                Tables\Actions\CreateAction::make()
+                    ->label('Създай дейност')
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['created_by'] = auth()->id();
+                        return $data;
+                    }),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make()
+                    ->label('Редактиране'),
+
+                Tables\Actions\DeleteAction::make()
+                    ->label('Изтриване'),
+
+                Action::make('copy_for_month')
+                    ->label('Копирай за месец')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->color('info')
+                    ->form([
+                        DatePicker::make('target_date')
+                            ->label('Целева дата')
+                            ->required()
+                            ->default(now()->format('Y-m-d')),
+                    ])
+                    ->action(function (WorkPlaceActivity $record, array $data): void {
+                        WorkPlaceActivity::create([
+                            'activity' => $record->activity,
+                            'neto_salary' => $record->neto_salary,
+                            'social_plus' => $record->social_plus,
+                            'worker_count' => $record->worker_count,
+                            'type_working' => $record->type_working,
+                            'work_place_id' => $record->work_place_id,
+                            'date' => $data['target_date'],
+                            'created_by' => auth()->id(),
+                            'copied' => WorkPlaceActivity::COPIED_ACTIVITY,
+                        ]);
+                    })
+                    ->successNotificationTitle('Дейността е копирана успешно!')
+                    ->visible(fn (WorkPlaceActivity $record): bool => $record->date === null),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Изтриване'),
+                ]),
+            ])
+            ->defaultSort('created_at', 'desc');
+    }
+}
