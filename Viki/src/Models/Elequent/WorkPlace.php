@@ -67,7 +67,7 @@ class WorkPlace extends Model
     */
     public function workers()
     {
-        return $this->belongsToMany(Worker::class);
+        return $this->belongsToMany(Worker::class, 'viki_work_place_worker', 'work_place_id', 'worker_id');
     }
 	
 	public function temporaryWorkers()

@@ -159,14 +159,14 @@ class WorkerResource extends Resource
                     ->schema([
                         Select::make('status')
                             ->label('Статус')
-                            ->options(Worker::workerStatuses())
+                            ->options(collect(Worker::workerStatuses())->pluck('name', 'id')->toArray())
                             ->required()
                             ->default(Worker::WORKER_ACTIVE)
                             ->columnSpan(1),
 
                         Select::make('type_working')
                             ->label('Тип работа')
-                            ->options(Worker::workerTypeWorking())
+                            ->options(collect(Worker::workerTypeWorking())->pluck('name', 'id')->toArray())
                             ->required()
                             ->default(1)
                             ->columnSpan(1),
@@ -229,7 +229,11 @@ class WorkerResource extends Resource
 
                 BadgeColumn::make('status')
                     ->label('Статус')
-                    ->getStateUsing(fn (Worker $record): string => Worker::workerStatuses()[$record->status])
+                    ->getStateUsing(function (Worker $record): string {
+                        $statuses = collect(Worker::workerStatuses());
+                        $status = $statuses->firstWhere('id', $record->status);
+                        return $status ? $status['name'] : 'Неизвестен';
+                    })
                     ->colors([
                         'success' => static fn ($state): bool => $state === 'Активен',
                         'danger' => static fn ($state): bool => $state === 'Неактивен',
@@ -249,7 +253,7 @@ class WorkerResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
-                    ->options(Worker::workerStatuses()),
+                    ->options(collect(Worker::workerStatuses())->pluck('name', 'id')->toArray()),
 
                 SelectFilter::make('region_id')
                     ->label('Регион')
@@ -261,7 +265,7 @@ class WorkerResource extends Resource
 
                 SelectFilter::make('type_working')
                     ->label('Тип работа')
-                    ->options(Worker::workerTypeWorking()),
+                    ->options(collect(Worker::workerTypeWorking())->pluck('name', 'id')->toArray()),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()
