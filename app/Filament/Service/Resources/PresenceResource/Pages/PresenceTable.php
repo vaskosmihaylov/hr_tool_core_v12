@@ -22,9 +22,9 @@ class PresenceTable extends Page
     public $workers;
     public $presenceData;
 
-    public function mount(?int $workplace = null, ?string $date = null): void
+    public function mount(int $workplace, ?string $date = null): void
     {
-        $this->workplace = $workplace ?: WorkPlace::where('status', WorkPlace::WORK_PLACE_ACTIVE)->first()?->id;
+        $this->workplace = $workplace;
         $this->selectedDate = $date ? Carbon::parse($date) : Carbon::today();
         
         $this->loadData();

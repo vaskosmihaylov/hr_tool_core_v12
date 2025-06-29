@@ -26,7 +26,7 @@ class Approvement extends Model {
   ];
 
   public function creator() {
-    return $this->belongsTo('\App\User', 'creator_id');
+    return $this->belongsTo('\App\Models\User', 'creator_id');
   }
 
   public function workplace() {

@@ -81,7 +81,7 @@ class WorkPlace extends Model
     */
     public function supervisiors()
     {
-        return $this->belongsToMany(\App\User::class);
+        return $this->belongsToMany(\App\Models\User::class);
     }
 
     public function overBudget()

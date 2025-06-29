@@ -23,13 +23,13 @@ class ListPresenceRecords extends ListRecords
                 ->label('Таблица за присъствие')
                 ->icon('heroicon-o-table-cells')
                 ->color('info')
-                ->url('/service/presence/table/1'),
+                ->url('/service/presences/table/1'),
                 
             Actions\Action::make('monthly_view')
                 ->label('Месечен преглед')
                 ->icon('heroicon-o-calendar')
                 ->color('warning')
-                ->url('/service/presence/monthly'),
+                ->url('/service/presences/monthly/1'),
         ];
     }
 

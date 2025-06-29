@@ -309,7 +309,7 @@ class PresenceResource extends Resource
                 ]),
             ])
             ->defaultSort('date', 'desc')
-            ->paginated([25, 50, 100, 'all']);
+            ->paginated([25, 50, 100]);
     }
 
     public static function getPages(): array
@@ -320,7 +320,7 @@ class PresenceResource extends Resource
             'view' => Pages\ViewPresenceRecord::route('/{record}'),
             'edit' => Pages\EditPresenceRecord::route('/{record}/edit'),
             'table' => Pages\PresenceTable::route('/table/{workplace}/{date?}'),
-            'monthly' => Pages\MonthlyPresence::route('/monthly/{workplace?}/{year?}/{month?}'),
+            'monthly' => Pages\MonthlyPresence::route('/monthly/{workplace}/{year?}/{month?}'),
         ];
     }
 

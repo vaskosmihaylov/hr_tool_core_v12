@@ -22,9 +22,9 @@ class MonthlyPresence extends Page
     public $workplaces;
     public $monthlyData;
 
-    public function mount(?int $workplace = null, ?int $year = null, ?int $month = null): void
+    public function mount(int $workplace, ?int $year = null, ?int $month = null): void
     {
-        $this->workplace = $workplace ?: WorkPlace::where('status', WorkPlace::WORK_PLACE_ACTIVE)->first()?->id;
+        $this->workplace = $workplace;
         $this->year = $year ?: Carbon::now()->year;
         $this->month = $month ?: Carbon::now()->month;
         
