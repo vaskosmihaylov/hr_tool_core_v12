@@ -16,16 +16,19 @@ class PresenceTable extends Page
 
     protected static string $view = 'filament.service.resources.presence-resource.pages.presence-table';
 
-    public $workplace;
+    // Route parameters as class properties
+    public int $workplace;
+    public ?string $date = null;
+    
+    // Component data properties
     public $selectedDate;
     public $workplaces;
     public $workers;
     public $presenceData;
 
-    public function mount(int $workplace, ?string $date = null): void
+    public function mount(): void
     {
-        $this->workplace = $workplace;
-        $this->selectedDate = $date ? Carbon::parse($date) : Carbon::today();
+        $this->selectedDate = $this->date ? Carbon::parse($this->date) : Carbon::today();
         
         $this->loadData();
     }

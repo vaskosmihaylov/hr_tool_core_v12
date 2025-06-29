@@ -16,17 +16,19 @@ class MonthlyPresence extends Page
 
     protected static string $view = 'filament.service.resources.presence-resource.pages.monthly-presence';
 
-    public $workplace;
-    public $year;
-    public $month;
+    // Route parameters as class properties
+    public int $workplace;
+    public ?int $year = null;
+    public ?int $month = null;
+    
+    // Component data properties
     public $workplaces;
     public $monthlyData;
 
-    public function mount(int $workplace, ?int $year = null, ?int $month = null): void
+    public function mount(): void
     {
-        $this->workplace = $workplace;
-        $this->year = $year ?: Carbon::now()->year;
-        $this->month = $month ?: Carbon::now()->month;
+        $this->year = $this->year ?: Carbon::now()->year;
+        $this->month = $this->month ?: Carbon::now()->month;
         
         $this->loadData();
     }
