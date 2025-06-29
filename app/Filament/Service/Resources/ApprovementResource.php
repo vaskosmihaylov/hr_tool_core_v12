@@ -49,7 +49,7 @@ class ApprovementResource extends Resource
                     ->prefix('BGN'),
                     
                 Forms\Components\Select::make('type_id')
-                    ->label('Тип')
+                    ->label('Клиент надвишен')
                     ->options([
                         0 => 'Заместване',
                         1 => 'Не',
@@ -84,39 +84,51 @@ class ApprovementResource extends Resource
                     ->date('d.m.Y')
                     ->sortable(),
                     
+                Tables\Columns\TextColumn::make('date')
+                    ->label('За месец')
+                    ->date('d.m.Y')
+                    ->sortable(),
+                    
                 Tables\Columns\TextColumn::make('sum_above_budget')
                     ->label('Надвишение бюджет')
                     ->money('BGN')
                     ->sortable(),
                     
                 Tables\Columns\BadgeColumn::make('type_id')
-                    ->label('Тип')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->label('Клиент надвишен')
+                    ->formatStateUsing(fn ($state): string => match ((string)$state) {
                         '0' => 'заместване',
                         '1' => 'не',
                         '2' => 'да',
-                        '3' => 'бонус',
                         default => 'неизвестно',
                     })
                     ->colors([
-                        'secondary' => '0',
-                        'success' => '1', 
-                        'warning' => '2',
-                        'primary' => '3',
+                        'secondary' => 0,
+                        'success' => 1, 
+                        'warning' => 2,
+                    ])
+                    ->visible(fn ($record): bool => in_array($record->type_id, [0, 1, 2])),
+                    
+                Tables\Columns\BadgeColumn::make('type_id')
+                    ->label('Бонус на работник')
+                    ->formatStateUsing(fn ($state): string => $state == 3 ? 'да' : 'не')
+                    ->colors([
+                        'success' => fn ($state): bool => $state == 3,
+                        'secondary' => fn ($state): bool => $state != 3,
                     ]),
                     
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Статус')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn ($state): string => match ((string)$state) {
                         '0' => 'нов',
                         '1' => 'одобрен', 
                         '2' => 'неодобрен',
                         default => 'неизвестно',
                     })
                     ->colors([
-                        'primary' => '0',
-                        'success' => '1',
-                        'danger' => '2',
+                        'primary' => 0,
+                        'success' => 1,
+                        'danger' => 2,
                     ]),
             ])
             ->filters([
@@ -163,7 +175,6 @@ class ApprovementResource extends Resource
                         $record->status == 0 && (auth()->user()->hasRole('admin') || auth()->user()->hasRole('manager'))
                     ),
                     
-
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
