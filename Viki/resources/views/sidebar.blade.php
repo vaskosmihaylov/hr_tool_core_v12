@@ -68,12 +68,11 @@
 						<a class="nav-link" href="{{ url('/service/reports') }}">
 							Справки
 						</a>
-	`
 					</li>
 				</ul>
 			</div>
 		</div>
 		<br/>
 	</div>
-
+	
 <label class="nav-open-bg" for="show-menu"></label>

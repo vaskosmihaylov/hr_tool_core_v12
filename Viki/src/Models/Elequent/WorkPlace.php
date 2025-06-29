@@ -2,13 +2,13 @@
 
 namespace viki\Service\Models\Elequent;
 
-use Illuminate\Database\Eloquent\Model;
+use \Illuminate\Database\Eloquent\Model;
 
 class WorkPlace extends Model
 {
     const WORK_PLACE_ACTIVE = 0;
-    const WORK_PLACE_UNACTIVE = 1;
-
+    const WORK_PLACE_UNACTIVE   = 1;
+    
     protected $table = "viki_work_place";
 
     protected $fillable = [
@@ -18,104 +18,108 @@ class WorkPlace extends Model
         'status',
         'client_id',
         'region_id',
+       
     ];
-
-    /**
+	
+	/**
      * @param array $attributes
      * @return static
      */
-    public static function create(array $attributes = [])
+    public static function create(array $attributes  = array())
     {
-        $modelAttributes = [
-            'name' => $attributes['name'],
-            'address' => $attributes['address'] ?? '',
-            'status' => $attributes['status'],
-            'client_id' => $attributes['client'],
-            'region_id' => $attributes['region'],
-            'budget' => $attributes['budget'],
-        ];
+        $modelAttributes = array(
+
+            'name'                     => $attributes['name'],
+            'address'                  => $attributes ['address'] ? $attributes ['address'] : '',
+            'status'                   => $attributes['status'],
+            'client_id'                => $attributes['client'],
+            'region_id'                => $attributes['region'],
+            'budget'                   => $attributes['budget'],
+          
+        );
 
         $model = new static($modelAttributes);
+
         $model->save();
 
         return $model;
     }
-
     /**
      * Get the post that owns the client.
-     */
+    */
     public function client()
     {
-        return $this->belongsTo(Client::class, 'client_id');
+        return $this->belongsTo('viki\Service\Models\Elequent\Client','client_id');
     }
-
+    
     /**
      * Get the post that owns the region.
-     */
+    */
     public function region()
     {
-        return $this->belongsTo(Region::class, 'region_id');
+        return $this->belongsTo('viki\Service\Models\Elequent\Region','region_id');
     }
 
     /**
      * A permission can be applied to workers
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
-     */
+    */
     public function workers()
     {
         return $this->belongsToMany(Worker::class);
     }
-
-    public function temporaryWorkers()
+	
+	public function temporaryWorkers()
     {
-        return $this->belongsToMany(Worker::class, 'viki_work_place_worker')->withPivot('date');
+        return $this->belongsToMany(Worker::class,'viki_work_place_worker')->withPivot('date');
     }
-
     /**
-     * A permission can be applied to supervisors
+     * A permission can be applied to supervisiors
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
-     */
-    public function supervisors()
+    */
+    public function supervisiors()
     {
-        return $this->belongsToMany(\App\Models\User::class);
+        return $this->belongsToMany(\App\User::class);
     }
 
     public function overBudget()
     {
         return $this->hasMany(WorkPlaceMonthBudget::class, 'work_place_id');
     }
-
+    
     /**
-     * workers records
+     *  workers records
      *
      * @return \Illuminate\Database\Eloquent\Relations\OneToMany
-     */
+    */
     public function workerRecords()
     {
         return $this->hasMany(WorkerRecord::class);
     }
-
-    public static function getActiveWorkPlaces()
-    {
-        return WorkPlace::where('status', '=', WorkPlace::WORK_PLACE_ACTIVE)->get();
-    }
-
-    public static function workPlaceStatuses()
-    {
+	
+	public static function getActiveWorkPlaces()
+	{
+		$workplaces = WorkPlace::where('status','=', WorkPlace::WORK_PLACE_ACTIVE)->get();
+		
+		return $workplaces;
+	}
+	
+	public  static function workPlaceStatuses()
+	{
         return [
             [
                 'id' => self::WORK_PLACE_ACTIVE,
-                'name' => 'активен'
+                'name'=>'активен'
             ], [
                 'id' => self::WORK_PLACE_UNACTIVE,
-                'name' => 'неактивен'
+                'name'=>'неактивен'
             ]
         ];
     }
-
-    public function getBudgetByDate($date)
+	  
+	public function getBudgetByDate($date)
     {
         $budgetTimestamp = \DateTime::createFromFormat('d-m-Y H:i:s', '01-' . $date . ' 00:00:00')->getTimestamp();
 
@@ -123,13 +127,13 @@ class WorkPlace extends Model
 
         return $budget ? $budget->budget : $this->budget;
     }
-
-    public function monthlyBudget()
+	
+	public function monthlyBudget()
     {
         return $this->hasMany(WorkPlaceMonthlyBudget::class, 'viki_work_place_id');
     }
-
-    public function getWorkerBonusesByDate($date)
+	
+	 public function getWorkerBonusesByDate($date)
     {
         $workersBonuses = 0;
 
@@ -155,4 +159,5 @@ class WorkPlace extends Model
     {
         return $this->hasMany(WorkerBonus::class);
     }
-}
+
+ }

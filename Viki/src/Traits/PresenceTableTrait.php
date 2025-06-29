@@ -166,13 +166,4 @@ trait PresenceTableTrait
 
         return $weekDays;
     }
-
-    /**
-     * Laravel 12 Helper: Check if a date is weekend
-     * Modernized weekend checking method
-     */
-    private function isWeekend($date)
-    {
-        return date('N', strtotime($date)) >= 6;
-    }
 }

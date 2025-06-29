@@ -2,17 +2,18 @@
 
 namespace viki\Service\Request;
 
-use viki\Service\Request\Request;
+use \viki\Service\Request\Request;
 
-class RegionRequest extends Request
-{
+
+
+class RegionRequest extends Request {
+
     /**
      * Determine if the user is authorized to make this request.
      *
      * @return bool
      */
-    public function authorize()
-    {
+    public function authorize() {
         return true;
     }
 
@@ -21,11 +22,13 @@ class RegionRequest extends Request
      *
      * @return array
      */
-    public function rules()
-    {
-        return [
-            'name' => 'required|min:2|max:55',
-            'status' => 'required',
-        ];
+    public function rules() {
+
+        return array(
+
+            'name'              => 'required|min:2|max:55',
+            'status'            => 'required',
+        );
     }
+
 }

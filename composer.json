@@ -3,7 +3,10 @@
     "name": "laravel/laravel",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "keywords": [
+        "laravel",
+        "framework"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.2",
@@ -15,8 +18,7 @@
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-html": "^3.12",
         "spatie/laravel-pdf": "^1.0",
-        "spatie/laravel-permission": "^6.20",
-        "viki/service": "dev-main"
+        "spatie/laravel-permission": "^6.20"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -31,6 +33,7 @@
     "autoload": {
         "psr-4": {
             "App\\": "app/",
+            "Viki\\Service\\": "Viki/src/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
@@ -69,15 +72,6 @@
     "extra": {
         "laravel": {
             "dont-discover": []
-        }
-    },
-    "repositories": {
-        "viki-service": {
-            "type": "path",
-            "url": "./Viki",
-            "options": {
-                "symlink": true
-            }
         }
     },
     "config": {

@@ -1,6 +1,8 @@
 <?php
 
+
 namespace viki\Service;
+
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -25,11 +27,12 @@ class ServiceBaseServiceProvider extends ServiceProvider
             $schedule = $this->app->make(Schedule::class);
             $schedule->command('archive:start')->everyMinute();
         });
+
     }
 
     public function register()
     {
-
+        
     }
 
     private function registerResources()
@@ -43,6 +46,7 @@ class ServiceBaseServiceProvider extends ServiceProvider
 
         $this->registerScripts();
         $this->registerStyles();
+
     }
 
     protected function registerRoutes()

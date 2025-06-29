@@ -1,8 +1,10 @@
 <?php
 
+
 namespace viki\Service\Models\Elequent;
 
-use App\Models\User;
+use App\User;
+use viki\Service\Models\Elequent\Region;
 use Illuminate\Support\Facades\DB;
 
 class VikiUser extends User
@@ -24,14 +26,14 @@ class VikiUser extends User
 
     public function activeWorkPlaces()
     {
-        return $this->belongsToMany(WorkPlace::class, 'viki_supervisor_work_place', 'supervisor_id', 'work_place_id')
-                    ->where('viki_work_place.status', WorkPlace::WORK_PLACE_ACTIVE);
+        return $this->belongsToMany(WorkPlace::class, 'viki_supervisor_work_place', 'supervisor_id', 'work_place_id')->where('viki_work_place.status', WorkPlace::WORK_PLACE_ACTIVE);
     }
 
     /**
      * Assign the given region to the user.
      *
      * @param  string $region
+     *
      * @return mixed
      */
     public function assignRegion($region)
@@ -45,6 +47,7 @@ class VikiUser extends User
      * Assign the given work place to the user.
      *
      * @param  string $workPlace
+     *
      * @return mixed
      */
     public function assignWorkPlace($workPlace)
@@ -54,30 +57,24 @@ class VikiUser extends User
         );
     }
 
-    public static function getCurrentUserRegionId($userId)
-    {
-        $vikiUser = self::find($userId);
-        $regions = $vikiUser->regions()->get();
-        $regionsIds = [];
-
-        foreach ($regions as $region) {
-            $regionsIds[] = $region->id;
-        }
-
-        return $regionsIds;
+    public static function getCurrentUserRegionId($userId) {
+    $vikiUser = self::find($userId);
+    $regions = $vikiUser->regions()->get();
+    $regionsIds = [];
+    foreach ($regions as $region) {
+      $regionsIds[] = $region->id;
     }
+    return $regionsIds;
+  }
 
-    public static function isManager($userId)
-    {
-        $managerCheck = DB::table('role_user')
-                         ->where('user_id', $userId)
-                         ->where('role_id', 2)
-                         ->get();
-
-        if (!$managerCheck->isEmpty()) {
-            return 'isManager';
-        }
-
-        return 'no';
+	public static function isManager($userId) {
+    $managerCheck = [];
+   
+    $managerCheck = DB::table('role_user')->where('user_id',$userId)->where('role_id',2)->get();
+   
+    if(!$managerCheck->isEmpty()) {
+      return 'isManager';
     }
+    return 'no';
+  }
 }

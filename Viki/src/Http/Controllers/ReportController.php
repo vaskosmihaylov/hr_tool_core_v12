@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\Models\Activity;
 use \Illuminate\Support\Facades\Redirect;
 use viki\Service\Models\Elequent\SpecialDay;
-use Illuminate\Support\Facades\DB;
-use Spatie\LaravelPdf\Facades\Pdf as PDF;
+use DB;
+use PDF;
 
 class ReportController extends Controller {
 
@@ -740,4 +740,5 @@ class ReportController extends Controller {
 
     return $weekDays;
   }
+
 }

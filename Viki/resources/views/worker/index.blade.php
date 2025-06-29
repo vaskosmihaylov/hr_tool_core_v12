@@ -24,7 +24,7 @@
 
 								@endif
 							</div>
-							{!! html()->form('GET', '/service/worker')->class('form-inline my-2 my-lg-0 float-right col-lg-7 col-md-7 px-0 justify-content-end')->attribute('role', 'search')->open() !!}
+							{!! Form::open(['method' => 'GET', 'url' => '/service/worker', 'class' => 'form-inline my-2 my-lg-0 float-right col-lg-7 col-md-7 px-0 justify-content-end', 'role' => 'search'])  !!}
 							<select  id="types" name="status" class="form-control col-lg-2 col-md-3 col-sm-12" onchange="this.form.submit()">
 							<option value="1" @if($status == 1) selected @endif>
 								активни
@@ -41,12 +41,12 @@
 								</button>
 							</span>
 						</div>
-                        {!! html()->form()->close() !!}
+                        {!! Form::close() !!}
 					@if ($message = Session::get('success'))
 
 						<div class="alert alert-success alert-block">
 
-							<button type="button" class="close" data-dismiss="alert">×</button>
+							<button type="button" class="close" data-dismiss="alert">×</button>    
 
 							<strong>{{ $message }}</strong>
 
@@ -68,7 +68,7 @@
 										<th>Осигурителен доход</th>
 										<th>Регион</th>
 										<th style="white-space: nowrap">Основен обект</th>
-										<th>Статус</th>
+										<th>Статус</th>	
 										<th>Опции</th>
 									</tr>
 								</thead>
@@ -106,7 +106,7 @@
 										@endif
 										</td>
 										<td>
-
+											
 												<a href="{{ url('/service/worker/bonus/'.$item->id ) }}" title="Бонус/Наказание">
 													<button class="btn btn-warning btn-sm">
 														<i class="fa fa-money" aria-hidden="true"></i>

@@ -1,5 +1,6 @@
 <?php
 
+
 namespace viki\Service\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use viki\Service\Request\WorkPlaceActivityByMonthRequest;
-use Spatie\LaravelPdf\Facades\Pdf as PDF;
+use PDF;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Mail;
@@ -66,7 +67,7 @@ class PresenceController extends Controller
         $monthDays = cal_days_in_month(CAL_GREGORIAN, $month, $year);
 
         $user = VikiUser::find(Auth::user()->id);
-
+		
         if (Auth::user()->hasRole('manager')) {
            // $userWorkPlaces = $user->regions()->first()->activeWorkPlaces()->orderBy('name')->get();
 		     $region_id = VikiUser::getCurrentUserRegionId(Auth::user()->id);
@@ -151,11 +152,11 @@ class PresenceController extends Controller
             $tableIsFinished = false;
 
 			$checkIfAlreadyCopied = WorkPlaceActivity::checkIfActivitiesAreCopied($workPlaceId, $year, $month);
-
+		
             return view('service::presence.index', compact('weekDays','checkIfAlreadyCopied' , 'monthDays', 'tableData','selectedWorkPlace', 'userWorkPlaces', 'workPlaceId', 'availableMonths', 'selectedDate', 'tableNotEditable', 'tableIsFinished'));
         }
     }
-
+	
     public function saveTableData(Request $request)
     {
         $requestData = json_decode($request->all()['json'], true);
@@ -353,16 +354,16 @@ class PresenceController extends Controller
             $workplaceActivity->temporaryWorkers()->save($worker, ['date'=>$date]);
 			//add automatic users if worker and workplaceactivity are standart
 			if (($workplaceActivity->type_working == WorkPlaceActivity::WORKING_STANDART))
-			{
-
-
+			{	
+				
+				
 				$dateCompare = $dates[1].'-'.$dates[0].'-01';
 				$lastDayOfMonth = date("Y-m-t", strtotime($dateCompare));
 				$startDate = $worker->start_date;
 				$startDateMonthYear =  date("Y", strtotime($startDate));
                 $startDateMonth =  date("m", strtotime($startDate));
                 $lastDayOnlyMonthYear = date("Y", strtotime($dateCompare));
-
+				
 				if ($startDateMonthYear < $lastDayOnlyMonthYear) {
                         $startDate = $dates[1].'-'.$dates[0].'-01';
 
@@ -567,7 +568,7 @@ class PresenceController extends Controller
 			->causedBy(Auth::user())
 			->withProperties(['customProperty' => 'customValue'])
 			->log('приключен месец за дата '.$date.' и обект '.$workplace->name);
-
+		
         return redirect()->route('service.presence.show.workplace.date', ['workPlaceId' => $workPlaceId, 'date' => $date]);
     }
 
@@ -603,14 +604,14 @@ class PresenceController extends Controller
             ->update([
                 'status' => WorkerRecord::WORKER_RECORD_APPROVED
             ]);
-
+		
 		//история
 		activity()
 			->performedOn($workplace)
 			->causedBy(Auth::user())
 			->withProperties(['customProperty' => 'customValue'])
 			->log('отключен месец за дата '.$date.' и обект '.$workplace->name);
-
+		
         return redirect()->route('service.presence.show.workplace.date', ['workPlaceId' => $workPlaceId, 'date' => $date]);
     }
 
@@ -916,12 +917,12 @@ class PresenceController extends Controller
 
         return ($workPlaceActivity->neto_salary + $workPlaceActivity->social_plus) / $workPlaceActivityWorkingHours;
     }
-
+	
 
 	private function addCopiedActivitiesFromWorkplace($commonAct, $year, $month)
 	{
 		$workplaceActivity = WorkPlaceActivity::createCopied(
-								[
+								[	
 									'activity' => $commonAct->activity,
 									'copied' => WorkPlaceActivity::COPIED_ACTIVITY,
 									'type_working' => $commonAct->type_working,
@@ -935,16 +936,16 @@ class PresenceController extends Controller
 							);
 		//add the hours for month for standart working people
 		if ($commonAct->type_working == WorkPlaceActivity::WORKING_STANDART) {
-			 //used for the autoinsert of standart hours
+			 //used for the autoinsert of standart hours 
 			  $hours_auto_ins = WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity($commonAct->id);
 			  if(empty($hours_auto_ins)) { $hours_auto_ins = 8; }
-			  WorkPlaceActivityHoursPerDay::create($hours_auto_ins, $workplaceActivity->id);
+			  WorkPlaceActivityHoursPerDay::create($hours_auto_ins, $workplaceActivity->id); 
 			//get the standart hoours for the workplace activity
 			$hoursByMonth = (cal_days_in_month(CAL_GREGORIAN, $month, $year) - count($this->getAllNonWorkingDays($month, $year))) * 8;
 			HoursActivityByMonth::updateOrCreate(
-					[
+					[	
 					'work_place_activity_id' => $workplaceActivity->id,
-					'date' => $year."-".$month."-01",
+					'date' => $year."-".$month."-01", 
 					],
 					[
 					'hours_for_person' => $hoursByMonth,
@@ -953,20 +954,20 @@ class PresenceController extends Controller
 			);
 
 		}
-
+		
 		return $workplaceActivity;
 	}
-
-	private function insertStandartWorkingPeople($workerToAdd, $startDate, $lastDayOfMonth, $commonAct, $workplaceActivity)
+	
+	private function insertStandartWorkingPeople($workerToAdd, $startDate, $lastDayOfMonth, $commonAct, $workplaceActivity) 
 	{
 		//if ($workerToAdd->type_working == WORKER::WORKING_STANDART) {
-
+			
 			$period =	new DatePeriod(
 					new DateTime($startDate),
 					new DateInterval('P1D'),
 					new DateTime($lastDayOfMonth)
 			);
-
+			
 			$hours_auto_ins = WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity($workplaceActivity->id);
 			if(empty($hours_auto_ins)) {
 				$hours_auto_ins = 8;
@@ -979,7 +980,7 @@ class PresenceController extends Controller
 						   'work_place_activity_id' => $workplaceActivity->id,
 						   'worker_id' => $workerToAdd->id,
 						   'work_place_id' => $commonAct->work_place_id,
-						   'date' => $value->format('Y-m-d')
+						   'date' => $value->format('Y-m-d') 
 					   ],[
 						   'hours' => $hours_auto_ins,
 						   'day_count' => 0,
@@ -1006,60 +1007,139 @@ class PresenceController extends Controller
 							   'creator_id' => auth()->user()->id
 							]
 						   );
-				}
-
-
+					}
 			}
+
 		//}
-
+		
+		return true;
+		
 	}
-
-	public static function checkTheWorkplaceBudget($requestData, $workplaceId, $date, $activity_id)
+	
+	private function isWeekend($date)
+	{	
+		return (date('N', strtotime($date)) >= 6);
+	}
+	
+	public static function checkTheWorkplaceBudget($request, $workplaceId, $date, $id) 
 	{
-
-		$hourlyRate = WorkPlaceActivity::where('id','=',$activity_id)->first()->neto_salary;
-		$socialPlus = WorkPlaceActivity::where('id','=',$activity_id)->first()->social_plus;
-		$hoursSent = $requestData['hours_for_person'];
-		$hourlyRateTotal = $hourlyRate + $socialPlus;
-
-		$allMonthlyBudgetOnWorkplace = $workPlace = WorkPlace::with(['overBudget' => function($q) use($date) {
-			$q->where('viki_workplace_month_budget.date', $date);
-		}])->find($workplaceId);
-
-		$workPlaceBudget = $allMonthlyBudgetOnWorkplace->getBudgetByDate($date);
-
-		if ($allMonthlyBudgetOnWorkplace->overBudget->count() > 0) {
-			$workPlaceBudget = $workPlaceBudget + $allMonthlyBudgetOnWorkplace->overBudget->first()->sum_up;
+		$dates = explode('-',$date);
+		$commonPrice = ($request['neto_salary'] + $request['social_plus'])*$request['worker_count'];
+		$findAllWorkPlaceActivities =  WorkPlaceActivity::where('work_place_id','=',$id)
+															->where('date','like','%' . $dates[1]."-".$dates[0]."-" . '%')
+															->get();
+		$sum = 0;
+		foreach($findAllWorkPlaceActivities as $addedActivity){
+			$sum = $sum + ($addedActivity['neto_salary']+ $addedActivity['social_plus'])*$addedActivity['worker_count'];
 		}
-
-		$totalMonthlyBudget = $workPlaceBudget;
-
-		$selectedWorkPlaceActivities = WorkPlaceActivity::where('work_place_id','=', $workplaceId)
-			->where('date','=', $date)
-			->get();
-
-		$totalActivityCost = 0;
-
-		foreach ($selectedWorkPlaceActivities as $selectedWorkPlaceActivity) {
-
-			$hours = HoursActivityByMonth::where('work_place_activity_id','=',$selectedWorkPlaceActivity->id)
-				->where('date','=',$date)
-				->get();
-
-			if ($hours->count() > 0) {
-
-				$hoursForPerson = $hours->first()->hours_for_person;
-
-				$totalActivityCost += ($selectedWorkPlaceActivity->neto_salary + $selectedWorkPlaceActivity->social_plus) * $hoursForPerson;
-			}
-		}
-
-		$totalActivityCost += $hourlyRateTotal * $hoursSent;
-
-		if ($totalActivityCost <= $totalMonthlyBudget) {
-			return true;
-		} else {
+		$sumOfWorkplace = WorkPlace::find($id);
+		$sumOfWorkplace = $sumOfWorkplace->getBudgetByDate($dates[1] . '-' . $dates[0]);
+		
+		if	(($sum + $commonPrice) > $sumOfWorkplace) {
 			return false;
 		}
+		
+		return true;
 	}
+	
+	 public function storedeleteWorkerRecords(Request $request) {
+    $request = ($request->all());
+
+    try {
+      $workplace = WorkPlace::findOrFail($request['workPlaceId']);
+      $workplaceActivity = WorkPlaceActivity::findOrFail($request['activityId']);
+  
+      $dates = explode("-", $request['date']);
+      $date = $dates[1] . '-' . $dates[0] . '-01';
+     
+      $worker = Worker::findOrFail($request['workerId']);
+      
+      $workers = WorkerRecord::where('work_place_id', $request['workPlaceId'])
+        ->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%')
+        ->where('work_place_activity_id' , $request['activityId'])
+        ->where('worker_id', $request['workerId'])   
+        ->get();
+      foreach($workers as $worker) {
+        $res = WorkerRecord::where('id',$worker->id)->delete();
+      }
+      $getTemp = DB::table('viki_work_place_worker')
+               ->where('work_place_id', $request['workPlaceId'])
+               ->where('worker_id', $request['workerId']) 
+               ->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%')->delete();
+        
+        $getTempAc = DB::table('viki_work_place_activity_worker')
+               ->where('work_place_activity_id', $request['activityId'])
+               ->where('worker_id', $request['workerId']) 
+               ->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%')->delete();
+
+      //история
+      activity()
+        ->performedOn($workplaceActivity)
+        ->causedBy(Auth::user())
+        ->withProperties(['customProperty' => 'customValue'])
+        ->log('изтрит работник: ' . $worker->name . ' ' . $worker->family_name . ' към присъствената форма за дата ' . $date . 'и за обект ' . $workplace->name);
+
+     return Redirect::back()->with('flash_message', 'Изтрихте работника!');
+   }
+  catch (\Exception $e) {
+    return Redirect::back()->withErrors('Този работник вече е изтрит!');
+   }
+  }
+  
+  
+    
+  public function viewdeleteWorker($workPlaceId, $date) {
+    $today = Carbon::now();
+
+    $dates = explode("-", $date);
+    $workPlace = WorkPlace::find($workPlaceId);
+    $region_id = $workPlace->region_id;
+    $workplaceName = $workPlace->name;
+    if (!empty($region_id)) {
+      //get the workers in the region
+      $dateCompare = $dates[1] . "-" . $dates[0] . "-01";
+      $lastDayOfMonth = date("Y-m-t", strtotime($dateCompare));
+
+      $selectedWorkPlaceActivities = WorkPlaceActivity::where('work_place_id', '=', $workPlaceId)
+      ->where(function($q) use ($dates){
+       $q->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%');
+      })
+      ->get();
+    
+      foreach($selectedWorkPlaceActivities as $workPlaceActivity) {
+       
+           $temporaryWorkers = $workPlaceActivity
+            ->temporaryWorkers()->with([
+                "workerRecords" => function($q) use($workPlaceActivity, $dates) {
+                    $q->where('viki_worker_records.work_place_activity_id', '=', $workPlaceActivity->id);
+                    $q->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%');
+                }
+            ])
+            ->wherePivot('date', date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-d'))
+            ->get();
+
+       $records[$workPlaceActivity->id][] = Worker::whereHas('workPlaceActivity', function ($q) use ($workPlaceActivity) {
+                $q->where('id', '=', $workPlaceActivity->id);
+            })->with([
+                "workerRecords" => function($q) use($workPlaceActivity, $date) {
+                    $q->where('viki_worker_records.work_place_activity_id', '=', $workPlaceActivity->id);
+                    $q->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%');
+                }
+            ])
+            ->get()
+            ->merge($temporaryWorkers);
+      }
+     
+      return view('service::presence.delete_worker', [
+        'records' => $records,
+        'workPlaceId' => $workPlaceId,
+        'workplaceName' => $workplaceName,
+        'date' => $date,
+      ]);
+    }
+    else {
+      return redirect('service/presence')->with('flash_message', 'Грешка-Няма такъв регион!');
+    }
+  }
 }
+

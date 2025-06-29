@@ -32,10 +32,10 @@
                                     <li><a class="nav-link" href="{{ url('/register') }}">Register</a></li>
 
                                 @else
-
+                                  
 									<li><a  class="nav-link" href="#" role="button">
 												   {{ Auth::user()->name }}
-									</a>
+									</a> 
 									<a class="nav-link"  href="{{ url('/logout') }}"
 									   onclick="event.preventDefault();
 													 document.getElementById('logout-form').submit();">
@@ -73,12 +73,12 @@
             <div class="row">
                 <div class="footer__wrap">
                     <div class="footer__left col-lg-6 col-md-6 col-sm-12 mb-3">
-                        <span> &copy; Viki Services 2025  </span>
+                        <span> &copy; Viki Services 2019  </span>
                     </div>
                     <div class="footer__right col-lg-6 col-md-6 col-sm-12">
-                        <a href="http://code-nest.com/">
+                        <a href="http://code-nest.com/"> 
                             <span class="mr-3 mb-3"> Powered by </span>
-                            <div class="footer__logo"></div>
+                            <div class="footer__logo"></div> 
                         </a>
                     </div>
                 </div>

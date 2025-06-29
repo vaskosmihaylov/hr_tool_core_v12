@@ -1,6 +1,8 @@
 <?php
 
+
 namespace viki\Service\Facades;
+
 
 use Illuminate\Support\Facades\Facade;
 
