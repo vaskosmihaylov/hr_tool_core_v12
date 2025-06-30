@@ -206,6 +206,16 @@ class ArchiveResource extends Resource
                     ])
                     ->columns(2),
 
+                Infolists\Components\Section::make('Присъствена форма')
+                    ->schema([
+                        Infolists\Components\ViewEntry::make('presence_table')
+                            ->label('')
+                            ->view('filament.service.archive.presence-table')
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(false),
+
                 Infolists\Components\Section::make('JSON данни')
                     ->schema([
                         Infolists\Components\TextEntry::make('json_data')
@@ -219,7 +229,7 @@ class ArchiveResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed(true),
             ]);
     }
 
