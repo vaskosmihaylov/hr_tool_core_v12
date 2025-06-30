@@ -38,7 +38,7 @@
         </div>
     @else
         <!-- Archive Header -->
-        <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
             <div class="flex justify-between items-center">
                 <h3 class="text-lg font-semibold text-gray-900">
                     Архив на присъствена форма за <strong>{{ $monthNames[$month] ?? $month }} {{ $year }}</strong> месец
@@ -52,7 +52,7 @@
         @foreach($archiveData as $activityId => $activity)
             @if(isset($activity['workPlaceActivityWorkers']) && !empty($activity['workPlaceActivityWorkers']))
                 <!-- Activity Header -->
-                <div class="bg-gray-50 border border-gray-200 rounded-t-lg p-3 mt-6">
+                <div class="bg-gray-50 dark:bg-gray-800 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-t-lg p-3 mt-6">
                     <div class="flex justify-between items-center">
                         <h4 class="font-semibold text-gray-800">
                             {{ $activity['workPlaceActivityName'] ?? 'Активност ' . $activityId }}
@@ -66,17 +66,17 @@
                 </div>
 
                 <!-- Presence Table -->
-                <div class="border border-gray-200 rounded-b-lg overflow-hidden">
+                <div class="border border-gray-200 dark:border-gray-700 rounded-b-lg overflow-hidden">
                     <table class="w-full text-xs border-collapse">
                         <thead>
-                            <tr class="bg-gray-800 text-white">
-                                <th class="border border-gray-600 p-2 text-left min-w-[100px]">Длъжност</th>
-                                <th class="border border-gray-600 p-2 text-left min-w-[80px]">Заплата</th>
-                                <th class="border border-gray-600 p-2 text-left min-w-[100px]">Име</th>
-                                <th class="border border-gray-600 p-2 text-left min-w-[100px]">Фамилия</th>
+                            <tr class="bg-gray-800 dark:bg-gray-700 text-white">
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">Длъжност</th>
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[80px]">Заплата</th>
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">Име</th>
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">Фамилия</th>
                                 
                                 @for($day = 1; $day <= $monthDays; $day++)
-                                    <th class="border border-gray-600 p-1 text-center min-w-[30px] 
+                                    <th class="border border-gray-600 dark:border-gray-500 p-1 text-center min-w-[30px] 
                                         {{ in_array($day, $weekends) ? 'bg-gray-300 text-gray-600' : '' }}">
                                         {{ $day }}
                                     </th>
@@ -110,15 +110,15 @@
                                     $activityHours += $workerTotal;
                                 @endphp
                                 
-                                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                                    <td class="border border-gray-200 p-2 font-medium bg-gray-50">
+                                <tr class="border-b border-gray-100 hover:bg-gray-50 dark:bg-gray-800">
+                                    <td class="border border-gray-200 dark:border-gray-600 p-2 font-medium bg-gray-50 dark:bg-gray-800">
                                         {{ $activity['workPlaceActivityName'] ?? '' }}
                                     </td>
-                                    <td class="border border-gray-200 p-2 text-right font-medium">
+                                    <td class="border border-gray-200 dark:border-gray-600 p-2 text-right font-medium">
                                         {{ number_format($worker['neto_salary'] ?? 0, 0) }}
                                     </td>
-                                    <td class="border border-gray-200 p-2">{{ $worker['name'] ?? '' }}</td>
-                                    <td class="border border-gray-200 p-2">{{ $worker['family_name'] ?? '' }}</td>
+                                    <td class="border border-gray-200 dark:border-gray-600 p-2">{{ $worker['name'] ?? '' }}</td>
+                                    <td class="border border-gray-200 dark:border-gray-600 p-2">{{ $worker['family_name'] ?? '' }}</td>
                                     
                                     @for($day = 1; $day <= $monthDays; $day++)
                                         @php
@@ -126,13 +126,13 @@
                                             $isWeekend = in_array($day, $weekends);
                                         @endphp
                                         
-                                        <td class="border border-gray-200 p-1 text-center text-xs
+                                        <td class="border border-gray-200 dark:border-gray-600 p-1 text-center text-xs
                                             @if($hours > 0 && !$isWeekend)
                                                 bg-red-500 text-white font-bold
                                             @elseif($hours > 0 && $isWeekend)
                                                 bg-blue-500 text-white font-bold
                                             @elseif($isWeekend)
-                                                bg-gray-100
+                                                bg-gray-100 dark:bg-gray-700
                                             @endif
                                         ">
                                             @if($hours > 0)
@@ -143,10 +143,10 @@
                                         </td>
                                     @endfor
                                     
-                                    <td class="border border-gray-200 p-2 text-right font-medium">
+                                    <td class="border border-gray-200 dark:border-gray-600 p-2 text-right font-medium">
                                         {{ number_format($workerPrice, 0) }}
                                     </td>
-                                    <td class="border border-gray-200 p-2 text-right font-bold">
+                                    <td class="border border-gray-200 dark:border-gray-600 p-2 text-right font-bold">
                                         {{ $workerTotal }}
                                     </td>
                                 </tr>

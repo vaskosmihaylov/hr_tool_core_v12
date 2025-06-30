@@ -210,21 +210,6 @@ class ArchiveResource extends Resource
                     ])
                     ->collapsible()
                     ->collapsed(false),
-
-                Infolists\Components\Section::make('JSON данни')
-                    ->schema([
-                        Infolists\Components\TextEntry::make('json_data')
-                            ->label('Пълни данни')
-                            ->state(function (Archive $record): string {
-                                $data = json_decode($record->json_data, true);
-                                return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-                            })
-                            ->copyable()
-                            ->extraAttributes(['class' => 'font-mono text-xs'])
-                            ->columnSpanFull(),
-                    ])
-                    ->collapsible()
-                    ->collapsed(true),
             ]);
     }
 

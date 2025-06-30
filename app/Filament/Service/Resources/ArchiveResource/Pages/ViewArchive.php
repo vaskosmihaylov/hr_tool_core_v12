@@ -13,12 +13,11 @@ class ViewArchive extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('view_original')
-                ->label('Оригинален изглед')
-                ->icon('heroicon-o-eye')
-                ->color('info')
-                ->url(fn (): string => "/service/archive/{$this->record->work_place_id}/" . date('m-Y', strtotime($this->record->date)))
-                ->openUrlInNewTab(),
+            // Future: Add Excel export button here
+            // Actions\Action::make('export_excel')
+            //     ->label('Експорт Excel')
+            //     ->icon('heroicon-o-document-arrow-down')
+            //     ->color('success'),
         ];
     }
 
