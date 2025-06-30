@@ -69,7 +69,7 @@
                 <div class="border border-gray-200 dark:border-gray-700 rounded-b-lg overflow-hidden">
                     <table class="w-full text-xs border-collapse">
                         <thead>
-                            <tr class="bg-gray-800 dark:bg-gray-700 text-white">
+                            <tr class="bg-gray-800 dark:bg-gray-700 text-red">
                                 <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">Длъжност</th>
                                 <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[80px]">Заплата</th>
                                 <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">Име</th>
