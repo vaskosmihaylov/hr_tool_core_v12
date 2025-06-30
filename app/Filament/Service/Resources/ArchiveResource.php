@@ -129,12 +129,6 @@ class ArchiveResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->label('Преглед'),
-                Tables\Actions\Action::make('view_original')
-                    ->label('Оригинален изглед')
-                    ->icon('heroicon-o-eye')
-                    ->color('info')
-                    ->url(fn (Archive $record): string => "/service/archive/{$record->work_place_id}/" . date('m-Y', strtotime($record->date)))
-                    ->openUrlInNewTab(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -211,6 +205,7 @@ class ArchiveResource extends Resource
                         Infolists\Components\ViewEntry::make('presence_table')
                             ->label('')
                             ->view('filament.service.archive.presence-table')
+                            ->viewData(fn (Archive $record) => ['record' => $record])
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
