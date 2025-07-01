@@ -16,6 +16,7 @@
         "laravel-lang/lang": "^15.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "pxlrbt/filament-excel": "^2.4",
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-html": "^3.12",
         "spatie/laravel-pdf": "^1.0",

@@ -22,7 +22,9 @@ use viki\Service\Models\Elequent\WorkerRecord;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
 use viki\Service\Http\Controllers\ReportController;
 use Filament\Notifications\Notification;
-use Spatie\LaravelPdf\Facades\Pdf;
+use pxlrbt\FilamentExcel\Actions\Pages\ExportAction;
+use pxlrbt\FilamentExcel\Exports\ExcelExport;
+use pxlrbt\FilamentExcel\Columns\Column;
 use Carbon\Carbon;
 
 class VikiReports extends Page implements HasForms, HasActions
@@ -262,16 +264,18 @@ class VikiReports extends Page implements HasForms, HasActions
                     $this->generateReportData($data);
                 }),
 
-            Action::make('exportPdf')
-                ->label('Експорт PDF')
-                ->icon('heroicon-o-document-arrow-down')
-                ->color('danger')
+            Action::make('exportExcel')
+                ->label('Експорт Excel')
+                ->icon('heroicon-o-table-cells')
+                ->color('success')
                 ->visible(fn () => $this->showResults)
                 ->action(function () {
-                    $this->exportToPdf();
-                })
-                ->url(fn () => $this->showResults ? route('service.reports.export-pdf') : null)
-                ->openUrlInNewTab(),
+                    $url = $this->exportToPdf();
+                    if ($url) {
+                        // Use JavaScript to open the URL
+                        $this->js("window.open('$url', '_blank')");
+                    }
+                }),
 
             Action::make('originalView')
                 ->label('Оригинален изглед')
@@ -456,48 +460,20 @@ class VikiReports extends Page implements HasForms, HasActions
                 ->body('Моля първо генерирайте отчет')
                 ->danger()
                 ->send();
-            return null;
+            return;
         }
 
-        try {
-            // Store data in session for the route to access
-            session([
-                'pdf_export_data' => $this->reportData,
-                'pdf_export_filters' => $this->filters
-            ]);
-
-            // Log for debugging
-            activity()
-                ->performedOn(Auth::user())
-                ->causedBy(Auth::user())
-                ->log('PDF експорт започнат за месец ' . $this->filters['month_id'] . '/' . $this->filters['year_id']);
-
-            // Show success notification
-            Notification::make()
-                ->title('PDF експорт')
-                ->body('PDF файлът се генерира...')
-                ->info()
-                ->send();
-
-            // Redirect to the PDF export route in a new tab
-            return redirect()->to(route('service.reports.export-pdf'));
-            
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Грешка при експорт')
-                ->body('Възникна грешка: ' . $e->getMessage())
-                ->danger()
-                ->send();
-                
-            // Log the error
-            activity()
-                ->performedOn(Auth::user())
-                ->causedBy(Auth::user())
-                ->withProperties(['error' => $e->getMessage()])
-                ->log('PDF експорт неуспешен');
-                
-            return null;
-        }
+        // Simply redirect to Excel route with the same filters
+        $url = route('service.reports.export-excel', $this->filters);
+        
+        // Use JavaScript to open in new tab
+        $this->js("window.open('$url', '_blank')");
+        
+        Notification::make()
+            ->title('Excel експорт')
+            ->body('Excel файлът се генерира в нов прозорец...')
+            ->success()
+            ->send();
     }
 
     public function getTitle(): string
