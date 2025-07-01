@@ -3,12 +3,13 @@
 
 namespace viki\Service\Models\Elequent;
 
-use App\User;
+use App\Models\User;
 use viki\Service\Models\Elequent\Region;
 use Illuminate\Support\Facades\DB;
 
 class VikiUser extends User
 {
+    protected $table = 'users';
     public function regions()
     {
         return $this->belongsToMany(Region::class, 'viki_user_region', 'user_id', 'region_id');
@@ -59,6 +60,9 @@ class VikiUser extends User
 
     public static function getCurrentUserRegionId($userId) {
     $vikiUser = self::find($userId);
+    if (!$vikiUser) {
+      return [];
+    }
     $regions = $vikiUser->regions()->get();
     $regionsIds = [];
     foreach ($regions as $region) {

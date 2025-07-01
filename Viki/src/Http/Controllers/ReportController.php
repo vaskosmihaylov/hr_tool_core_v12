@@ -679,7 +679,7 @@ class ReportController extends Controller {
         ->header("Content-Type", "application/vnd.ms-excel");
   }
 
-  private static function getActivityWorkingHoursForDate($workPlaceActivity, $date) {
+  public static function getActivityWorkingHoursForDate($workPlaceActivity, $date) {
     $workPlaceActivityHours = $workPlaceActivity
       ->hours()
       ->where(
@@ -699,7 +699,7 @@ class ReportController extends Controller {
     return 0;
   }
 
-  private static function getAllNonWorkingDays($month, $year) {
+  public static function getAllNonWorkingDays($month, $year) {
     $specialDays = self::getSpecialDays($month, $year);
     $weekDays = self::getWeekDays($month, $year);
 
@@ -715,7 +715,7 @@ class ReportController extends Controller {
     return $weekDays;
   }
 
-  private static function getSpecialDays($month, $year) {
+  public static function getSpecialDays($month, $year) {
     $specialDays = SpecialDay::where('date', 'like', date_format(date_create_from_format('d-m-Y', '01-' . $month . '-' . $year), 'Y-m-') . '%')->get();
 
     $specialDaysArr = [];
@@ -727,7 +727,7 @@ class ReportController extends Controller {
     return $specialDaysArr;
   }
 
-  private static function getWeekDays($month, $year) {
+  public static function getWeekDays($month, $year) {
 
     $weekDays = [];
 

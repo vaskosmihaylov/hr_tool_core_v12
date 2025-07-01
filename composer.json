@@ -11,6 +11,7 @@
     "require": {
         "php": "^8.2",
         "bezhansalleh/filament-shield": "^3.3",
+        "eightynine/filament-reports": "^3.1",
         "filament/filament": "^3.3",
         "laravel-lang/lang": "^15.0",
         "laravel/framework": "^12.0",

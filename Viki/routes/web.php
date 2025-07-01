@@ -1,6 +1,6 @@
 <?php
  App::setLocale('bg');
-Route::group(['middleware' => ['web','auth','ApplicationPermission']], function () {
+Route::group(['middleware' => ['web','auth','application.permission']], function () {
     Route::get('service/index', 'IndexController@index')->name('service.index');
 
 	Route::get('service/worker', 'WorkerController@index')->name('service.worker');
