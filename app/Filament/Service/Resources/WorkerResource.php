@@ -172,12 +172,11 @@ class WorkerResource extends Resource
                 ->description("Статус и тип работа")
                 ->schema([
                     Select::make("status")
-                        ->label("")
-                        ->options(
-                            collect(Worker::workerStatuses())
-                                ->pluck("name", "id")
-                                ->toArray()
-                        )
+                        ->label("Статус")
+                        ->options([
+                            0 => 'Активен',
+                            1 => 'Неактивен',
+                        ])
                         ->required()
                         ->default(Worker::WORKER_ACTIVE)
                         ->columnSpan(1),
@@ -245,10 +244,12 @@ class WorkerResource extends Resource
                 BadgeColumn::make("status")
                     ->label("Статус")
                     ->getStateUsing(function (Worker $record): string {
-                        $statuses = collect(Worker::workerStatuses());
-                        $status = $statuses->firstWhere("id", $record->status);
-                        // Capitalize the first letter of the status name
-                        return $status ? ucfirst($status["name"]) : "Неизвестен";
+                        // Map status IDs directly to properly capitalized Bulgarian text
+                        return match($record->status) {
+                            0 => 'Активен',   // USER_ACTIVE
+                            1 => 'Неактивен', // USER_UNACTIVE  
+                            default => 'Неизвестен'
+                        };
                     })
                     ->colors([
                         "success" => static fn($state): bool => $state === "Активен",
@@ -269,11 +270,10 @@ class WorkerResource extends Resource
             ->filters([
                 SelectFilter::make("status")
                     ->label("Статус")
-                    ->options(
-                        collect(Worker::workerStatuses())
-                            ->pluck("name", "id")
-                            ->toArray()
-                    ),
+                    ->options([
+                        0 => 'Активен',
+                        1 => 'Неактивен',
+                    ]),
 
                 SelectFilter::make("region_id")
                     ->label("Регион")
