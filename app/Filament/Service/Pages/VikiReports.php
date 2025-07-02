@@ -277,13 +277,6 @@ class VikiReports extends Page implements HasForms, HasActions
                     }
                 }),
 
-            Action::make('originalView')
-                ->label('Оригинален изглед')
-                ->icon('heroicon-o-arrow-top-right-on-square')
-                ->color('gray')
-                ->url(route('service.reports'))
-                ->openUrlInNewTab(),
-
             Action::make('clearFilters')
                 ->label('Изчисти резултати')
                 ->icon('heroicon-o-x-mark')

@@ -19,7 +19,6 @@
         "pxlrbt/filament-excel": "^2.4",
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-html": "^3.12",
-        "spatie/laravel-pdf": "^1.0",
         "spatie/laravel-permission": "^6.20"
     },
     "require-dev": {

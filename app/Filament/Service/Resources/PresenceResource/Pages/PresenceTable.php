@@ -3,12 +3,14 @@
 namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
+use App\Exports\PresenceTableExport;
 use Filament\Resources\Pages\Page;
 use Filament\Actions;
 use Viki\Service\Models\Elequent\WorkPlace;
 use Viki\Service\Models\Elequent\Worker;
 use Viki\Service\Models\Elequent\WorkerRecord;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PresenceTable extends Page
 {
@@ -51,14 +53,8 @@ class PresenceTable extends Page
                 ->icon('heroicon-o-chevron-right')
                 ->action(fn () => $this->changeDate(1)),
 
-            Actions\Action::make('export_pdf')
-                ->label('Export PDF')
-                ->icon('heroicon-o-document-arrow-down')
-                ->color('danger')
-                ->action(fn () => $this->exportPdf()),
-
             Actions\Action::make('export_excel')
-                ->label('Export Excel')
+                ->label('Експорт Excel')
                 ->icon('heroicon-o-table-cells')
                 ->color('success')
                 ->action(fn () => $this->exportExcel()),
@@ -131,24 +127,47 @@ class PresenceTable extends Page
         $this->loadData();
     }
 
-    public function exportPdf(): void
+    public function exportExcel(): void
     {
-        // Implementation for PDF export
+        if (!$this->workers || $this->workers->isEmpty()) {
+            \Filament\Notifications\Notification::make()
+                ->title('Грешка')
+                ->body('Няма данни за експорт')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $params = [
+            'workplace' => $this->workplace,
+            'date' => $this->selectedDate->format('Y-m-d')
+        ];
+
+        $url = route('service.presence.export-table', $params);
+        $this->js("window.open('$url', '_blank')");
+
         \Filament\Notifications\Notification::make()
-            ->title('PDF експорт')
-            ->body('PDF експорт функционалността ще бъде добавена скоро')
-            ->info()
+            ->title('Excel експорт')
+            ->body('Excel файлът се генерира в нов прозорец...')
+            ->success()
             ->send();
     }
 
-    public function exportExcel(): void
+    protected function getPresenceStatus($record): string
     {
-        // Implementation for Excel export
-        \Filament\Notifications\Notification::make()
-            ->title('Excel експорт')
-            ->body('Excel експорт функционалността ще бъде добавена скоро')
-            ->info()
-            ->send();
+        $presenceRecord = $this->presenceData->get($record->id);
+        
+        if (!$presenceRecord) {
+            return 'Отсъства';
+        }
+        
+        return match($presenceRecord->status) {
+            0 => 'Чакащ',
+            1 => 'Одобрен', 
+            2 => 'Отхвърлен',
+            3 => 'Приключен',
+            default => 'Неизвестен'
+        };
     }
 
     public function getTitle(): string

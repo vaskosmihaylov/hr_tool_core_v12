@@ -3,12 +3,14 @@
 namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
+use App\Exports\MonthlyPresenceExport;
 use Filament\Resources\Pages\Page;
 use Filament\Actions;
 use Viki\Service\Models\Elequent\WorkPlace;
 use Viki\Service\Models\Elequent\Worker;
 use Viki\Service\Models\Elequent\WorkerRecord;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 class MonthlyPresence extends Page
 {
@@ -51,14 +53,8 @@ class MonthlyPresence extends Page
                 ->icon('heroicon-o-chevron-right')
                 ->action(fn () => $this->changeMonth(1)),
 
-            Actions\Action::make('export_monthly_pdf')
-                ->label('Месечен PDF отчет')
-                ->icon('heroicon-o-document-arrow-down')
-                ->color('danger')
-                ->action(fn () => $this->exportMonthlyPdf()),
-
             Actions\Action::make('export_monthly_excel')
-                ->label('Месечен Excel отчет')
+                ->label('Експорт Excel')
                 ->icon('heroicon-o-table-cells')
                 ->color('success')
                 ->action(fn () => $this->exportMonthlyExcel()),
@@ -123,21 +119,30 @@ class MonthlyPresence extends Page
         }
     }
 
-    public function exportMonthlyPdf(): void
-    {
-        \Filament\Notifications\Notification::make()
-            ->title('Месечен PDF експорт')
-            ->body('Месечен PDF отчет функционалността ще бъде добавена скоро')
-            ->info()
-            ->send();
-    }
-
     public function exportMonthlyExcel(): void
     {
+        if (!$this->monthlyData || $this->monthlyData->isEmpty()) {
+            \Filament\Notifications\Notification::make()
+                ->title('Грешка')
+                ->body('Няма данни за експорт')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $params = [
+            'workplace' => $this->workplace,
+            'year' => $this->year,
+            'month' => $this->month
+        ];
+
+        $url = route('service.presence.export-monthly', $params);
+        $this->js("window.open('$url', '_blank')");
+
         \Filament\Notifications\Notification::make()
-            ->title('Месечен Excel експорт')
-            ->body('Месечен Excel отчет функционалността ще бъде добавена скоро')
-            ->info()
+            ->title('Excel експорт')
+            ->body('Excel файлът се генерира в нов прозорец...')
+            ->success()
             ->send();
     }
 
