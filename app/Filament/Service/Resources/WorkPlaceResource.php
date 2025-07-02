@@ -203,20 +203,7 @@ class WorkPlaceResource extends Resource
                     ->url(fn (WorkPlace $record): string => "/service/regions/{$record->region_id}")
                     ->visible(fn (WorkPlace $record): bool => $record->region_id !== null),
 
-                Action::make('budget_info')
-                    ->label('Бюджет информация')
-                    ->icon('heroicon-o-chart-bar')
-                    ->color('warning')
-                    ->action(function (WorkPlace $record) {
-                        $monthlyBudgets = $record->monthlyBudget()->count();
-                        $currentBudget = number_format($record->budget, 2);
-                        
-                        \Filament\Notifications\Notification::make()
-                            ->title('Бюджет информация')
-                            ->body("Основен бюджет: {$currentBudget} лв.\nМесечни бюджети: {$monthlyBudgets}")
-                            ->info()
-                            ->send();
-                    }),
+                
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
