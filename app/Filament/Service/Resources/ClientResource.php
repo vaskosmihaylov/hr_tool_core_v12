@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\BadgeColumn;
@@ -20,7 +21,7 @@ use Filament\Tables\Table;
 use Viki\Service\Models\Elequent\Client;
 use Viki\Service\Models\Elequent\Region;
 
-class ClientResource extends Resource
+class ClientResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = Client::class;
 
@@ -241,6 +242,18 @@ class ClientResource extends Resource
             'Бюджет' => number_format($record->budget, 2) . ' лв.',
             'Обекти' => $record->workplaces_count,
             'Статус' => $record->status === Client::CLIENT_ACTIVE ? 'Активен' : 'Неактивен',
+        ];
+    }
+
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            "view",
+            "view_any",
+            "create",
+            "update",
+            "delete",
+            "delete_any",
         ];
     }
 }

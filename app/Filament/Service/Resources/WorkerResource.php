@@ -11,6 +11,7 @@ use viki\Service\Models\Elequent\WorkPlaceActivity;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,7 +28,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Actions\Action;
 use Illuminate\Support\Collection;
 
-class WorkerResource extends Resource
+class WorkerResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = Worker::class;
 
@@ -347,5 +348,17 @@ class WorkerResource extends Resource
     public static function getNavigationBadgeColor(): string|array|null
     {
         return "success";
+    }
+
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            "view",
+            "view_any",
+            "create",
+            "update",
+            "delete",
+            "delete_any",
+        ];
     }
 }

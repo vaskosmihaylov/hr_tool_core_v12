@@ -51,13 +51,22 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
-    /**
-     * Determine if the user can access the Filament admin panel.
-     */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Allow access if user has admin role or can access admin panel
-        return $this->hasAnyRole(['admin', 'manager']) || $this->can('access_admin_panel');
+        // Panel-specific access control using Filament Shield
+        switch ($panel->getId()) {
+            case 'admin':
+                // Admin panel access - requires admin role or explicit admin panel permission
+                return $this->hasAnyRole(['admin', 'manager']) || $this->can('access_admin_panel');
+                
+            case 'service':
+                // Service panel access - requires service panel permission
+                return $this->can('access_service_panel');
+                
+            default:
+                // Default fallback for any unknown panels
+                return false;
+        }
     }
 
     /**

@@ -7,11 +7,12 @@ use Viki\Service\Models\Elequent\Approvement;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class ApprovementResource extends Resource
+class ApprovementResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = Approvement::class;
 
@@ -199,6 +200,18 @@ class ApprovementResource extends Resource
             'create' => Pages\CreateApprovement::route('/create'),
 
             'edit' => Pages\EditApprovement::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            "view",
+            "view_any",
+            "create",
+            "update",
+            "delete",
+            "delete_any",
         ];
     }
 }

@@ -12,6 +12,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\BadgeColumn;
@@ -21,7 +22,7 @@ use Filament\Tables\Table;
 use Viki\Service\Models\Elequent\WorkPlace;
 use Viki\Service\Models\Elequent\Region;
 use Viki\Service\Models\Elequent\Client;
-class WorkPlaceResource extends Resource
+class WorkPlaceResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = WorkPlace::class;
 
@@ -265,6 +266,18 @@ class WorkPlaceResource extends Resource
             'Регион' => $record->region?->name,
             'Клиент' => $record->client?->name,
             'Бюджет' => number_format($record->budget, 2) . ' лв.',
+        ];
+    }
+
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            "view",
+            "view_any",
+            "create",
+            "update",
+            "delete",
+            "delete_any",
         ];
     }
 }

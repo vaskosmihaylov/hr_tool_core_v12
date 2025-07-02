@@ -8,6 +8,7 @@ use viki\Service\Models\Elequent\WorkPlace;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
@@ -17,7 +18,7 @@ use Carbon\Carbon;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
 
-class ArchiveResource extends Resource
+class ArchiveResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = Archive::class;
 
@@ -244,5 +245,17 @@ class ArchiveResource extends Resource
     public static function getNavigationBadgeColor(): string|array|null
     {
         return 'gray';
+    }
+
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            "view",
+            "view_any",
+            "create",
+            "update",
+            "delete",
+            "delete_any",
+        ];
     }
 }

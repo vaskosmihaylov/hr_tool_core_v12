@@ -9,6 +9,7 @@ use viki\Service\Models\Elequent\WorkPlace;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,7 +21,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Actions\Action;
 
-class RegionResource extends Resource
+class RegionResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = Region::class;
 
@@ -191,6 +192,18 @@ class RegionResource extends Resource
             'Статус' => Region::regionStatuses()[$record->status],
             'Работници' => $record->workers()->count(),
             'Обекти' => $record->workplaces()->count(),
+        ];
+    }
+
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            'view',
+            'view_any',
+            'create',
+            'update',
+            'delete',
+            'delete_any',
         ];
     }
 }

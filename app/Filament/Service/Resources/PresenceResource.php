@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\BadgeColumn;
@@ -24,7 +25,7 @@ use Viki\Service\Models\Elequent\Worker;
 use Viki\Service\Models\Elequent\WorkPlace;
 use Viki\Service\Models\Elequent\WorkPlaceActivity;
 
-class PresenceResource extends Resource
+class PresenceResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = WorkerRecord::class;
 
@@ -357,6 +358,18 @@ class PresenceResource extends Resource
             'Работно място' => $record->workplace?->name,
             'Дата' => $record->date?->format('d.m.Y'),
             'Часове' => $record->hours . ' ч.',
+        ];
+    }
+
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            "view",
+            "view_any",
+            "create",
+            "update",
+            "delete",
+            "delete_any",
         ];
     }
 }
