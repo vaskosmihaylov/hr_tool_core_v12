@@ -61,7 +61,11 @@ class ViewWorker extends ViewRecord
                             ->suffix(' часа'),
                         TextEntry::make('status')
                             ->label('Статус')
-                            ->getStateUsing(fn ($record) => \viki\Service\Models\Elequent\Worker::workerStatuses()[$record->status])
+                            ->getStateUsing(function ($record) {
+                                $statuses = collect(\viki\Service\Models\Elequent\Worker::workerStatuses());
+                                $status = $statuses->firstWhere('id', $record->status);
+                                return $status ? ucfirst($status['name']) : 'Неизвестен';
+                            })
                             ->badge()
                             ->color(fn (string $state): string => match ($state) {
                                 'Активен' => 'success',

@@ -247,13 +247,12 @@ class WorkerResource extends Resource
                     ->getStateUsing(function (Worker $record): string {
                         $statuses = collect(Worker::workerStatuses());
                         $status = $statuses->firstWhere("id", $record->status);
-                        return $status ? $status["name"] : "Неизвестен";
+                        // Capitalize the first letter of the status name
+                        return $status ? ucfirst($status["name"]) : "Неизвестен";
                     })
                     ->colors([
-                        "success" => static fn($state): bool => $state ===
-                            "Активен",
-                        "danger" => static fn($state): bool => $state ===
-                            "Неактивен",
+                        "success" => static fn($state): bool => $state === "Активен",
+                        "danger" => static fn($state): bool => $state === "Неактивен",
                     ]),
 
                 TextColumn::make("start_date")
