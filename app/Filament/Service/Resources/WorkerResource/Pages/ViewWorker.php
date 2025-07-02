@@ -8,7 +8,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\BadgeEntry;
+
 
 class ViewWorker extends ViewRecord
 {
@@ -59,13 +59,15 @@ class ViewWorker extends ViewRecord
                         TextEntry::make('working_time')
                             ->label('Работно време')
                             ->suffix(' часа'),
-                        BadgeEntry::make('status')
+                        TextEntry::make('status')
                             ->label('Статус')
                             ->getStateUsing(fn ($record) => \viki\Service\Models\Elequent\Worker::workerStatuses()[$record->status])
-                            ->colors([
-                                'success' => 'Активен',
-                                'danger' => 'Неактивен',
-                            ]),
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Активен' => 'success',
+                                'Неактивен' => 'danger',
+                                default => 'gray',
+                            }),
                     ])
                     ->columns(2),
 
@@ -93,6 +95,76 @@ class ViewWorker extends ViewRecord
                             ->dateTime('d.m.Y H:i:s'),
                     ])
                     ->columns(2)
+                    ->collapsible(),
+
+                Section::make('🏖️ Отпуски и почивки')
+                    ->schema([
+                        TextEntry::make('vacations_display')
+                            ->label('Налични отпуски')
+                            ->getStateUsing(function ($record) {
+                                if ($record->vacations()->count() === 0) {
+                                    return 'Няма въведени отпуски';
+                                }
+                                
+                                $vacations = $record->vacations()->latest()->take(5)->get();
+                                $display = [];
+                                
+                                foreach ($vacations as $vacation) {
+                                    $typeText = match($vacation->type) {
+                                        1 => 'Платен отпуск',
+                                        2 => 'Неплатен отпуск', 
+                                        3 => 'Болничен',
+                                        default => 'Неизвестен тип'
+                                    };
+                                    
+                                    $display[] = $typeText . ': ' . 
+                                               $vacation->start_date . ' - ' . $vacation->end_date .
+                                               ($vacation->comment ? ' (' . $vacation->comment . ')' : '');
+                                }
+                                
+                                if ($record->vacations()->count() > 5) {
+                                    $display[] = '... и още ' . ($record->vacations()->count() - 5) . ' отпуски';
+                                }
+                                
+                                return implode("
+", $display);
+                            })
+                            ->html()
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
+                Section::make('💰 Бонуси и глоби')
+                    ->schema([
+                        TextEntry::make('bonuses_display')
+                            ->label('Налични бонуси/глоби')
+                            ->getStateUsing(function ($record) {
+                                if ($record->bonus()->count() === 0) {
+                                    return 'Няма въведени бонуси или глоби';
+                                }
+                                
+                                $bonuses = $record->bonus()->latest()->take(5)->get();
+                                $display = [];
+                                
+                                foreach ($bonuses as $bonus) {
+                                    $typeText = $bonus->type == 0 ? 'Бонус' : 'Глоба';
+                                    $dates = explode('-', $bonus->for_month);
+                                    $month = $dates[0] . "-" . $dates[1];
+                                    
+                                    $display[] = $typeText . ': ' . number_format($bonus->sum, 2) . ' лв. (' . 
+                                               $month . ') - ' . $bonus->workplace->name;
+                                }
+                                
+                                if ($record->bonus()->count() > 5) {
+                                    $display[] = '... и още ' . ($record->bonus()->count() - 5) . ' записа';
+                                }
+                                
+                                return implode("
+", $display);
+                            })
+                            ->html()
+                            ->columnSpanFull(),
+                    ])
                     ->collapsible(),
             ]);
     }

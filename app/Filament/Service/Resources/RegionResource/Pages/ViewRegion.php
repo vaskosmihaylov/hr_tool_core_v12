@@ -8,7 +8,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\BadgeEntry;
+
 
 class ViewRegion extends ViewRecord
 {
@@ -33,13 +33,15 @@ class ViewRegion extends ViewRecord
                             ->size('lg')
                             ->weight('bold'),
 
-                        BadgeEntry::make('status')
+                        TextEntry::make('status')
                             ->label('Статус')
                             ->getStateUsing(fn ($record) => \viki\Service\Models\Elequent\Region::regionStatuses()[$record->status])
-                            ->colors([
-                                'success' => 'Активен',
-                                'danger' => 'Неактивен',
-                            ]),
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'Активен' => 'success',
+                                'Неактивен' => 'danger',
+                                default => 'gray',
+                            }),
                     ])
                     ->columns(2),
 
