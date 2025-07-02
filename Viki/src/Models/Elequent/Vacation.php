@@ -50,7 +50,7 @@ class Vacation extends Model
 
     public function createdBy()
     {
-        return $this->belongsTo('App\User','created_by');
+        return $this->belongsTo('App\Models\User','created_by');
     }
 	
     public function worker()

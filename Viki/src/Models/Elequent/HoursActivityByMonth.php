@@ -48,7 +48,7 @@ class HoursActivityByMonth extends Model
 	
     public function createdBy()
     {
-        return $this->belongsTo('App\Models\Elequent\User');
+        return $this->belongsTo('App\Models\User');
     }
 
     public function workplaceActivity()

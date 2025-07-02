@@ -35,7 +35,7 @@ class WorkPlaceActivityHoursPerDay extends Model {
   }
 
   public function createdBy() {
-    return $this->belongsTo('App\User');
+    return $this->belongsTo('App\Models\User');
   }
 
   public function workplace() {
