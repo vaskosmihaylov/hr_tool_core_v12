@@ -65,7 +65,7 @@ class ServicePanelProvider extends PanelProvider
             ->navigationGroups([
                 '👥 Човешки ресурси',
                 '🏢 Организация', 
-                '⏰ Присъствие',
+                '⏰ Присъствена форма',
                 '✅ Одобрения',
                 '📊 Отчети',
                 '📂 Архив',

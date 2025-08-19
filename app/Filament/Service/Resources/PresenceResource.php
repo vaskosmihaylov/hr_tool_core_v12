@@ -31,13 +31,13 @@ class PresenceResource extends Resource implements HasShieldPermissions
 
     protected static ?string $navigationIcon = 'heroicon-o-clock';
 
-    protected static ?string $navigationLabel = 'Присъствие';
+    protected static ?string $navigationLabel = 'Присъствена форма';
 
     protected static ?string $modelLabel = 'Записи за присъствие';
 
     protected static ?string $pluralModelLabel = 'Записи за присъствие';
 
-    protected static ?string $navigationGroup = '⏰ Присъствие';
+    protected static ?string $navigationGroup = '⏰ Присъствена форма';
 
     protected static ?int $navigationSort = 1;
 
