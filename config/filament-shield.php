@@ -57,7 +57,12 @@ return [
         'pages' => true,
         'widgets' => true,
         'resources' => true,
-        'custom_permissions' => false,
+        'custom_permissions' => true,
+    ],
+
+    'custom_permissions' => [
+        'access_admin_panel',
+        'access_service_panel',
     ],
 
     'generator' => [
