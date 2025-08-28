@@ -43,9 +43,20 @@ class BonusesRelationManager extends RelationManager
 
                 Forms\Components\Select::make('work_place_id')
                     ->label('Обект')
-                    ->relationship('workplace', 'name')
+                    ->options(function () {
+                        $worker = $this->getOwnerRecord();
+                        if ($worker && $worker->workplace) {
+                            // Only show the workplace this worker is assigned to
+                            return [$worker->work_place_id => $worker->workplace->name];
+                        }
+                        return [];
+                    })
+                    ->default(function () {
+                        $worker = $this->getOwnerRecord();
+                        return $worker ? $worker->work_place_id : null;
+                    })
                     ->required()
-                    ->searchable(),
+                    ->disabled(), // Make it read-only since there's only one option
 
                 Forms\Components\DatePicker::make('for_month')
                     ->label('За месец')
@@ -102,24 +113,31 @@ class BonusesRelationManager extends RelationManager
                         0 => 'Бонус',
                         1 => 'Глоба',
                     ]),
-
-                Tables\Filters\SelectFilter::make('work_place_id')
-                    ->label('Обект')
-                    ->relationship('workplace', 'name'),
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
                     ->label('Нов бонус/глоба')
                     ->mutateFormDataUsing(function (array $data): array {
-                        // Ensure worker_id is set
-                        $data['worker_id'] = $this->getOwnerRecord()->id;
+                        $worker = $this->getOwnerRecord();
+                        
+                        // Set worker_id and work_place_id automatically
+                        $data['worker_id'] = $worker->id;
+                        $data['work_place_id'] = $worker->work_place_id;
                         
                         return $data;
                     }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->label('Редактиране'),
+                    ->label('Редактиране')
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $worker = $this->getOwnerRecord();
+                        
+                        // Ensure work_place_id stays consistent with worker assignment
+                        $data['work_place_id'] = $worker->work_place_id;
+                        
+                        return $data;
+                    }),
                 Tables\Actions\DeleteAction::make()
                     ->label('Изтриване'),
             ])
