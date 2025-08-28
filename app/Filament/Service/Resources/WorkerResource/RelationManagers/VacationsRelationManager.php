@@ -47,6 +47,7 @@ class VacationsRelationManager extends RelationManager
                 Forms\Components\Textarea::make('comment')
                     ->label('Коментар')
                     ->rows(3)
+                    ->nullable()
                     ->columnSpanFull(),
 
                 Forms\Components\Select::make('status')
@@ -106,7 +107,8 @@ class VacationsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('comment')
                     ->label('Коментар')
-                    ->limit(50),
+                    ->limit(50)
+                    ->placeholder('Няма коментар'),
 
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Статус')
@@ -160,6 +162,11 @@ class VacationsRelationManager extends RelationManager
                         // Set created_by to current user ID
                         $data['created_by'] = auth()->id();
                         
+                        // Handle nullable comment
+                        if (isset($data['comment']) && trim($data['comment']) === '') {
+                            $data['comment'] = null;
+                        }
+                        
                         return $data;
                     }),
             ])
@@ -172,6 +179,11 @@ class VacationsRelationManager extends RelationManager
                             $start = \Carbon\Carbon::parse($data['start_date']);
                             $end = \Carbon\Carbon::parse($data['end_date']);
                             $data['day_count'] = $start->diffInDays($end) + 1;
+                        }
+                        
+                        // Handle nullable comment
+                        if (isset($data['comment']) && trim($data['comment']) === '') {
+                            $data['comment'] = null;
                         }
                         
                         return $data;

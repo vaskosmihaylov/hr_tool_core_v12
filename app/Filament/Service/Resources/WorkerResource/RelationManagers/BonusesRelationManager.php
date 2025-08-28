@@ -28,51 +28,45 @@ class BonusesRelationManager extends RelationManager
                 Forms\Components\Select::make('type')
                     ->label('Тип')
                     ->options([
-                        'bonus' => 'Бонус',
-                        'penalty' => 'Глоба',
+                        0 => 'Бонус',
+                        1 => 'Глоба',
                     ])
-                    ->required(),
+                    ->required()
+                    ->default(0),
 
-                Forms\Components\TextInput::make('amount')
+                Forms\Components\TextInput::make('sum')
                     ->label('Сума (лв.)')
                     ->required()
                     ->numeric()
-                    ->step(0.01),
+                    ->step(0.01)
+                    ->minValue(0),
 
-                Forms\Components\DatePicker::make('date')
-                    ->label('Дата')
+                Forms\Components\Select::make('work_place_id')
+                    ->label('Обект')
+                    ->relationship('workplace', 'name')
                     ->required()
-                    ->default(now()),
+                    ->searchable(),
 
-                Forms\Components\Textarea::make('reason')
-                    ->label('Причина')
+                Forms\Components\DatePicker::make('for_month')
+                    ->label('За месец')
                     ->required()
-                    ->rows(3)
-                    ->columnSpanFull(),
-
-                Forms\Components\Select::make('status')
-                    ->label('Статус')
-                    ->options([
-                        0 => 'Чакащ одобрение',
-                        1 => 'Одобрен',
-                        2 => 'Отказан',
-                    ])
-                    ->default(0)
-                    ->required(),
+                    ->default(now()->startOfMonth())
+                    ->displayFormat('m/Y')
+                    ->format('Y-m-d'),
             ]);
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('reason')
+            ->recordTitleAttribute('sum')
             ->columns([
                 Tables\Columns\BadgeColumn::make('type')
                     ->label('Тип')
                     ->getStateUsing(function ($record) {
                         return match($record->type) {
-                            'bonus' => 'Бонус',
-                            'penalty' => 'Глоба',
+                            0 => 'Бонус',
+                            1 => 'Глоба',
                             default => 'Неизвестен'
                         };
                     })
@@ -81,35 +75,20 @@ class BonusesRelationManager extends RelationManager
                         'danger' => 'Глоба',
                     ]),
 
-                Tables\Columns\TextColumn::make('amount')
+                Tables\Columns\TextColumn::make('sum')
                     ->label('Сума')
-                    ->money('BGN')
+                    ->money('BGN', locale: 'bg')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('date')
-                    ->label('Дата')
-                    ->date('d.m.Y')
+                Tables\Columns\TextColumn::make('workplace.name')
+                    ->label('Обект')
+                    ->sortable()
+                    ->limit(30),
+
+                Tables\Columns\TextColumn::make('for_month')
+                    ->label('За месец')
+                    ->date('m/Y')
                     ->sortable(),
-
-                Tables\Columns\TextColumn::make('reason')
-                    ->label('Причина')
-                    ->limit(50),
-
-                Tables\Columns\BadgeColumn::make('status')
-                    ->label('Статус')
-                    ->getStateUsing(function ($record) {
-                        return match($record->status) {
-                            0 => 'Чакащ',
-                            1 => 'Одобрен',
-                            2 => 'Отказан',
-                            default => 'Неизвестен'
-                        };
-                    })
-                    ->colors([
-                        'warning' => 'Чакащ',
-                        'success' => 'Одобрен',
-                        'danger' => 'Отказан',
-                    ]),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Създаден на')
@@ -120,21 +99,23 @@ class BonusesRelationManager extends RelationManager
                 Tables\Filters\SelectFilter::make('type')
                     ->label('Тип')
                     ->options([
-                        'bonus' => 'Бонус',
-                        'penalty' => 'Глоба',
+                        0 => 'Бонус',
+                        1 => 'Глоба',
                     ]),
 
-                Tables\Filters\SelectFilter::make('status')
-                    ->label('Статус')
-                    ->options([
-                        0 => 'Чакащ одобрение',
-                        1 => 'Одобрен',
-                        2 => 'Отказан',
-                    ]),
+                Tables\Filters\SelectFilter::make('work_place_id')
+                    ->label('Обект')
+                    ->relationship('workplace', 'name'),
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
-                    ->label('Нов бонус/глоба'),
+                    ->label('Нов бонус/глоба')
+                    ->mutateFormDataUsing(function (array $data): array {
+                        // Ensure worker_id is set
+                        $data['worker_id'] = $this->getOwnerRecord()->id;
+                        
+                        return $data;
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
