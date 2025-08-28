@@ -67,82 +67,60 @@ class RegionResource extends Resource implements HasShieldPermissions
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Име на регион')
+                    ->label('Регион')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->size('lg'),
 
-                BadgeColumn::make('status')
-                    ->label('Статус')
-                    ->getStateUsing(fn (Region $record): string => Region::regionStatuses()[$record->status])
-                    ->colors([
-                        'success' => static fn ($state): bool => $state === 'Активен',
-                        'danger' => static fn ($state): bool => $state === 'Неактивен',
-                    ]),
 
-                TextColumn::make('workers_count')
-                    ->label('Работници')
-                    ->getStateUsing(fn (Region $record): int => $record->workers()->count())
-                    ->badge()
-                    ->color('info')
-                    ->sortable(),
 
                 TextColumn::make('workplaces_count')
                     ->label('Обекти')
-                    ->getStateUsing(fn (Region $record): int => $record->workplaces()->count())
+                    ->counts('workplaces')
                     ->badge()
-                    ->color('warning')
+                    ->color('primary')
+                    ->sortable(),
+
+                TextColumn::make('workers_count')
+                    ->label('Работници')
+                    ->counts('workers')
+                    ->badge()
+                    ->color('info')
                     ->sortable(),
 
                 TextColumn::make('active_workers_count')
                     ->label('Активни работници')
                     ->getStateUsing(fn (Region $record): int => 
-                        $record->workers()->where('status', Worker::WORKER_ACTIVE)->count()
+                        $record->workers()->where('status', 0)->count()
                     )
                     ->badge()
                     ->color('success')
                     ->sortable(),
 
                 TextColumn::make('created_at')
-                    ->label('Създаден на')
-                    ->dateTime('d.m.Y H:i')
+                    ->label('Създаден')
+                    ->date('d.m.Y')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
 
                 TextColumn::make('updated_at')
-                    ->label('Обновен на')
-                    ->dateTime('d.m.Y H:i')
+                    ->label('Обновен')
+                    ->date('d.m.Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name', 'asc')
+            ->persistSortInSession()
+            ->persistSearchInSession()
+            ->striped()
+            ->paginated([10, 25, 50, 100])
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
                     ->options(Region::regionStatuses()),
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Преглед'),
 
-                Tables\Actions\EditAction::make()
-                    ->label('Редактиране'),
-
-                Action::make('view_workers')
-                    ->label('Работници')
-                    ->icon('heroicon-o-users')
-                    ->color('info')
-                    ->url(fn (Region $record): string => 
-                        "/service/workers?tableFilters[region_id][value]={$record->id}"
-                    ),
-
-                Action::make('view_workplaces')
-                    ->label('Обекти')
-                    ->icon('heroicon-o-building-office')
-                    ->color('warning')
-                    ->url(fn (Region $record): string => 
-                        "/service/workplaces?tableFilters[region_id][value]={$record->id}"
-                    ),
-            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()

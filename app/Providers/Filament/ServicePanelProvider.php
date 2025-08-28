@@ -62,6 +62,7 @@ class ServicePanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
+            ->topNavigation()
             ->navigationGroups([
                 '👥 Човешки ресурси',
                 '🏢 Организация', 
@@ -69,6 +70,8 @@ class ServicePanelProvider extends PanelProvider
                 '✅ Одобрения',
                 '📊 Отчети',
                 '📂 Архив',
-            ]);
+            ])
+            ->renderHook('panels::page.start', fn (): string => view('filament.service.table-optimization')->render());
     }
 }
+

@@ -22,6 +22,8 @@ use Filament\Tables\Table;
 use Viki\Service\Models\Elequent\WorkPlace;
 use Viki\Service\Models\Elequent\Region;
 use Viki\Service\Models\Elequent\Client;
+use viki\Service\Models\Elequent\Worker;
+
 class WorkPlaceResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = WorkPlace::class;
@@ -117,10 +119,12 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Име на обекта')
+                    ->label('Работно място')
                     ->searchable()
                     ->sortable()
-                    ->weight('medium'),
+                    ->weight('bold')
+                    ->size('lg')
+                    ->wrap(),
 
                 TextColumn::make('address')
                     ->label('Адрес')
@@ -132,12 +136,15 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                 TextColumn::make('region.name')
                     ->label('Регион')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->badge()
+                    ->color('primary'),
 
                 TextColumn::make('client.name')
                     ->label('Клиент')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(30),
 
                 TextColumn::make('budget')
                     ->label('Бюджет')
@@ -151,22 +158,28 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                     ->badge()
                     ->color('info'),
 
-                BadgeColumn::make('status')
-                    ->label('Статус')
-                    ->getStateUsing(fn (WorkPlace $record): string => 
-                        $record->status === WorkPlace::WORK_PLACE_ACTIVE ? 'Активен' : 'Неактивен'
-                    )
-                    ->colors([
-                        'success' => static fn ($state): bool => $state === 'Активен',
-                        'danger' => static fn ($state): bool => $state === 'Неактивен',
-                    ]),
+                TextColumn::make('active_workers_count')
+                    ->label('Активни работници')
+                    ->getStateUsing(function (WorkPlace $record): int {
+                        return $record->workers()->where('status', 0)->count();
+                    })
+                    ->badge()
+                    ->color('success'),
+
+
 
                 TextColumn::make('created_at')
-                    ->label('Създаден на')
-                    ->dateTime('d.m.Y H:i')
+                    ->label('Създаден')
+                    ->date('d.m.Y')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
             ])
+            ->defaultSort('name', 'asc')
+            ->persistSortInSession()
+            ->persistSearchInSession()
+            ->persistFiltersInSession()
+            ->striped()
+            ->paginated([10, 25, 50, 100])
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
@@ -183,29 +196,7 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                     ->label('Клиент')
                     ->relationship('client', 'name'),
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Преглед'),
 
-                Tables\Actions\EditAction::make()
-                    ->label('Редактиране'),
-
-                Action::make('view_workers')
-                    ->label('Работници')
-                    ->icon('heroicon-o-users')
-                    ->color('info')
-                    ->url(fn (WorkPlace $record): string => "/service/workers?tableFilters[work_place_id][value]={$record->id}")
-                    ->visible(fn (WorkPlace $record): bool => $record->workers_count > 0),
-
-                Action::make('view_region')
-                    ->label('Регион')
-                    ->icon('heroicon-o-map')
-                    ->color('info')
-                    ->url(fn (WorkPlace $record): string => "/service/regions/{$record->region_id}")
-                    ->visible(fn (WorkPlace $record): bool => $record->region_id !== null),
-
-                
-            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()

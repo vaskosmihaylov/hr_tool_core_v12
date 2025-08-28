@@ -20,6 +20,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Viki\Service\Models\Elequent\Client;
 use Viki\Service\Models\Elequent\Region;
+use viki\Service\Models\Elequent\Worker;
 
 class ClientResource extends Resource implements HasShieldPermissions
 {
@@ -90,15 +91,19 @@ class ClientResource extends Resource implements HasShieldPermissions
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Име на клиента')
+                    ->label('Клиент')
                     ->searchable()
                     ->sortable()
-                    ->weight('medium'),
+                    ->weight('bold')
+                    ->size('lg')
+                    ->wrap(),
 
                 TextColumn::make('budget')
-                    ->label('Бюджет')
-                    ->money('BGN')
-                    ->sortable(),
+                    ->label('💰 Бюджет')
+                    ->money('BGN', locale: 'bg')
+                    ->sortable()
+                    ->alignRight()
+                    ->size('lg'),
 
                 TextColumn::make('workplaces_count')
                     ->label('Обекти')
@@ -120,24 +125,21 @@ class ClientResource extends Resource implements HasShieldPermissions
                     ->counts('regions')
                     ->sortable()
                     ->badge()
-                    ->color('warning'),
+                    ->color('primary'),
 
-                BadgeColumn::make('status')
-                    ->label('Статус')
-                    ->getStateUsing(fn (Client $record): string => 
-                        $record->status === Client::CLIENT_ACTIVE ? 'Активен' : 'Неактивен'
-                    )
-                    ->colors([
-                        'success' => static fn ($state): bool => $state === 'Активен',
-                        'danger' => static fn ($state): bool => $state === 'Неактивен',
-                    ]),
+
 
                 TextColumn::make('created_at')
-                    ->label('Създаден на')
-                    ->dateTime('d.m.Y H:i')
+                    ->label('Създаден')
+                    ->date('d.m.Y')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
             ])
+            ->defaultSort('name', 'asc')
+            ->persistSortInSession()
+            ->persistSearchInSession()
+            ->striped()
+            ->paginated([10, 25, 50, 100])
             ->filters([
                 SelectFilter::make('status')
                     ->label('Статус')
@@ -154,34 +156,7 @@ class ClientResource extends Resource implements HasShieldPermissions
                     ->label('С активни обекти')
                     ->query(fn ($query) => $query->whereHas('workplaces', fn ($q) => $q->where('status', 0))),
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Преглед'),
 
-                Tables\Actions\EditAction::make()
-                    ->label('Редактиране'),
-
-                Action::make('view_workplaces')
-                    ->label('Обекти')
-                    ->icon('heroicon-o-building-office')
-                    ->color('info')
-                    ->url(fn (Client $record): string => "/service/work-places?tableFilters[client_id][value]={$record->id}")
-                    ->visible(fn (Client $record): bool => $record->workplaces_count > 0),
-
-                Action::make('view_regions')
-                    ->label('Региони')
-                    ->icon('heroicon-o-map')
-                    ->color('warning')
-                    ->action(function (Client $record) {
-                        $regions = $record->regions->pluck('name')->join(', ');
-                        \Filament\Notifications\Notification::make()
-                            ->title('Региони на клиента')
-                            ->body($regions ?: 'Няма назначени региони')
-                            ->info()
-                            ->send();
-                    })
-                    ->visible(fn (Client $record): bool => $record->regions_count > 0),
-            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()

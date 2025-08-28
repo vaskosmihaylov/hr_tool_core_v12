@@ -204,70 +204,91 @@ class WorkerResource extends Resource implements HasShieldPermissions
                 TextColumn::make("name")
                     ->label("Име")
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('medium')
+                    ->wrap(),
 
                 TextColumn::make("middle_name")
                     ->label("Презиме")
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('medium')
+                    ->wrap(),
 
                 TextColumn::make("family_name")
                     ->label("Фамилия")
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('medium')
+                    ->wrap(),
 
-                TextColumn::make("egn")->label("ЕГН")->searchable()->sortable(),
+                TextColumn::make("egn")
+                    ->label("ЕГН")
+                    ->searchable()
+                    ->sortable()
+                    ->fontFamily('mono')
+                    ->copyable(),
+
+                TextColumn::make("region.name")
+                    ->label("Регион")
+                    ->sortable()
+                    ->badge()
+                    ->color('info'),
+
+                TextColumn::make("workplace.name")
+                    ->label("Обект")
+                    ->sortable()
+                    ->limit(25)
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+                        return strlen($state) > 25 ? $state : null;
+                    }),
+
+                TextColumn::make("workplaceActivity.activity")
+                    ->label("Дейност")
+                    ->sortable()
+                    ->limit(30)
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+                        return strlen($state) > 30 ? $state : null;
+                    }),
+
+                TextColumn::make("neto_salary")
+                    ->label("Заплата")
+                    ->money("BGN", locale: 'bg')
+                    ->sortable()
+                    ->alignRight(),
+
+                TextColumn::make("hours_per_day")
+                    ->label("Раб. време")
+                    ->suffix(" ч.")
+                    ->sortable()
+                    ->alignCenter(),
+
+
 
                 TextColumn::make("note")
                     ->label("Бележки")
                     ->searchable()
-                    ->sortable()
-                    ->limit(30),
-
-                TextColumn::make("region.name")->label("Регион")->sortable(),
-
-                TextColumn::make("workplace.name")->label("Обект")->sortable(),
-
-                TextColumn::make("workplaceActivity.activity")
-                    ->label("Дейност")
-                    ->sortable(),
-
-                TextColumn::make("neto_salary")
-                    ->label("Нето заплата")
-                    ->money("BGN")
-                    ->sortable(),
-
-                TextColumn::make("hours_per_day")
-                    ->label("Работно време")
-                    ->suffix(" ч.")
-                    ->sortable(),
-
-                BadgeColumn::make("status")
-                    ->label("Статус")
-                    ->getStateUsing(function (Worker $record): string {
-                        // Map status IDs directly to properly capitalized Bulgarian text
-                        return match($record->status) {
-                            0 => 'Активен',   // USER_ACTIVE
-                            1 => 'Неактивен', // USER_UNACTIVE  
-                            default => 'Неизвестен'
-                        };
+                    ->limit(40)
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+                        return strlen($state) > 40 ? $state : null;
                     })
-                    ->colors([
-                        "success" => static fn($state): bool => $state === "Активен",
-                        "danger" => static fn($state): bool => $state === "Неактивен",
-                    ]),
-
-                TextColumn::make("start_date")
-                    ->label("Започнал на")
-                    ->date("d.m.Y")
-                    ->sortable(),
+                    ->toggleable(),
 
                 TextColumn::make("created_at")
-                    ->label("Създаден на")
-                    ->dateTime("d.m.Y H:i")
+                    ->label("Създаден")
+                    ->dateTime("d.m.Y")
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name', 'asc')
+            ->persistSortInSession()
+            ->persistSearchInSession()
+            ->persistFiltersInSession()
+            ->striped()
+            ->paginated([10, 25, 50, 100, 'all'])
             ->filters([
                 SelectFilter::make("status")
                     ->label("Статус")
@@ -290,26 +311,6 @@ class WorkerResource extends Resource implements HasShieldPermissions
                         collect(Worker::workerTypeWorking())
                             ->pluck("name", "id")
                             ->toArray()
-                    ),
-            ])
-            ->actions([
-                Tables\Actions\ViewAction::make()->label("Преглед"),
-
-                Tables\Actions\EditAction::make()->label("Редактиране"),
-
-                
-
-                Action::make("view_region")
-                    ->label("Регион")
-                    ->icon("heroicon-o-map")
-                    ->color("info")
-                    ->url(
-                        fn(
-                            Worker $record
-                        ): string => "/service/regions/{$record->region_id}"
-                    )
-                    ->visible(
-                        fn(Worker $record): bool => $record->region_id !== null
                     ),
             ])
             ->bulkActions([
