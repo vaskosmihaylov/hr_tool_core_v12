@@ -25,17 +25,27 @@ class VacationsRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Components\DatePicker::make('date_start')
+                Forms\Components\DatePicker::make('start_date')
                     ->label('Начална дата')
                     ->required(),
 
-                Forms\Components\DatePicker::make('date_end')
+                Forms\Components\DatePicker::make('end_date')
                     ->label('Крайна дата')
                     ->required()
-                    ->after('date_start'),
+                    ->after('start_date'),
 
-                Forms\Components\Textarea::make('reason')
-                    ->label('Причина')
+                Forms\Components\Select::make('type')
+                    ->label('Тип отпуска')
+                    ->options([
+                        1 => 'платена отпуска',
+                        2 => 'неплатена отпуска',
+                        3 => 'болничен',
+                    ])
+                    ->required()
+                    ->default(1),
+
+                Forms\Components\Textarea::make('comment')
+                    ->label('Коментар')
                     ->rows(3)
                     ->columnSpanFull(),
 
@@ -54,29 +64,48 @@ class VacationsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('reason')
+            ->recordTitleAttribute('comment')
             ->columns([
-                Tables\Columns\TextColumn::make('date_start')
+                Tables\Columns\TextColumn::make('start_date')
                     ->label('Начална дата')
                     ->date('d.m.Y')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('date_end')
+                Tables\Columns\TextColumn::make('end_date')
                     ->label('Крайна дата')
                     ->date('d.m.Y')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('days_count')
+                Tables\Columns\TextColumn::make('day_count')
                     ->label('Дни')
                     ->getStateUsing(function ($record) {
-                        $start = \Carbon\Carbon::parse($record->date_start);
-                        $end = \Carbon\Carbon::parse($record->date_end);
-                        return $start->diffInDays($end) + 1;
+                        if ($record->start_date && $record->end_date) {
+                            $start = \Carbon\Carbon::parse($record->start_date);
+                            $end = \Carbon\Carbon::parse($record->end_date);
+                            return $start->diffInDays($end) + 1;
+                        }
+                        return $record->day_count ?? 0;
                     })
                     ->suffix(' дни'),
 
-                Tables\Columns\TextColumn::make('reason')
-                    ->label('Причина')
+                Tables\Columns\BadgeColumn::make('type')
+                    ->label('Тип отпуска')
+                    ->getStateUsing(function ($record) {
+                        return match($record->type) {
+                            1 => 'платена отпуска',
+                            2 => 'неплатена отпуска',
+                            3 => 'болничен',
+                            default => 'неизвестен'
+                        };
+                    })
+                    ->colors([
+                        'success' => 'платена отпуска',
+                        'warning' => 'неплатена отпуска',
+                        'danger' => 'болничен',
+                    ]),
+
+                Tables\Columns\TextColumn::make('comment')
+                    ->label('Коментар')
                     ->limit(50),
 
                 Tables\Columns\BadgeColumn::make('status')
@@ -108,14 +137,45 @@ class VacationsRelationManager extends RelationManager
                         1 => 'Одобрена',
                         2 => 'Отказана',
                     ]),
+                
+                Tables\Filters\SelectFilter::make('type')
+                    ->label('Тип отпуска')
+                    ->options([
+                        1 => 'платена отпуска',
+                        2 => 'неплатена отпуска',
+                        3 => 'болничен',
+                    ]),
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
-                    ->label('Нова отпуска'),
+                    ->label('Нова отпуска')
+                    ->mutateFormDataUsing(function (array $data): array {
+                        // Calculate day count automatically
+                        if (isset($data['start_date']) && isset($data['end_date'])) {
+                            $start = \Carbon\Carbon::parse($data['start_date']);
+                            $end = \Carbon\Carbon::parse($data['end_date']);
+                            $data['day_count'] = $start->diffInDays($end) + 1;
+                        }
+                        
+                        // Set created_by to current user ID
+                        $data['created_by'] = auth()->id();
+                        
+                        return $data;
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->label('Редактиране'),
+                    ->label('Редактиране')
+                    ->mutateFormDataUsing(function (array $data): array {
+                        // Recalculate day count when editing
+                        if (isset($data['start_date']) && isset($data['end_date'])) {
+                            $start = \Carbon\Carbon::parse($data['start_date']);
+                            $end = \Carbon\Carbon::parse($data['end_date']);
+                            $data['day_count'] = $start->diffInDays($end) + 1;
+                        }
+                        
+                        return $data;
+                    }),
                 Tables\Actions\DeleteAction::make()
                     ->label('Изтриване'),
             ])

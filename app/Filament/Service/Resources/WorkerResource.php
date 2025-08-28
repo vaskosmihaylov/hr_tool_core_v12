@@ -77,11 +77,18 @@ class WorkerResource extends Resource implements HasShieldPermissions
                         ->helperText("Въведете 10 цифри")
                         ->columnSpan(1),
 
-                    TextInput::make("note")
-                        ->label("Длъжност/Бележки")
+                    TextInput::make("position")
+                        ->label("Длъжност")
                         ->maxLength(255)
                         ->nullable()
-                        ->columnSpan(2),
+                        ->columnSpan(1)
+                        ->visibleOn('create'),
+
+                    TextInput::make("note")
+                        ->label("Бележки")
+                        ->maxLength(255)
+                        ->nullable()
+                        ->columnSpan(1),
                 ])
                 ->columns(2),
 

@@ -14,8 +14,11 @@ class EditWorker extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\ViewAction::make()
-                ->label('Преглед'),
+            Actions\Action::make('save')
+                ->label('Запази')
+                ->color('success')
+                ->action('save')
+                ->keyBindings(['mod+s']),
             Actions\DeleteAction::make()
                 ->label('Изтриване'),
         ];
@@ -65,5 +68,15 @@ class EditWorker extends EditRecord
             ->causedBy(auth()->user())
             ->withProperties(['customProperty' => 'customValue'])
             ->log('обновен служител: ' . $this->record->name . ' ' . $this->record->middle_name . ' ' . $this->record->family_name);
+    }
+
+    protected function getFormActions(): array
+    {
+        return [
+            $this->getSaveFormAction()
+                ->label('Запази')
+                ->color('success'),
+            $this->getCancelFormAction(),
+        ];
     }
 }
