@@ -80,6 +80,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     TextInput::make("note")
                         ->label("Длъжност/Бележки")
                         ->maxLength(255)
+                        ->nullable()
                         ->columnSpan(2),
                 ])
                 ->columns(2),
@@ -259,13 +260,25 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     ->sortable()
                     ->alignRight(),
 
-                TextColumn::make("hours_per_day")
-                    ->label("Раб. време")
-                    ->suffix(" ч.")
+                TextColumn::make("type_working")
+                    ->label("Работно време")
+                    ->getStateUsing(function ($record) {
+                        return $record->type_working == Worker::WORKING_STANDART ? 'стандартно' : 'сумарно';
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'стандартно' => 'success',
+                        'сумарно' => 'info',
+                        default => 'gray',
+                    })
                     ->sortable()
                     ->alignCenter(),
 
-
+                TextColumn::make("hours_per_day")
+                    ->label("Раб. време договор(h)")
+                    ->suffix(" ч.")
+                    ->sortable()
+                    ->alignCenter(),
 
                 TextColumn::make("note")
                     ->label("Бележки")

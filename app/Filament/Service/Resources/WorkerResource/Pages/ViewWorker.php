@@ -36,29 +36,38 @@ class ViewWorker extends ViewRecord
                             ->label('Фамилия'),
                         TextEntry::make('egn')
                             ->label('ЕГН'),
-                        TextEntry::make('position')
-                            ->label('Длъжност'),
+                        TextEntry::make('note')
+                            ->label('Бележки')
+                            ->placeholder('Няма въведени бележки'),
                     ])
                     ->columns(2),
 
                 Section::make('💼 Служебни данни')
                     ->schema([
-                        TextEntry::make('date_start_job')
+                        TextEntry::make('start_date')
                             ->label('Дата на започване')
                             ->date('d.m.Y'),
-                        TextEntry::make('date_end_job')
+                        TextEntry::make('unactive_from_date')
                             ->label('Дата на приключване')
                             ->date('d.m.Y')
                             ->placeholder('Безсрочен договор'),
-                        TextEntry::make('basic_salary')
+                        TextEntry::make('neto_salary')
                             ->label('Основна заплата')
                             ->money('BGN'),
-                        TextEntry::make('additional_salary')
-                            ->label('Допълнителна заплата')
-                            ->money('BGN'),
-                        TextEntry::make('working_time')
+                        TextEntry::make('hours_per_day')
                             ->label('Работно време')
                             ->suffix(' часа'),
+                        TextEntry::make('type_working')
+                            ->label('Тип работа')
+                            ->getStateUsing(function ($record) {
+                                return $record->type_working == \viki\Service\Models\Elequent\Worker::WORKING_STANDART ? 'стандартно' : 'сумарно';
+                            })
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'стандартно' => 'success',
+                                'сумарно' => 'info',
+                                default => 'gray',
+                            }),
                         TextEntry::make('status')
                             ->label('Статус')
                             ->getStateUsing(function ($record) {

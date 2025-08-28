@@ -80,7 +80,7 @@ class Worker extends Model
             'hours_per_day'            => $attributes['hours_per_day'],
             'neto_salary'              => $attributes['neto_salary'],
 			  'income'              => $attributes['income'],
-            'note'                     => isset($attributes['note']) ? $attributes ['note'] : '',
+            'note'                     => isset($attributes['note']) && $attributes['note'] !== '' ? $attributes['note'] : null,
             'unactive_from_date'       => isset($attributes['unactive_from_date'])? $attributes['unactive_from_date'] : null,
         );
 

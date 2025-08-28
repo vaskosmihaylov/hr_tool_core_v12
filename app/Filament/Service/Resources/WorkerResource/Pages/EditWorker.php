@@ -49,6 +49,11 @@ class EditWorker extends EditRecord
             throw new \Exception('Изберете дейност!');
         }
 
+        // Handle empty note field - convert empty string to null
+        if (isset($data['note']) && trim($data['note']) === '') {
+            $data['note'] = null;
+        }
+
         return $data;
     }
 
