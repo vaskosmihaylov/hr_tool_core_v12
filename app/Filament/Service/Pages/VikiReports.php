@@ -418,14 +418,43 @@ class VikiReports extends Page implements HasForms, HasActions
             }
         }
 
+        // Calculate bonuses and penalties for each worker
+        $bonusData = [];
+        $penaltyData = [];
+        
+        foreach ($workerRecords as $record) {
+            // Get bonus amount (type = 0) using proper date filtering
+            $bonusAmount = \viki\Service\Models\Elequent\WorkerBonus::where('worker_id', $record->worker_id)
+                ->where('work_place_id', $record->work_place_id)
+                ->where('type', 0) // BONUS
+                ->whereYear('for_month', $year_id)
+                ->whereMonth('for_month', $month_id)
+                ->sum('sum');
+            
+            // Get penalty amount (type = 1) using proper date filtering
+            $penaltyAmount = \viki\Service\Models\Elequent\WorkerBonus::where('worker_id', $record->worker_id)
+                ->where('work_place_id', $record->work_place_id)
+                ->where('type', 1) // PENALTY
+                ->whereYear('for_month', $year_id)
+                ->whereMonth('for_month', $month_id)
+                ->sum('sum');
+                
+            $bonusData[$record->ID] = $bonusAmount;
+            $penaltyData[$record->ID] = $penaltyAmount;
+        }
+
         $this->reportData = [
             'workerRecords' => $workerRecords,
             'arraySum' => $newSumArray,
+            'bonusData' => $bonusData,
+            'penaltyData' => $penaltyData,
             'filters' => $filters,
             'summary' => [
                 'total_workers' => $workerRecords->unique('worker_id')->count(),
                 'total_hours' => $workerRecords->sum('total'),
                 'total_salary' => array_sum($newSumArray),
+                'total_bonus' => array_sum($bonusData),
+                'total_penalty' => array_sum($penaltyData),
             ]
         ];
 

@@ -219,9 +219,41 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 
+/* Light mode table headers */
 .fi-panel-service .fi-ta-table thead {
     background-color: rgba(var(--gray-50), 1) !important;
     border-bottom: 1px solid rgba(var(--gray-200), 1) !important;
+}
+
+/* Dark mode table headers */
+.dark .fi-panel-service .fi-ta-table thead {
+    background-color: rgba(55, 65, 81, 1) !important; /* gray-700 */
+    border-bottom: 1px solid rgba(75, 85, 99, 1) !important; /* gray-600 */
+}
+
+.dark .fi-panel-service .fi-ta-table thead th {
+    color: rgba(229, 231, 235, 1) !important; /* gray-200 */
+    background-color: rgba(55, 65, 81, 1) !important; /* gray-700 */
+}
+
+/* Dark mode table body */
+.dark .fi-panel-service .fi-ta-table tbody {
+    background-color: rgba(31, 41, 55, 1) !important; /* gray-800 */
+}
+
+.dark .fi-panel-service .fi-ta-table tbody td {
+    color: rgba(229, 231, 235, 1) !important; /* gray-200 */
+    border-color: rgba(75, 85, 99, 1) !important; /* gray-600 */
+}
+
+/* Dark mode table borders */
+.dark .fi-panel-service .fi-ta-table {
+    border-color: rgba(75, 85, 99, 1) !important; /* gray-600 */
+}
+
+/* Dark mode hover effects */
+.dark .fi-panel-service .fi-ta-table tbody tr:hover {
+    background-color: rgba(75, 85, 99, 0.3) !important; /* gray-600 with opacity */
 }
 
 /* Focus States for Accessibility */

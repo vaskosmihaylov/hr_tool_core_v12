@@ -190,16 +190,22 @@
                                     {{ $record->total ?? 0 }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                    0
+                                    {{ number_format($reportData['bonusData'][$record->ID] ?? 0, 2) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                    0
+                                    {{ number_format($reportData['penaltyData'][$record->ID] ?? 0, 2) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                                     {{ number_format($reportData['arraySum'][$record->ID] ?? 0, 2) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {{ number_format($reportData['arraySum'][$record->ID] ?? 0, 2) }}
+                                    @php
+                                        $baseSalary = $reportData['arraySum'][$record->ID] ?? 0;
+                                        $bonus = $reportData['bonusData'][$record->ID] ?? 0;
+                                        $penalty = $reportData['penaltyData'][$record->ID] ?? 0;
+                                        $totalWithBonus = $baseSalary + $bonus - $penalty;
+                                    @endphp
+                                    {{ number_format($totalWithBonus, 2) }}
                                 </td>
                             </tr>
                             @endforeach
@@ -213,16 +219,22 @@
                                     {{ number_format($reportData['summary']['total_hours'] ?? 0) }}
                                 </td>
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    0
+                                    {{ number_format($reportData['summary']['total_bonus'] ?? 0, 2) }}
                                 </td>
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    0
-                                </td>
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {{ number_format($reportData['summary']['total_salary'] ?? 0, 2) }}
+                                    {{ number_format($reportData['summary']['total_penalty'] ?? 0, 2) }}
                                 </td>
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                                     {{ number_format($reportData['summary']['total_salary'] ?? 0, 2) }}
+                                </td>
+                                <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    @php
+                                        $totalSalary = $reportData['summary']['total_salary'] ?? 0;
+                                        $totalBonus = $reportData['summary']['total_bonus'] ?? 0;
+                                        $totalPenalty = $reportData['summary']['total_penalty'] ?? 0;
+                                        $grandTotal = $totalSalary + $totalBonus - $totalPenalty;
+                                    @endphp
+                                    {{ number_format($grandTotal, 2) }}
                                 </td>
                             </tr>
                         </tfoot>
