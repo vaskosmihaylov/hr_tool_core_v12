@@ -314,6 +314,7 @@ class VikiReports extends Page implements HasForms, HasActions
             $region_id = $manRegion_id;
         }
 
+        // Get workers from time records
         $query = WorkerRecord::select(
                 'viki_worker_records.worker_id',
                 'viki_workers.name',
@@ -378,36 +379,102 @@ class VikiReports extends Page implements HasForms, HasActions
         
         $workerRecords = $query->get();
 
+        // ADDITION: Get workers who have bonuses/penalties but no time records for this period
+        $bonusWorkersQuery = \viki\Service\Models\Elequent\WorkerBonus::select(
+                'worker_id',
+                'work_place_id'
+            )
+            ->whereYear('for_month', $year_id)
+            ->whereMonth('for_month', $month_id)
+            ->groupBy('worker_id', 'work_place_id');
+
+        // Apply the same filtering for bonus workers
+        if ($user->hasRole('supervisor')) {
+            $vikiUser = VikiUser::find($user->id);
+            $userWorkplaceIds = $vikiUser->workPlaces()->pluck('id')->toArray();
+            $bonusWorkersQuery->whereIn('work_place_id', $userWorkplaceIds);
+        }
+
+        if (!empty($workplace_id)) {
+            $bonusWorkersQuery->whereIn('work_place_id', $workplace_id);
+        }
+
+        if (!empty($worker_id)) {
+            $bonusWorkersQuery->where('worker_id', $worker_id);
+        }
+
+        $bonusWorkers = $bonusWorkersQuery->get();
+
+        // Add bonus-only workers to the results
+        foreach ($bonusWorkers as $bonusWorker) {
+            // Check if this worker is already in the results from time records
+            $existingWorker = $workerRecords->where('worker_id', $bonusWorker->worker_id)
+                ->where('work_place_id', $bonusWorker->work_place_id)
+                ->first();
+
+            if (!$existingWorker) {
+                // Add the worker with bonus but no time records
+                $worker = Worker::find($bonusWorker->worker_id);
+                $workplace = \viki\Service\Models\Elequent\WorkPlace::find($bonusWorker->work_place_id);
+                
+                if ($worker && $workplace) {
+                    $bonusOnlyRecord = (object) [
+                        'worker_id' => $worker->id,
+                        'name' => $worker->name,
+                        'family_name' => $worker->family_name,
+                        'middle_name' => $worker->middle_name,
+                        'egn' => $worker->egn,
+                        'work_place_id' => $workplace->id,
+                        'workPlaceName' => $workplace->name,
+                        'clId' => $workplace->client_id,
+                        'regId' => $workplace->region_id,
+                        'total' => 0, // No hours worked
+                        'activities' => '',
+                        'ID' => 'bonus_' . $worker->id . '_' . $workplace->id // Unique ID for bonus-only records
+                    ];
+
+                    $workerRecords->push($bonusOnlyRecord);
+                }
+            }
+        }
+
         // Calculate salaries using existing logic
         $arraySum = [];
         foreach ($workerRecords as $records) {
-            $activitiesArray = explode(",", $records->activities);
+            if ($records->activities && $records->activities !== '') {
+                $activitiesArray = explode(",", $records->activities);
 
-            foreach ($activitiesArray as $activity) {
-                $workplaceActivity = WorkPlaceActivity::find($activity);
-                if ($workplaceActivity !== null) {
-                    $workingHours = ReportController::getActivityWorkingHoursForDate(
-                        $workplaceActivity, 
-                        $year_id . '-' . $month_id
-                    );
+                foreach ($activitiesArray as $activity) {
+                    $workplaceActivity = WorkPlaceActivity::find($activity);
+                    if ($workplaceActivity !== null) {
+                        $workingHours = ReportController::getActivityWorkingHoursForDate(
+                            $workplaceActivity, 
+                            $year_id . '-' . $month_id
+                        );
 
-                    $workPlaceActivityHourPrice = $workingHours != 0 ? 
-                        ($workplaceActivity->neto_salary + $workplaceActivity->social_plus) / $workingHours : 0;
-                    
-                    $hoursByActivity = WorkerRecord::select(
-                            'viki_worker_records.work_place_activity_id', 
-                            DB::raw('sum(viki_worker_records.hours) as totalHours')
-                        )
-                        ->where('worker_id', $records->worker_id)
-                        ->where('work_place_activity_id', $workplaceActivity->id)
-                        ->where('date', 'LIKE', $year_id . '-' . $month_id . '%')
-                        ->groupBy('viki_worker_records.work_place_activity_id') // Add groupBy for consistency
-                        ->get()->toArray();
-                    
-                    if (!empty($hoursByActivity)) {
-                        $arraySum[$records->ID][] = $workPlaceActivityHourPrice * $hoursByActivity[0]['totalHours'];
+                        $workPlaceActivityHourPrice = $workingHours != 0 ? 
+                            ($workplaceActivity->neto_salary + $workplaceActivity->social_plus) / $workingHours : 0;
+                        
+                        $hoursByActivity = WorkerRecord::select(
+                                'viki_worker_records.work_place_activity_id', 
+                                DB::raw('sum(viki_worker_records.hours) as totalHours')
+                            )
+                            ->where('worker_id', $records->worker_id)
+                            ->where('work_place_activity_id', $workplaceActivity->id)
+                            ->where('date', 'LIKE', $year_id . '-' . $month_id . '%')
+                            ->groupBy('viki_worker_records.work_place_activity_id') // Add groupBy for consistency
+                            ->get()->toArray();
+                        
+                        if (!empty($hoursByActivity)) {
+                            $arraySum[$records->ID][] = $workPlaceActivityHourPrice * $hoursByActivity[0]['totalHours'];
+                        }
                     }
                 }
+            }
+            
+            // For bonus-only workers, set salary to 0
+            if (strpos($records->ID, 'bonus_') === 0) {
+                $arraySum[$records->ID] = [0];
             }
         }
 
