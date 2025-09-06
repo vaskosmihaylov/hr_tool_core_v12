@@ -53,3 +53,16 @@ Route::get('/test-permissions', function () {
     
     return response()->json($results, JSON_PRETTY_PRINT);
 })->middleware('web');
+
+// Simple presence configuration route (no Livewire)
+Route::get('/service/presence-configure', function (Illuminate\Http\Request $request) {
+    $workplaceId = $request->get('workplace_id');
+    $date = $request->get('date');
+    
+    if (!$workplaceId || !$date) {
+        return redirect('/service/presences')->with('error', 'Моля изберете обект и месец');
+    }
+    
+    // Redirect to monthly management
+    return redirect("/service/presences/monthly/{$workplaceId}/{$date}");
+})->middleware(['web', 'auth']);

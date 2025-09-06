@@ -316,12 +316,13 @@ class PresenceResource extends Resource implements HasShieldPermissions
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPresenceRecords::route('/'),
+            'index' => Pages\MainPresenceSelection::route('/'),
+            'monthly' => Pages\MonthlyPresence::route('/monthly/{workplace}/{date?}'),
+            'records' => Pages\ListPresenceRecords::route('/records'),
             'create' => Pages\CreatePresenceRecord::route('/create'),
             'view' => Pages\ViewPresenceRecord::route('/{record}'),
             'edit' => Pages\EditPresenceRecord::route('/{record}/edit'),
             'table' => Pages\PresenceTable::route('/table/{workplace}/{date?}'),
-            'monthly' => Pages\MonthlyPresence::route('/monthly/{workplace}/{year?}/{month?}'),
         ];
     }
 
