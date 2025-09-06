@@ -66,3 +66,29 @@ Route::get('/service/presence-configure', function (Illuminate\Http\Request $req
     // Redirect to monthly management
     return redirect("/service/presences/monthly/{$workplaceId}/{$date}");
 })->middleware(['web', 'auth']);
+
+// Replacement Worker Route - Add worker to specific month for object
+Route::get('/service/presence/addWorker/{object_id}/{selected_month}', function ($object_id, $selected_month) {
+    // Validate parameters
+    if (!$object_id || !$selected_month) {
+        return redirect('/service/presences')->with('error', 'Невалидни параметри за добавяне на работник');
+    }
+    
+    // Parse the selected_month (expected format: MM-YYYY)
+    $dateParts = explode('-', $selected_month);
+    if (count($dateParts) !== 2) {
+        return redirect('/service/presences')->with('error', 'Невалиден формат на месеца');
+    }
+    
+    $month = (int)$dateParts[0];
+    $year = (int)$dateParts[1];
+    
+    if ($month < 1 || $month > 12 || $year < 2020 || $year > 2030) {
+        return redirect('/service/presences')->with('error', 'Невалиден месец или година');
+    }
+    
+    // Redirect to monthly management with the worker modal open
+    return redirect("/service/presences/monthly/{$object_id}/{$selected_month}")
+        ->with('open_worker_modal', true)
+        ->with('success', 'Можете да добавите работник за избрания месец');
+})->middleware(['web', 'auth'])->name('service.presence.add-worker');

@@ -48,6 +48,12 @@ class MonthlyPresence extends Page
         $this->parseDateParameter($date);
         $this->loadData();
         $this->initializeHoursData();
+        
+        // Check if we should open the worker modal (from replacement worker route)
+        if (session('open_worker_modal')) {
+            $this->showWorkerModal = true;
+            session()->forget('open_worker_modal');
+        }
     }
 
     protected function getHeaderActions(): array
@@ -306,9 +312,12 @@ class MonthlyPresence extends Page
             ->distinct()
             ->pluck('worker_id');
 
+        // Group workers by position and sort within each group
         $workers = Worker::whereIn('id', $workerIdsWithRecords)
             ->where('status', Worker::WORKER_ACTIVE)
+            ->orderBy('position')
             ->orderBy('name')
+            ->orderBy('family_name')
             ->get();
 
         $records = WorkerRecord::where('work_place_id', $this->workplace)
@@ -317,13 +326,29 @@ class MonthlyPresence extends Page
             ->get()
             ->groupBy('worker_id');
 
-        $this->monthlyData = $workers->map(fn($worker) => [
-            'worker' => $worker,
-            'total_hours' => $records->get($worker->id, collect())->sum('hours'),
-            'working_days' => $records->get($worker->id, collect())->count(),
-            'average_hours' => $this->calculateAverageHours($records->get($worker->id, collect())),
-            'records' => $records->get($worker->id, collect())->keyBy(fn($record) => Carbon::parse($record->date)->day),
-        ]);
+        // Create grouped data structure
+        $groupedData = collect();
+        $currentPosition = null;
+        
+        foreach ($workers as $worker) {
+            $workerRecords = $records->get($worker->id, collect());
+            $totalHours = $workerRecords->sum('hours');
+            
+            $workerData = [
+                'worker' => $worker,
+                'total_hours' => $totalHours,
+                'working_days' => $workerRecords->count(),
+                'average_hours' => $this->calculateAverageHours($workerRecords),
+                'records' => $workerRecords->keyBy(fn($record) => Carbon::parse($record->date)->day),
+                // TODO: These calculations need implementation based on old app logic
+                'calculated_price' => $this->calculateWorkerPrice($worker, $totalHours),
+                'calculated_total' => $this->calculateWorkerTotal($worker, $totalHours),
+            ];
+            
+            $groupedData->push($workerData);
+        }
+
+        $this->monthlyData = $groupedData;
     }
 
     private function loadBudgetInfo(): void
@@ -550,6 +575,32 @@ class MonthlyPresence extends Page
     private function getManageWorkersAction() { return Actions\Action::make('manage_workers')->label('Управление работници')->icon('heroicon-o-users')->color('secondary')->action('openWorkerManagement'); }
 
     // Notification helpers
+
+    // TODO: Price & Total calculation methods - need old app logic
+    private function calculateWorkerPrice($worker, $totalHours): float
+    {
+        // MISSING INFORMATION: Need old app code to understand how Цена is calculated
+        // Possible scenarios:
+        // - hourly_rate * total_hours
+        // - worker->neto_salary / working_days_in_month * working_days
+        // - Some combination with WorkPlaceActivity budget allocation
+        
+        // Placeholder calculation - replace with actual logic from old app
+        return $totalHours * 15.0; // Using fixed rate as placeholder
+    }
+
+    private function calculateWorkerTotal($worker, $totalHours): float
+    {
+        // MISSING INFORMATION: Need old app code to understand how Общо is calculated
+        // Questions:
+        // - Is Общо different from Цена?
+        // - Does it include bonuses, taxes, or other factors?
+        // - How does it relate to WorkPlaceActivity budget?
+        
+        // Placeholder calculation - replace with actual logic from old app
+        return $this->calculateWorkerPrice($worker, $totalHours); // Same as price for now
+    }
+
     private function showUnsavedChangesWarning() { Notification::make()->title('Незапазени промени')->body('Имате незапазени промени. Моля запазете ги преди да променяте месеца.')->warning()->send(); }
     private function showSuccessNotification($message) { Notification::make()->title('Успешно')->body($message)->success()->send(); }
     private function showWarningNotification($message) { Notification::make()->title('Внимание')->body($message)->warning()->send(); }

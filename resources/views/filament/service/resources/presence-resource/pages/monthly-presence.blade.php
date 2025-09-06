@@ -136,11 +136,20 @@
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider sticky left-0 bg-gray-50 dark:bg-gray-700">
-                                    Работник
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[120px]">
+                                    Длъжност
                                 </th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Общо
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[80px]">
+                                    Заплата
+                                </th>
+                                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[100px]">
+                                    Име
+                                </th>
+                                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[100px]">
+                                    Фамилия
+                                </th>
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[100px]">
+                                    ЕГН
                                 </th>
                                 @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                     @php
@@ -152,33 +161,47 @@
                                         <div class="text-xs font-normal">{{ $date->format('D') }}</div>
                                     </th>
                                 @endfor
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[80px]">
+                                    Цена
+                                </th>
+                                <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[80px]">
+                                    Общо
+                                </th>
                             </tr>
                         </thead>
                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             @foreach($monthlyData as $data)
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td class="px-6 py-4 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-800">
-                                        <div class="flex items-center justify-between">
-                                            <div>
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                    {{ $data['worker']->name }} {{ $data['worker']->family_name }}
-                                                </div>
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ $data['worker']->egn }}</div>
-                                            </div>
-                                            @if(!$isLocked)
-                                                <button wire:click="removeWorkerFromMonth({{ $data['worker']->id }})" 
-                                                        wire:confirm="Сигурни ли сте, че искате да премахнете {{ $data['worker']->name }} {{ $data['worker']->family_name }} от {{ $this->getMonthName() }}?"
-                                                        class="ml-2 p-1 text-red-400 hover:text-red-600"
-                                                        title="Премахни от месеца">
-                                                    <x-heroicon-o-x-mark class="w-4 h-4" />
-                                                </button>
-                                            @endif
+                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                        <div class="text-sm text-gray-900 dark:text-gray-100">
+                                            {{ $data['worker']->position ?? '-' }}
                                         </div>
                                     </td>
-                                    <td class="px-4 py-4 whitespace-nowrap text-center">
-                                        <span class="text-sm font-semibold text-green-600 dark:text-green-400">
-                                            {{ number_format($data['total_hours'], 1) }}
-                                        </span>
+                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                        <div class="text-sm text-gray-900 dark:text-gray-100">
+                                            {{ number_format($data['worker']->neto_salary ?? 0, 2) }}
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                            {{ $data['worker']->name }}
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                            {{ $data['worker']->family_name }}
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ $data['worker']->egn }}</div>
+                                        @if(!$isLocked)
+                                            <button wire:click="removeWorkerFromMonth({{ $data['worker']->id }})" 
+                                                    wire:confirm="Сигурни ли сте, че искате да премахнете {{ $data['worker']->name }} {{ $data['worker']->family_name }} от {{ $this->getMonthName() }}?"
+                                                    class="mt-1 p-1 text-red-400 hover:text-red-600"
+                                                    title="Премахни от месеца">
+                                                <x-heroicon-o-x-mark class="w-3 h-3" />
+                                            </button>
+                                        @endif
                                     </td>
                                     @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                         @php
@@ -209,6 +232,16 @@
                                             @endif
                                         </td>
                                     @endfor
+                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                        <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                            {{ number_format($data['calculated_price'] ?? 0, 2) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                        <span class="text-sm font-semibold text-green-600 dark:text-green-400">
+                                            {{ number_format($data['calculated_total'] ?? 0, 2) }}
+                                        </span>
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
