@@ -68,8 +68,14 @@
         {{-- Monthly Statistics --}}
         @if($monthlyData && $monthlyData->count() > 0)
             @php
-                $totalWorkers = $monthlyData->sum(function($group) { return $group['workers']->count(); });
-                $totalHours = $monthlyData->sum(function($group) { return $group['workers']->sum('total_hours'); });
+                $totalWorkers = $monthlyData->sum(function($group) { return count($group['workers']); });
+                $totalHours = $monthlyData->sum(function($group) { 
+                    $hours = 0;
+                    foreach($group['workers'] as $worker) {
+                        $hours += $worker['total_hours'];
+                    }
+                    return $hours;
+                });
                 $averageHours = $totalWorkers > 0 ? $totalHours / $totalWorkers : 0;
             @endphp
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
