@@ -67,11 +67,16 @@
 
         {{-- Monthly Statistics --}}
         @if($monthlyData && $monthlyData->count() > 0)
+            @php
+                $totalWorkers = $monthlyData->sum(function($group) { return $group['workers']->count(); });
+                $totalHours = $monthlyData->sum(function($group) { return $group['workers']->sum('total_hours'); });
+                $averageHours = $totalWorkers > 0 ? $totalHours / $totalWorkers : 0;
+            @endphp
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 @foreach([
-                    ['label' => 'Общо работници', 'value' => $monthlyData->count(), 'color' => 'gray'],
-                    ['label' => 'Общо часове', 'value' => number_format($monthlyData->sum('total_hours'), 1), 'color' => 'green'],
-                    ['label' => 'Средно часове/ден', 'value' => number_format($monthlyData->avg('average_hours'), 1), 'color' => 'blue'],
+                    ['label' => 'Общо работници', 'value' => $totalWorkers, 'color' => 'gray'],
+                    ['label' => 'Общо часове', 'value' => number_format($totalHours, 1), 'color' => 'green'],
+                    ['label' => 'Средно часове/ден', 'value' => number_format($averageHours, 1), 'color' => 'blue'],
                     ['label' => 'Дни в месеца', 'value' => $this->getDaysInMonth(), 'color' => 'indigo']
                 ] as $stat)
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -170,79 +175,120 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            @foreach($monthlyData as $data)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            @foreach($monthlyData as $activityGroup)
+                                {{-- Activity Group Header Row --}}
+                                <tr class="bg-gray-100 dark:bg-gray-700 font-semibold border-b-2 border-gray-300 dark:border-gray-600">
                                     <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <div class="text-sm text-gray-900 dark:text-gray-100">
-                                            {{ $data['worker']->position ?? '-' }}
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <div class="text-sm text-gray-900 dark:text-gray-100">
-                                            {{ number_format($data['worker']->neto_salary ?? 0, 2) }}
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                            {{ $data['worker']->name }}
-                                        </div>
-                                    </td>
-                                    <td class="px-3 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                            {{ $data['worker']->family_name }}
+                                        <div class="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                            {{ $activityGroup['activity_name'] }}
                                         </div>
                                     </td>
                                     <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ $data['worker']->egn }}</div>
-                                        @if(!$isLocked)
-                                            <button wire:click="removeWorkerFromMonth({{ $data['worker']->id }})" 
-                                                    wire:confirm="Сигурни ли сте, че искате да премахнете {{ $data['worker']->name }} {{ $data['worker']->family_name }} от {{ $this->getMonthName() }}?"
-                                                    class="mt-1 p-1 text-red-400 hover:text-red-600"
-                                                    title="Премахни от месеца">
-                                                <x-heroicon-o-x-mark class="w-3 h-3" />
-                                            </button>
-                                        @endif
+                                        <div class="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                            {{ number_format($activityGroup['activity_salary'], 0) }}
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                        <div class="text-sm font-bold text-gray-500 dark:text-gray-400">-</div>
+                                    </td>
+                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                        <div class="text-sm font-bold text-gray-500 dark:text-gray-400">-</div>
+                                    </td>
+                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                        <div class="text-sm font-bold text-gray-500 dark:text-gray-400">-</div>
                                     </td>
                                     @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                         @php
                                             $date = \Carbon\Carbon::create($year, $month, $day);
                                             $isWeekend = $date->isWeekend();
-                                            $workerId = $data['worker']->id;
-                                            $currentValue = $hoursData[$workerId][$day] ?? '';
-                                            $vacationInfo = $vacationData[$workerId][$day] ?? null;
                                         @endphp
-                                        <td class="px-1 py-2 whitespace-nowrap text-center {{ $isWeekend && !$vacationInfo ? 'bg-red-50 dark:bg-red-900/20' : '' }}">
-                                            @if($vacationInfo)
-                                                @php $vacInfo = $this->getVacationTypeInfo($vacationInfo['type']); @endphp
-                                                <div class="relative w-12 h-8 mx-auto rounded border flex items-center justify-center"
-                                                     style="{{ $vacInfo['style'] }}"
-                                                     title="{{ $vacInfo['label'] }}{{ $vacationInfo['comment'] ? ': ' . $vacationInfo['comment'] : '' }}">
-                                                    <span class="text-xs font-semibold">{{ $vacInfo['short'] }}</span>
-                                                </div>
-                                            @elseif($isLocked)
-                                                <div class="text-xs {{ $currentValue ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600' }}">
-                                                    {{ $currentValue ?: '-' }}
-                                                </div>
-                                            @else
-                                                <input type="number" 
-                                                       wire:model.live="hoursData.{{ $workerId }}.{{ $day }}"
-                                                       min="0" max="24" step="0.5"
-                                                       class="w-12 h-8 text-xs text-center border-gray-300 dark:border-gray-600 rounded focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                                       placeholder="-">
-                                            @endif
+                                        <td class="px-1 py-2 whitespace-nowrap text-center {{ $isWeekend ? 'bg-red-50 dark:bg-red-900/20' : '' }}">
+                                            <div class="text-xs font-bold text-gray-500 dark:text-gray-400">-</div>
                                         </td>
                                     @endfor
                                     <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                                            {{ number_format($data['calculated_price'] ?? 0, 2) }}
+                                        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                            {{ number_format($activityGroup['group_totals']['total_price'], 2) }}
                                         </span>
                                     </td>
                                     <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <span class="text-sm font-semibold text-green-600 dark:text-green-400">
-                                            {{ number_format($data['calculated_total'] ?? 0, 2) }}
+                                        <span class="text-sm font-bold text-green-600 dark:text-green-400">
+                                            {{ number_format($activityGroup['group_totals']['total_calculated'], 2) }}
                                         </span>
                                     </td>
                                 </tr>
+                                
+                                {{-- Individual Workers in this Activity --}}
+                                @foreach($activityGroup['workers'] as $data)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <td class="px-3 py-4 whitespace-nowrap text-center">
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">-</div>
+                                        </td>
+                                        <td class="px-3 py-4 whitespace-nowrap text-center">
+                                            <div class="text-sm text-gray-500 dark:text-gray-400">-</div>
+                                        </td>
+                                        <td class="px-3 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                {{ $data['worker']->name }}
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                {{ $data['worker']->family_name }}
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-4 whitespace-nowrap text-center">
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $data['worker']->egn }}</div>
+                                            @if(!$isLocked)
+                                                <button wire:click="removeWorkerFromMonth({{ $data['worker']->id }})" 
+                                                        wire:confirm="Сигурни ли сте, че искате да премахнете {{ $data['worker']->name }} {{ $data['worker']->family_name }} от {{ $this->getMonthName() }}?"
+                                                        class="mt-1 p-1 text-red-400 hover:text-red-600"
+                                                        title="Премахни от месеца">
+                                                    <x-heroicon-o-x-mark class="w-3 h-3" />
+                                                </button>
+                                            @endif
+                                        </td>
+                                        @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
+                                            @php
+                                                $date = \Carbon\Carbon::create($year, $month, $day);
+                                                $isWeekend = $date->isWeekend();
+                                                $workerId = $data['worker']->id;
+                                                $currentValue = $hoursData[$workerId][$day] ?? '';
+                                                $vacationInfo = $vacationData[$workerId][$day] ?? null;
+                                            @endphp
+                                            <td class="px-1 py-2 whitespace-nowrap text-center {{ $isWeekend && !$vacationInfo ? 'bg-red-50 dark:bg-red-900/20' : '' }}">
+                                                @if($vacationInfo)
+                                                    @php $vacInfo = $this->getVacationTypeInfo($vacationInfo['type']); @endphp
+                                                    <div class="relative w-12 h-8 mx-auto rounded border flex items-center justify-center"
+                                                         style="{{ $vacInfo['style'] }}"
+                                                         title="{{ $vacInfo['label'] }}{{ $vacationInfo['comment'] ? ': ' . $vacationInfo['comment'] : '' }}">
+                                                        <span class="text-xs font-semibold">{{ $vacInfo['short'] }}</span>
+                                                    </div>
+                                                @elseif($isLocked)
+                                                    <div class="text-xs {{ $currentValue ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600' }}">
+                                                        {{ $currentValue ?: '-' }}
+                                                    </div>
+                                                @else
+                                                    <input type="number" 
+                                                           wire:model.live="hoursData.{{ $workerId }}.{{ $day }}"
+                                                           min="0" max="24" step="0.5"
+                                                           class="w-12 h-8 text-xs text-center border-gray-300 dark:border-gray-600 rounded focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                                           placeholder="-">
+                                                @endif
+                                            </td>
+                                        @endfor
+                                        <td class="px-3 py-4 whitespace-nowrap text-center">
+                                            <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                                {{ number_format($data['calculated_price'] ?? 0, 2) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-3 py-4 whitespace-nowrap text-center">
+                                            <span class="text-sm font-semibold text-green-600 dark:text-green-400">
+                                                {{ number_format($data['calculated_total'] ?? 0, 2) }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @endforeach
                             @endforeach
                         </tbody>
                     </table>

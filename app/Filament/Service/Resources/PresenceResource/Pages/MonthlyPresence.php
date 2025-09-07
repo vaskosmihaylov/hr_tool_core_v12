@@ -312,9 +312,10 @@ class MonthlyPresence extends Page
             ->distinct()
             ->pluck('worker_id');
 
-        // Group workers by position and sort within each group
+        // Get workers with their WorkPlaceActivity relationships
         $workers = Worker::whereIn('id', $workerIdsWithRecords)
             ->where('status', Worker::WORKER_ACTIVE)
+            ->with('workPlaceActivity')
             ->orderBy('position')
             ->orderBy('name')
             ->orderBy('family_name')
@@ -326,13 +327,43 @@ class MonthlyPresence extends Page
             ->get()
             ->groupBy('worker_id');
 
-        // Create grouped data structure
-        $groupedData = collect();
-        $currentPosition = null;
+        // Group workers by WorkPlaceActivity - using arrays, not collections
+        $groupedByActivity = [];
         
         foreach ($workers as $worker) {
             $workerRecords = $records->get($worker->id, collect());
+            
+            // Get the worker's activity for this month/workplace
+            $activity = $worker->workPlaceActivity;
+            
+            // If no specific activity found, try to get from worker records
+            if (!$activity && $workerRecords->isNotEmpty()) {
+                $activity = $workerRecords->first()->activity;
+            }
+            
+            // Use position as fallback if no activity found
+            $activityKey = $activity ? $activity->id : 'position_' . $worker->position;
+            $activityName = $activity ? $activity->activity : $worker->position;
+            
+            // Initialize activity group if not exists - using arrays
+            if (!isset($groupedByActivity[$activityKey])) {
+                $groupedByActivity[$activityKey] = [
+                    'activity' => $activity,
+                    'activity_name' => $activityName,
+                    'activity_salary' => $activity ? ($activity->neto_salary + $activity->social_plus) : 0,
+                    'workers' => [], // Use array instead of collection
+                    'group_totals' => [
+                        'total_price' => 0,
+                        'total_hours' => 0,
+                        'total_calculated' => 0
+                    ]
+                ];
+            }
+            
+            // Calculate worker data
             $totalHours = $workerRecords->sum('hours');
+            $calculatedPrice = $this->calculateWorkerPrice($worker, $totalHours);
+            $calculatedTotal = $this->calculateWorkerTotal($worker, $totalHours);
             
             $workerData = [
                 'worker' => $worker,
@@ -340,15 +371,21 @@ class MonthlyPresence extends Page
                 'working_days' => $workerRecords->count(),
                 'average_hours' => $this->calculateAverageHours($workerRecords),
                 'records' => $workerRecords->keyBy(fn($record) => Carbon::parse($record->date)->day),
-                // TODO: These calculations need implementation based on old app logic
-                'calculated_price' => $this->calculateWorkerPrice($worker, $totalHours),
-                'calculated_total' => $this->calculateWorkerTotal($worker, $totalHours),
+                'calculated_price' => $calculatedPrice,
+                'calculated_total' => $calculatedTotal,
             ];
             
-            $groupedData->push($workerData);
+            // Add worker to activity group - array push
+            $groupedByActivity[$activityKey]['workers'][] = $workerData;
+            
+            // Update group totals
+            $groupedByActivity[$activityKey]['group_totals']['total_price'] += $calculatedPrice;
+            $groupedByActivity[$activityKey]['group_totals']['total_hours'] += $totalHours;
+            $groupedByActivity[$activityKey]['group_totals']['total_calculated'] += $calculatedTotal;
         }
 
-        $this->monthlyData = $groupedData;
+        // Convert back to collection for consistency with rest of the app
+        $this->monthlyData = collect($groupedByActivity);
     }
 
     private function loadBudgetInfo(): void
@@ -442,15 +479,18 @@ class MonthlyPresence extends Page
         
         if (!$this->monthlyData) return;
 
-        foreach ($this->monthlyData as $data) {
-            $workerId = $data['worker']->id;
-            $this->hoursData[$workerId] = [];
-            
-            for ($day = 1; $day <= $this->getDaysInMonth(); $day++) {
-                if (isset($this->vacationData[$workerId][$day])) continue;
+        foreach ($this->monthlyData as $activityGroup) {
+            // Access workers as array since we're using arrays inside collections
+            foreach ($activityGroup['workers'] as $data) {
+                $workerId = $data['worker']->id;
+                $this->hoursData[$workerId] = [];
                 
-                $dayRecord = $data['records']->get($day);
-                $this->hoursData[$workerId][$day] = $dayRecord ? $dayRecord->hours : null;
+                for ($day = 1; $day <= $this->getDaysInMonth(); $day++) {
+                    if (isset($this->vacationData[$workerId][$day])) continue;
+                    
+                    $dayRecord = $data['records']->get($day);
+                    $this->hoursData[$workerId][$day] = $dayRecord ? $dayRecord->hours : null;
+                }
             }
         }
     }
@@ -554,7 +594,14 @@ class MonthlyPresence extends Page
     {
         if (!$this->monthlyData) return 0;
         
-        return $this->monthlyData->sum(fn($data) => $data['total_hours'] * 15); // TODO: Use actual worker rates
+        return $this->monthlyData->sum(function($activityGroup) {
+            // Calculate sum from array of workers
+            $total = 0;
+            foreach ($activityGroup['workers'] as $workerData) {
+                $total += $workerData['calculated_price'];
+            }
+            return $total;
+        });
     }
 
     private function reloadData(): void
