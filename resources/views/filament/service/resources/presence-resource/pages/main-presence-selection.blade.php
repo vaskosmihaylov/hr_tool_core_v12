@@ -1,4 +1,16 @@
 <x-filament-panels::page>
+    <style>
+        .force-green-button {
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+            border: 3px solid #16a34a !important;
+            color: white !important;
+            box-shadow: 0 10px 30px rgba(34, 197, 94, 0.3) !important;
+        }
+        .force-green-button:hover {
+            transform: scale(1.05) !important;
+            box-shadow: 0 15px 40px rgba(34, 197, 94, 0.5) !important;
+        }
+    </style>
     <div class="space-y-6">
         {{-- Welcome Header --}}
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg shadow p-8">
@@ -61,7 +73,20 @@
                 {{-- Submit Button --}}
                 <div class="flex justify-center pt-4">
                     <button type="submit" 
-                            class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important; 
+                                   border: 3px solid #16a34a !important; 
+                                   color: white !important; 
+                                   box-shadow: 0 10px 30px rgba(34, 197, 94, 0.3) !important;
+                                   font-weight: 900 !important;
+                                   font-size: 1.25rem !important;
+                                   padding: 1.25rem 2.5rem !important;
+                                   border-radius: 0.75rem !important;
+                                   transition: all 0.3s ease !important;
+                                   display: inline-flex !important;
+                                   align-items: center !important;"
+                            onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 15px 40px rgba(34, 197, 94, 0.5)'"
+                            onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 10px 30px rgba(34, 197, 94, 0.3)'"
+                            class="force-green-button inline-flex items-center">
                         <x-heroicon-o-cog class="h-5 w-5 mr-2" />
                         Конфигурирай месеца
                     </button>
@@ -69,56 +94,7 @@
             </form>
         </div>
 
-        {{-- Success Stats --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <x-heroicon-o-building-office class="h-8 w-8 text-blue-500" />
-                    </div>
-                    <div class="ml-4">
-                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Достъпни обекти
-                        </div>
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {{ count($workplaces) }}
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <x-heroicon-o-calendar class="h-8 w-8 text-green-500" />
-                    </div>
-                    <div class="ml-4">
-                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Текущ месец
-                        </div>
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {{ $this->getBulgarianMonthName(now()->format('m')) }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <x-heroicon-o-user class="h-8 w-8 text-purple-500" />
-                    </div>
-                    <div class="ml-4">
-                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Потребител
-                        </div>
-                        <div class="text-lg font-bold text-gray-900 dark:text-gray-100">
-                            {{ ucfirst(auth()->user()->roles->first()?->name ?? 'User') }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         {{-- Instructions --}}
         <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">

@@ -35,22 +35,26 @@ class ApprovementResource extends Resource implements HasShieldPermissions
                 Forms\Components\Select::make('work_place_id')
                     ->label('Обект')
                     ->relationship('workplace', 'name')
+                    ->disabled(fn ($record) => $record && $record->exists) // Read-only for auto-generated
                     ->required()
                     ->searchable()
                     ->preload(),
                     
                 Forms\Components\DatePicker::make('date')
                     ->label('Дата')
+                    ->disabled(fn ($record) => $record && $record->exists) // Read-only for auto-generated
                     ->required()
                     ->default(now()),
                     
                 Forms\Components\TextInput::make('sum_above_budget')
                     ->label('Надвишение бюджет')
+                    ->disabled(fn ($record) => $record && $record->exists) // Read-only for auto-generated
                     ->numeric()
                     ->prefix('BGN'),
                     
                 Forms\Components\Select::make('type_id')
                     ->label('Клиент надвишен')
+                    ->disabled(fn ($record) => $record && $record->exists) // Read-only for auto-generated
                     ->options([
                         0 => 'Заместване',
                         1 => 'Не',
@@ -183,7 +187,8 @@ class ApprovementResource extends Resource implements HasShieldPermissions
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('date', 'desc');
+            ->modifyQueryUsing(fn ($query) => $query->orderBy('status', 'asc')->orderBy('created_at', 'desc'))
+            ->defaultSort('status', 'asc'); // "Нов" (0) appears first, then by newest created_at
     }
 
     public static function getRelations(): array
@@ -197,8 +202,7 @@ class ApprovementResource extends Resource implements HasShieldPermissions
     {
         return [
             'index' => Pages\ListApprovements::route('/'),
-            'create' => Pages\CreateApprovement::route('/create'),
-
+            // 'create' => Pages\CreateApprovement::route('/create'), // Removed - auto-generated only
             'edit' => Pages\EditApprovement::route('/{record}/edit'),
         ];
     }

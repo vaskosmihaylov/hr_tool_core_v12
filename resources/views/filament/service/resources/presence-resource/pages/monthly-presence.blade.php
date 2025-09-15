@@ -35,36 +35,6 @@
             </div>
         </div>
 
-        {{-- Budget Information --}}
-        @if($budgetInfo)
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center">
-                    <x-heroicon-o-currency-dollar class="w-5 h-5 mr-2 text-green-500" />
-                    Бюджетна информация
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    @foreach([
-                        ['label' => 'Бюджет', 'value' => $budgetInfo['budget'], 'color' => 'blue', 'suffix' => ' лв'],
-                        ['label' => 'Изразходени', 'value' => $budgetInfo['actual'], 'color' => 'green', 'suffix' => ' лв'],
-                        ['label' => 'Остават', 'value' => $budgetInfo['remaining'], 'color' => $budgetInfo['remaining'] >= 0 ? 'purple' : 'red', 'suffix' => ' лв'],
-                        ['label' => 'Използвани', 'value' => $budgetInfo['percentage'], 'color' => 'gray', 'suffix' => '%', 'progress' => true]
-                    ] as $item)
-                        <div class="bg-{{ $item['color'] }}-50 dark:bg-{{ $item['color'] }}-900/20 rounded-lg p-4">
-                            <div class="text-sm font-medium text-{{ $item['color'] }}-600 dark:text-{{ $item['color'] }}-400">{{ $item['label'] }}</div>
-                            <div class="text-2xl font-bold text-{{ $item['color'] }}-900 dark:text-{{ $item['color'] }}-100">
-                                {{ number_format($item['value'], $item['suffix'] === '%' ? 1 : 2) }}{{ $item['suffix'] }}
-                            </div>
-                            @if(isset($item['progress']))
-                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                    <div class="bg-blue-600 h-2 rounded-full" style="width: {{ min($item['value'], 100) }}%"></div>
-                                </div>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
         {{-- Monthly Statistics --}}
         @if($monthlyData && $monthlyData->count() > 0)
             @php
@@ -123,13 +93,7 @@
                             Редактируема таблица за {{ $this->getMonthName() }}
                         </h3>
                         <div class="flex space-x-2">
-                            @if(!$isLocked && count($availableWorkers) > 0)
-                                <button wire:click="openWorkerManagement" 
-                                        class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <x-heroicon-o-plus class="w-4 h-4 mr-1" />
-                                    Добави работници
-                                </button>
-                            @endif
+
                             @if(!$isLocked)
                                 <button wire:click="saveHours" 
                                         @disabled(!$hasUnsavedChanges)

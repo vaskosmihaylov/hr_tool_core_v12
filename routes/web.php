@@ -92,3 +92,5 @@ Route::get('/service/presence/addWorker/{object_id}/{selected_month}', function 
         ->with('open_worker_modal', true)
         ->with('success', 'Можете да добавите работник за избрания месец');
 })->middleware(['web', 'auth'])->name('service.presence.add-worker');
+
+

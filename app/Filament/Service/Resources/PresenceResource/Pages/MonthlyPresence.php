@@ -15,6 +15,8 @@ use Viki\Service\Models\Elequent\VikiUser;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use viki\Service\Models\Elequent\Approvement;
+use viki\Service\Models\Elequent\SpecialDay;
 
 class MonthlyPresence extends Page
 {
@@ -30,7 +32,6 @@ class MonthlyPresence extends Page
     public $workplaces;
     public $monthlyData;
     public $workplaceData;
-    public $budgetInfo;
     public $activities;
     public $vacationData = [];
     public $availableWorkers = [];
@@ -106,12 +107,35 @@ class MonthlyPresence extends Page
     {
         try {
             DB::beginTransaction();
-            $this->processHoursData();
+            
+            // Process the hours data and prepare for budget checking
+            $processedData = $this->prepareHoursDataForBudgetCheck();
+            
+            // Check if the changes exceed budget
+            $budgetCheck = $this->checkIfInBudget($processedData);
+            
+            if ($budgetCheck['inBudget'] === true) {
+                // Within budget - save all records as approved
+                $this->processHoursData();
+                
+            } else {
+                // Budget exceeded - create approval request
+                $approvalId = $this->createApproveRequest($budgetCheck['overBudget']);
+                
+                // Save records with proper approval handling
+                $this->processHoursDataWithApproval($processedData, $budgetCheck, $approvalId);
+            }
+            
             DB::commit();
             
             $this->hasUnsavedChanges = false;
             $this->reloadData();
-            $this->showSuccessNotification('Часовете са запазени успешно.');
+            
+            if ($budgetCheck['inBudget'] === false) {
+                $this->showWarningNotification("Часовете са запазени, но надвишават бюджета с {$budgetCheck['overBudget']} лв. Създадено е искане за одобрение. Можете да го видите в секция 'Одобрения'.");
+            } else {
+                $this->showSuccessNotification('Часовете са запазени успешно в рамките на бюджета.');
+            }
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -277,7 +301,6 @@ class MonthlyPresence extends Page
         }
 
         $this->workplaceData = WorkPlace::with('region', 'client')->find($this->workplace);
-        $this->loadBudgetInfo();
         $this->loadActivities();
         $this->loadVacationData();
         $this->loadAvailableWorkers();
@@ -388,26 +411,7 @@ class MonthlyPresence extends Page
         $this->monthlyData = collect($groupedByActivity);
     }
 
-    private function loadBudgetInfo(): void
-    {
-        if (!$this->workplaceData) return;
 
-        $monthDate = sprintf('%02d-%d', $this->month, $this->year);
-        
-        try {
-            $budget = $this->workplaceData->getBudgetByDate($monthDate) ?? 0;
-            $actualSpending = $this->calculateActualSpending();
-            
-            $this->budgetInfo = [
-                'budget' => $budget,
-                'actual' => $actualSpending,
-                'remaining' => $budget - $actualSpending,
-                'percentage' => $budget > 0 ? ($actualSpending / $budget) * 100 : 0,
-            ];
-        } catch (\Exception $e) {
-            $this->budgetInfo = ['budget' => 0, 'actual' => 0, 'remaining' => 0, 'percentage' => 0];
-        }
-    }
 
     private function loadActivities(): void
     {
@@ -590,19 +594,7 @@ class MonthlyPresence extends Page
         return $count > 0 ? round($records->sum('hours') / $count, 2) : 0;
     }
 
-    private function calculateActualSpending(): float
-    {
-        if (!$this->monthlyData) return 0;
-        
-        return $this->monthlyData->sum(function($activityGroup) {
-            // Calculate sum from array of workers
-            $total = 0;
-            foreach ($activityGroup['workers'] as $workerData) {
-                $total += $workerData['calculated_price'];
-            }
-            return $total;
-        });
-    }
+
 
     private function reloadData(): void
     {
@@ -619,7 +611,7 @@ class MonthlyPresence extends Page
     private function getLockAction() { return Actions\Action::make('lock_month')->label('Заключи месеца')->icon('heroicon-o-lock-closed')->color('warning')->action('lockMonth')->visible(fn () => !$this->isLocked && Auth::user()->hasRole(['admin', 'super_admin', 'manager']))->requiresConfirmation()->modalHeading('Заключване на месеца')->modalDescription('Сигурни ли сте, че искате да заключите този месец?'); }
     private function getUnlockAction() { return Actions\Action::make('unlock_month')->label('Отключи месеца')->icon('heroicon-o-lock-open')->color('danger')->action('unlockMonth')->visible(fn () => $this->isLocked && Auth::user()->hasRole(['admin', 'super_admin']))->requiresConfirmation()->modalHeading('Отключване на месеца')->modalDescription('Сигурни ли сте, че искате да отключите този месец?'); }
     private function getExportAction() { return Actions\Action::make('export_monthly_excel')->label('Експорт Excel')->icon('heroicon-o-table-cells')->color('info')->action(fn () => $this->exportMonthlyExcel()); }
-    private function getManageWorkersAction() { return Actions\Action::make('manage_workers')->label('Управление работници')->icon('heroicon-o-users')->color('secondary')->action('openWorkerManagement'); }
+    private function getManageWorkersAction() { return Actions\Action::make('manage_workers')->label('Управление работници')->icon('heroicon-o-users')->color('warning')->action('openWorkerManagement'); }
 
     // Notification helpers
 
@@ -652,4 +644,328 @@ class MonthlyPresence extends Page
     private function showSuccessNotification($message) { Notification::make()->title('Успешно')->body($message)->success()->send(); }
     private function showWarningNotification($message) { Notification::make()->title('Внимание')->body($message)->warning()->send(); }
     private function showErrorNotification($message) { Notification::make()->title('Грешка')->body($message)->danger()->send(); }
+
+    // Budget checking methods (ported from PresenceController)
+    private function prepareHoursDataForBudgetCheck(): array
+    {
+        $userData = [];
+        
+        foreach ($this->hoursData as $workerId => $days) {
+            foreach ($days as $day => $hours) {
+                if ($hours !== null && $hours !== '' && $hours > 0) {
+                    // Find the worker's activity for this workplace
+                    $worker = Worker::find($workerId);
+                    $workPlaceActivityId = $this->getWorkerActivityId($worker);
+                    
+                    $userData[] = [
+                        'workPlaceActivityId' => $workPlaceActivityId,
+                        'workerId' => $workerId,
+                        'day' => $day,
+                        'hours' => (float)$hours
+                    ];
+                }
+            }
+        }
+        
+        return $userData;
+    }
+    
+    private function getWorkerActivityId($worker): int
+    {
+        // Try to find the worker's current activity for this workplace
+        $activity = WorkPlaceActivity::where('work_place_id', $this->workplace)
+            ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
+            ->first();
+            
+        if (!$activity) {
+            // Create a default activity if none exists using the correct method signature
+            $activity = WorkPlaceActivity::create([
+                'activity' => $worker->position ?: 'Стандартна дейност',
+                'neto_salary' => 800, // Default salary
+                'social_plus' => 200, // Default social
+                'worker_count' => 1,
+                'type_working' => WorkPlaceActivity::WORKING_STANDART,
+            ], $this->workplace, sprintf('%04d-%02d-01', $this->year, $this->month));
+        }
+        
+        return $activity->id;
+    }
+
+    private function checkIfInBudget($extraData): array
+    {
+        $dateString = sprintf('%02d-%d', $this->month, $this->year);
+        
+        $workPlaceActivities = WorkPlaceActivity::where('work_place_id', $this->workplace)
+            ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
+            ->get();
+
+        $workPlaceActivityUsedBudget = [];
+        $workPlaceActivityCostForHour = [];
+        $workPlaceActivityBudgetBeforeChange = [];
+        $extraDataNegativeValueKeys = [];
+
+        foreach ($workPlaceActivities as $workPlaceActivity) {
+            $workPlaceActivityWorkers = $this->getWorkPlaceActivityWorkersByDate($workPlaceActivity, $dateString);
+
+            $workPlaceActivityUsedWorkingHours = 0;
+            $workPlaceActivityBudgetBeforeChangeHours = 0;
+
+            foreach ($workPlaceActivityWorkers as $workPlaceActivityWorker) {
+                foreach ($workPlaceActivityWorker->workerRecords as $workerRecord) {
+                    $dataIsCalculated = false;
+
+                    foreach ($extraData as $key => $extraDatum) {
+                        if ($extraDatum['workPlaceActivityId'] == $workPlaceActivity->id
+                            && $extraDatum['workerId'] == $workerRecord->worker_id
+                            && sprintf('%04d-%02d-%02d', $this->year, $this->month, $extraDatum['day']) == $workerRecord->date
+                        ) {
+                            $workPlaceActivityUsedWorkingHours += $extraDatum['hours'];
+                            $dataIsCalculated = true;
+
+                            if ($extraDatum['hours'] < $workerRecord->hours) {
+                                $extraDataNegativeValueKeys[] = $key;
+                            }
+                            unset($extraData[$key]);
+                        }
+                    }
+                    $workPlaceActivityBudgetBeforeChangeHours += $workerRecord->hours;
+
+                    if (!$dataIsCalculated) {
+                        $workPlaceActivityUsedWorkingHours += $workerRecord->hours;
+                    }
+                }
+            }
+
+            foreach ($extraData as $key => $extraDatum) {
+                if ($extraDatum['workPlaceActivityId'] == $workPlaceActivity->id) {
+                    $workPlaceActivityUsedWorkingHours += $extraDatum['hours'];
+                }
+            }
+
+            $hourCost = $this->getHourCostOnWorkPlaceActivityByDate($workPlaceActivity, $dateString);
+            $workPlaceActivityCostForHour[$workPlaceActivity->id] = $hourCost;
+            $workPlaceActivityUsedBudget[$workPlaceActivity->id] = $workPlaceActivityUsedWorkingHours * $hourCost;
+            $workPlaceActivityBudgetBeforeChange[$workPlaceActivity->id] = $workPlaceActivityBudgetBeforeChangeHours * $hourCost;
+        }
+
+        $workPlace = WorkPlace::with(['overBudget' => function($q) use($dateString) {
+            $q->where('viki_workplace_month_budget.date', sprintf('%04d-%02d-01', $this->year, $this->month));
+        }])->find($this->workplace);
+
+        $workPlaceBudget = $workPlace->getBudgetByDate($dateString);
+
+        if ($workPlace->overBudget->count() > 0) {
+            $workPlaceBudget = $workPlaceBudget + $workPlace->overBudget->first()->sum_up;
+        }
+
+        if ($workPlaceBudget < array_sum($workPlaceActivityUsedBudget)) {
+            return [
+                'inBudget' => false,
+                'overBudget' => $this->round_up(array_sum($workPlaceActivityUsedBudget) - $workPlaceBudget, 2),
+                'budget' => $workPlaceBudget,
+                'workPlaceActivityCostForHour' => $workPlaceActivityCostForHour,
+                'freeBudgetBeforeChange' => $workPlaceBudget - array_sum($workPlaceActivityBudgetBeforeChange),
+                'dataNegativeValueKeys' => $extraDataNegativeValueKeys
+            ];
+        }
+
+        return ['inBudget' => true];
+    }
+
+    private function createApproveRequest($overBudget): int
+    {
+        $approveRequest = new \viki\Service\Models\Elequent\Approvement();
+        $approveRequest->work_place_id = $this->workplace;
+        $approveRequest->date = sprintf('%04d-%02d-01', $this->year, $this->month);
+        $approveRequest->creator_id = Auth::user()->id;
+        $approveRequest->status = \viki\Service\Models\Elequent\Approvement::STATUS_NEW;
+        $approveRequest->type_id = \viki\Service\Models\Elequent\Approvement::TYPE_APPR_OBJECT;
+        $approveRequest->sum_above_budget = $overBudget;
+
+        $approveRequest->save();
+
+        // Send notification emails to managers
+        $workPlace = WorkPlace::find($this->workplace);
+        $regions = $workPlace->region()->get();
+
+        foreach ($regions as $region) {
+            $managers = $region->managers()->get();
+
+            foreach ($managers as $manager) {
+                $mail = \Illuminate\Support\Facades\Mail::to($manager->email);
+                $mail->send(new \viki\Service\Mail\VikiRequestAction([
+                    'reason' => 'повишаване на бюджета',
+                    'workerplace' => $workPlace->name,
+                    'userWhoTriggerChange' => Auth::user()->name,
+                    'link' => route('service.approvement')
+                ]));
+            }
+        }
+
+        return $approveRequest->id;
+    }
+
+    private function processHoursDataWithApproval($processedData, $budgetCheck, $approvalId): void
+    {
+        $remainingFreeBudget = $budgetCheck['freeBudgetBeforeChange'];
+        
+        foreach ($this->hoursData as $workerId => $days) {
+            foreach ($days as $day => $hours) {
+                if (isset($this->vacationData[$workerId][$day])) continue;
+                
+                $date = Carbon::create($this->year, $this->month, $day);
+                
+                if ($hours !== null && $hours !== '') {
+                    // Determine if this record should be approved or waiting
+                    $status = $this->determineRecordStatus($workerId, $day, $hours, $budgetCheck, $remainingFreeBudget);
+                    $this->createOrUpdateRecordWithStatus($workerId, $date, $hours, $status, $approvalId);
+                } else {
+                    $this->deleteRecord($workerId, $date);
+                }
+            }
+        }
+    }
+
+    private function determineRecordStatus($workerId, $day, $hours, $budgetCheck, &$remainingFreeBudget): int
+    {
+        // Calculate cost for this record
+        $activityId = $this->getWorkerActivityId(Worker::find($workerId));
+        $hourCost = $budgetCheck['workPlaceActivityCostForHour'][$activityId] ?? 15.0;
+        $recordCost = $hours * $hourCost;
+        
+        // If we have enough free budget, approve and subtract from remaining
+        if ($remainingFreeBudget >= $recordCost) {
+            $remainingFreeBudget -= $recordCost;
+            return WorkerRecord::WORKER_RECORD_APPROVED;
+        }
+        
+        // Not enough budget - set as waiting for approval
+        return WorkerRecord::WORKER_RECORD_WAITING;
+    }
+
+    private function createOrUpdateRecordWithStatus($workerId, $date, $hours, $status, $approvalId = null): void
+    {
+        $workerRecordData = [
+            'hours' => $hours,
+            'day_count' => 0,
+            'status' => $status,
+            'start_date' => date("Y-m-d"),
+            'end_date' => date("Y-m-d"),
+            'creator_id' => Auth::id()
+        ];
+
+        if ($status !== WorkerRecord::WORKER_RECORD_WAITING) {
+            $workerRecordData['old_value'] = $hours;
+        }
+
+        if ($approvalId && $status === WorkerRecord::WORKER_RECORD_WAITING) {
+            $workerRecordData['approvement_id'] = $approvalId;
+        }
+
+        WorkerRecord::updateOrCreate(
+            [
+                'worker_id' => $workerId,
+                'work_place_id' => $this->workplace,
+                'date' => $date
+            ],
+            $workerRecordData
+        );
+    }
+
+    // Helper methods ported from PresenceController
+    private function getHourCostOnWorkPlaceActivityByDate($workPlaceActivity, $date): float
+    {
+        $workPlaceActivityWorkingHours = $this->getActivityWorkingHoursForDate($workPlaceActivity, $date);
+
+        if ($workPlaceActivityWorkingHours === 0) {
+            return 0;
+        }
+
+        return ($workPlaceActivity->neto_salary + $workPlaceActivity->social_plus) / $workPlaceActivityWorkingHours;
+    }
+
+    private function getActivityWorkingHoursForDate($workPlaceActivity, $date): float
+    {
+        $workPlaceActivityHours = $workPlaceActivity
+            ->hours()
+            ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
+            ->first();
+
+        if ($workPlaceActivityHours) {
+            return $workPlaceActivityHours->hours_for_person;
+        } else if ($workPlaceActivity->type_working == WorkPlaceActivity::WORKING_STANDART) {
+            return (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * 8;
+        }
+
+        return 0;
+    }
+
+    private function getWorkPlaceActivityWorkersByDate($workPlaceActivity, $date)
+    {
+        $temporaryWorkers = $workPlaceActivity
+            ->temporaryWorkers()->with([
+                "workerRecords" => function($q) use($workPlaceActivity, $date) {
+                    $q->where('viki_worker_records.work_place_activity_id', '=', $workPlaceActivity->id);
+                    $q->where('date', 'like', sprintf('%04d-%02d-%%', $this->year, $this->month));
+                }
+            ])
+            ->wherePivot('date', sprintf('%04d-%02d-01', $this->year, $this->month))
+            ->get();
+
+        return Worker::whereHas('workPlaceActivity', function ($q) use ($workPlaceActivity) {
+                $q->where('id', '=', $workPlaceActivity->id);
+            })->with([
+                "workerRecords" => function($q) use($workPlaceActivity, $date) {
+                    $q->where('viki_worker_records.work_place_activity_id', '=', $workPlaceActivity->id);
+                    $q->where('date', 'like', sprintf('%04d-%02d-%%', $this->year, $this->month));
+                }
+            ])
+            ->get()
+            ->merge($temporaryWorkers);
+    }
+
+    private function getAllNonWorkingDays($month, $year): array
+    {
+        $specialDays = $this->getSpecialDays($month, $year);
+        $weekDays = $this->getWeekDays($month, $year);
+
+        if ($specialDays) {
+            foreach ($specialDays as $specialDay) {
+                if (!in_array($specialDay, $weekDays)) {
+                    $weekDays[] = $specialDay;
+                }
+            }
+        }
+
+        return $weekDays;
+    }
+
+    private function getSpecialDays($month, $year): array
+    {
+        $specialDays = \viki\Service\Models\Elequent\SpecialDay::where('date', 'like', sprintf('%04d-%02d-%%', $year, $month))->get();
+
+        $specialDaysArr = [];
+        foreach ($specialDays as $specialDay) {
+            $specialDaysArr[] = (int)substr($specialDay->date, strrpos($specialDay->date, '-') + 1);
+        }
+
+        return $specialDaysArr;
+    }
+
+    private function getWeekDays($month, $year): array
+    {
+        $weekDays = [];
+        foreach (range(1, cal_days_in_month(CAL_GREGORIAN, $month, $year)) as $day) {
+            if (date('N', strtotime($day . '-' . $month . '-' . $year)) >= 6) {
+                $weekDays[] = $day;
+            }
+        }
+        return $weekDays;
+    }
+
+    private function round_up($value, $precision): float
+    {
+        $pow = pow(10, $precision);
+        return (ceil($pow * $value) + ceil($pow * $value - ceil($pow * $value))) / $pow;
+    }
 }

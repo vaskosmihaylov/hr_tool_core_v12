@@ -13,7 +13,7 @@ class ListApprovements extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            // No create action - approvals are auto-generated only when budget is exceeded
         ];
     }
 }
