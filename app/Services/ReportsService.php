@@ -441,11 +441,4 @@ class ReportsService
         return 'reports:' . md5(serialize($keyData));
     }
 
-    /**
-     * Clear report cache (useful for testing)
-     */
-    public function clearCache(): void
-    {
-        Cache::flush(); // In production, you might want to be more selective
-    }
 }

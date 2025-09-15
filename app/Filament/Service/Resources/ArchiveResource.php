@@ -139,25 +139,41 @@ class ArchiveResource extends Resource implements HasShieldPermissions
             ])
             ->defaultSort('date', 'desc')
             ->modifyQueryUsing(function (Builder $query) {
-                $user = Auth::user();
+                $user = auth()->user();
                 
-                // Apply role-based filtering
-                if ($user->hasRole('manager')) {
-                    $regionIds = \viki\Service\Models\Elequent\VikiUser::getCurrentUserRegionId($user->id);
-                    $workplaceIds = WorkPlace::where('status', WorkPlace::WORK_PLACE_ACTIVE)
-                        ->whereIn('region_id', $regionIds)
-                        ->pluck('id');
-                    
-                    return $query->whereIn('work_place_id', $workplaceIds);
-                } elseif ($user->hasRole('supervisor')) {
-                    $vikiUser = \viki\Service\Models\Elequent\VikiUser::find($user->id);
-                    $workplaceIds = $vikiUser->workPlaces()->pluck('viki_work_place.id');
-                    
-                    return $query->whereIn('work_place_id', $workplaceIds);
+                if (!$user) {
+                    return $query->whereRaw('1 = 0');
                 }
                 
-                // Admin sees all archives
-                return $query;
+                $userRoles = $user->roles->pluck('name')->toArray();
+                
+                // Admin and Super Admin see all archives
+                if (in_array('admin', $userRoles) || in_array('super_admin', $userRoles)) {
+                    return $query;
+                }
+                
+                // Manager sees archives only in their region
+                if (in_array('manager', $userRoles)) {
+                    $managerRegions = $user->regions->pluck('id')->toArray();
+                    if (!empty($managerRegions)) {
+                        $workplaceIds = WorkPlace::where('status', 0) // WORK_PLACE_ACTIVE = 0
+                            ->whereIn('region_id', $managerRegions)
+                            ->pluck('id');
+                        
+                        return $query->whereIn('work_place_id', $workplaceIds);
+                    }
+                }
+                
+                // Supervisor sees archives only for their workplaces
+                if (in_array('supervisor', $userRoles)) {
+                    $supervisorWorkplaces = $user->workPlaces->pluck('id')->toArray();
+                    if (!empty($supervisorWorkplaces)) {
+                        return $query->whereIn('work_place_id', $supervisorWorkplaces);
+                    }
+                }
+                
+                // Default: no access for other roles
+                return $query->whereRaw('1 = 0');
             });
     }
 

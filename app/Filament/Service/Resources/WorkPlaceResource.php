@@ -203,6 +203,39 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                         ->label('Изтриване'),
                 ]),
             ])
+            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+                $user = auth()->user();
+                
+                if (!$user) {
+                    return $query->whereRaw('1 = 0');
+                }
+                
+                $userRoles = $user->roles->pluck('name')->toArray();
+                
+                // Admin and Super Admin see all workplaces
+                if (in_array('admin', $userRoles) || in_array('super_admin', $userRoles)) {
+                    return $query;
+                }
+                
+                // Manager sees workplaces only in their region
+                if (in_array('manager', $userRoles)) {
+                    $managerRegions = $user->regions->pluck('id')->toArray();
+                    if (!empty($managerRegions)) {
+                        return $query->whereIn('region_id', $managerRegions);
+                    }
+                }
+                
+                // Supervisor sees only their assigned workplaces
+                if (in_array('supervisor', $userRoles)) {
+                    $supervisorWorkplaces = $user->workPlaces->pluck('id')->toArray();
+                    if (!empty($supervisorWorkplaces)) {
+                        return $query->whereIn('id', $supervisorWorkplaces);
+                    }
+                }
+                
+                // Default: no access for other roles
+                return $query->whereRaw('1 = 0');
+            })
             ->defaultSort('created_at', 'desc');
     }
 

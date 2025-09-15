@@ -338,6 +338,39 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     Tables\Actions\DeleteBulkAction::make()->label("Изтриване"),
                 ]),
             ])
+            ->modifyQueryUsing(function (Builder $query) {
+                $user = auth()->user();
+                
+                if (!$user) {
+                    return $query->whereRaw('1 = 0');
+                }
+                
+                $userRoles = $user->roles->pluck('name')->toArray();
+                
+                // Admin and Super Admin see all workers
+                if (in_array('admin', $userRoles) || in_array('super_admin', $userRoles)) {
+                    return $query;
+                }
+                
+                // Manager sees workers only in their region
+                if (in_array('manager', $userRoles)) {
+                    $managerRegions = $user->regions->pluck('id')->toArray();
+                    if (!empty($managerRegions)) {
+                        return $query->whereIn('region_id', $managerRegions);
+                    }
+                }
+                
+                // Supervisor sees workers only in their workplaces
+                if (in_array('supervisor', $userRoles)) {
+                    $supervisorWorkplaces = $user->workPlaces->pluck('id')->toArray();
+                    if (!empty($supervisorWorkplaces)) {
+                        return $query->whereIn('work_place_id', $supervisorWorkplaces);
+                    }
+                }
+                
+                // Default: no access for other roles
+                return $query->whereRaw('1 = 0');
+            })
             ->defaultSort("created_at", "desc");
     }
 

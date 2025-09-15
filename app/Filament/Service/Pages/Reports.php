@@ -173,9 +173,25 @@ class Reports extends Page implements HasForms, HasActions
     {
         $user = Auth::user();
         
-        if ($user->hasRole('manager') || $user->hasRole('supervisor')) {
-            $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
-            return Region::whereIn('id', $manRegionId)
+        if (!$user) {
+            return [];
+        }
+        
+        $userRoles = $user->roles->pluck('name')->toArray();
+        
+        // Admin and Super Admin see all regions
+        if (in_array('admin', $userRoles) || in_array('super_admin', $userRoles)) {
+            return Region::whereNotNull('name')
+                ->where('name', '!=', '')
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+        
+        // Manager sees only their regions
+        if (in_array('manager', $userRoles)) {
+            $managerRegions = $user->regions->pluck('id')->toArray();
+            return Region::whereIn('id', $managerRegions)
                 ->whereNotNull('name')
                 ->where('name', '!=', '')
                 ->orderBy('name')
@@ -183,11 +199,23 @@ class Reports extends Page implements HasForms, HasActions
                 ->toArray();
         }
         
-        return Region::whereNotNull('name')
-            ->where('name', '!=', '')
-            ->orderBy('name')
-            ->pluck('name', 'id')
-            ->toArray();
+        // Supervisor sees regions from their workplaces
+        if (in_array('supervisor', $userRoles)) {
+            $supervisorWorkplaces = $user->workPlaces->pluck('id')->toArray();
+            $regionIds = WorkPlace::whereIn('id', $supervisorWorkplaces)
+                ->pluck('region_id')
+                ->unique()
+                ->toArray();
+                
+            return Region::whereIn('id', $regionIds)
+                ->whereNotNull('name')
+                ->where('name', '!=', '')
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+        
+        return [];
     }
 
     /**
@@ -197,27 +225,33 @@ class Reports extends Page implements HasForms, HasActions
     {
         $user = Auth::user();
         
-        if ($user->hasRole('supervisor')) {
-            $vikiUser = VikiUser::find($user->id);
-            if ($vikiUser) {
-                $query = $vikiUser->workPlaces()
-                    ->whereNotNull('name')
-                    ->where('name', '!=', '');
-                
-                if (!empty($selectedRegions)) {
-                    $query->whereIn('region_id', $selectedRegions);
-                }
-                
-                return $query->orderBy('name')
-                    ->pluck('name', 'id')
-                    ->toArray();
-            }
+        if (!$user) {
             return [];
         }
         
-        if ($user->hasRole('manager')) {
-            $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
-            $regions = !empty($selectedRegions) ? $selectedRegions : $manRegionId;
+        $userRoles = $user->roles->pluck('name')->toArray();
+        
+        // Supervisor sees only their workplaces
+        if (in_array('supervisor', $userRoles)) {
+            $supervisorWorkplaces = $user->workPlaces()->pluck('id')->toArray();
+            
+            $query = WorkPlace::whereIn('id', $supervisorWorkplaces)
+                ->whereNotNull('name')
+                ->where('name', '!=', '');
+            
+            if (!empty($selectedRegions)) {
+                $query->whereIn('region_id', $selectedRegions);
+            }
+            
+            return $query->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+        
+        // Manager sees workplaces in their regions
+        if (in_array('manager', $userRoles)) {
+            $managerRegions = $user->regions->pluck('id')->toArray();
+            $regions = !empty($selectedRegions) ? $selectedRegions : $managerRegions;
             
             return WorkPlace::whereIn('region_id', $regions)
                 ->whereNotNull('name')
@@ -227,16 +261,21 @@ class Reports extends Page implements HasForms, HasActions
                 ->toArray();
         }
         
-        $query = WorkPlace::whereNotNull('name')
-            ->where('name', '!=', '');
+        // Admin and Super Admin see all workplaces
+        if (in_array('admin', $userRoles) || in_array('super_admin', $userRoles)) {
+            $query = WorkPlace::whereNotNull('name')
+                ->where('name', '!=', '');
+                
+            if (!empty($selectedRegions)) {
+                $query->whereIn('region_id', $selectedRegions);
+            }
             
-        if (!empty($selectedRegions)) {
-            $query->whereIn('region_id', $selectedRegions);
+            return $query->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
         }
         
-        return $query->orderBy('name')
-            ->pluck('name', 'id')
-            ->toArray();
+        return [];
     }
 
     /**

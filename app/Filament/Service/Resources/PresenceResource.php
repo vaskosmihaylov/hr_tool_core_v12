@@ -309,6 +309,41 @@ class PresenceResource extends Resource implements HasShieldPermissions
                         }),
                 ]),
             ])
+            ->modifyQueryUsing(function (Builder $query) {
+                $user = auth()->user();
+                
+                if (!$user) {
+                    return $query->whereRaw('1 = 0');
+                }
+                
+                $userRoles = $user->roles->pluck('name')->toArray();
+                
+                // Admin and Super Admin see all presence records
+                if (in_array('admin', $userRoles) || in_array('super_admin', $userRoles)) {
+                    return $query;
+                }
+                
+                // Manager sees presence records only in their region
+                if (in_array('manager', $userRoles)) {
+                    $managerRegions = $user->regions->pluck('id')->toArray();
+                    if (!empty($managerRegions)) {
+                        return $query->whereHas('workplace', function (Builder $q) use ($managerRegions) {
+                            $q->whereIn('region_id', $managerRegions);
+                        });
+                    }
+                }
+                
+                // Supervisor sees presence records only for their workplaces
+                if (in_array('supervisor', $userRoles)) {
+                    $supervisorWorkplaces = $user->workPlaces->pluck('id')->toArray();
+                    if (!empty($supervisorWorkplaces)) {
+                        return $query->whereIn('work_place_id', $supervisorWorkplaces);
+                    }
+                }
+                
+                // Default: no access for other roles
+                return $query->whereRaw('1 = 0');
+            })
             ->defaultSort('date', 'desc')
             ->paginated([25, 50, 100]);
     }

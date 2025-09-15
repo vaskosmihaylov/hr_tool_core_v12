@@ -38,6 +38,23 @@ class ClientResource extends Resource implements HasShieldPermissions
 
     protected static ?int $navigationSort = 3;
 
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return false;
+        }
+        
+        // Supervisor cannot see clients in navigation - they should only see Objects
+        if ($user->hasRole('supervisor')) {
+            return false;
+        }
+        
+        // Admin, Super Admin, and Manager can see clients
+        return $user->hasAnyRole(['admin', 'super_admin', 'manager']);
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -163,6 +180,43 @@ class ClientResource extends Resource implements HasShieldPermissions
                         ->label('Изтриване'),
                 ]),
             ])
+            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+                $user = auth()->user();
+                
+                if (!$user) {
+                    return $query->whereRaw('1 = 0');
+                }
+                
+                $userRoles = $user->roles->pluck('name')->toArray();
+                
+                // Admin and Super Admin see all clients
+                if (in_array('admin', $userRoles) || in_array('super_admin', $userRoles)) {
+                    return $query;
+                }
+                
+                // Manager sees clients only in their region through workplaces
+                if (in_array('manager', $userRoles)) {
+                    $managerRegions = $user->regions->pluck('id')->toArray();
+                    if (!empty($managerRegions)) {
+                        return $query->whereHas('workplaces', function (\Illuminate\Database\Eloquent\Builder $q) use ($managerRegions) {
+                            $q->whereIn('region_id', $managerRegions);
+                        });
+                    }
+                }
+                
+                // Supervisor sees clients only through their workplaces
+                if (in_array('supervisor', $userRoles)) {
+                    $supervisorWorkplaces = $user->workPlaces->pluck('id')->toArray();
+                    if (!empty($supervisorWorkplaces)) {
+                        return $query->whereHas('workplaces', function (\Illuminate\Database\Eloquent\Builder $q) use ($supervisorWorkplaces) {
+                            $q->whereIn('viki_work_place.id', $supervisorWorkplaces);
+                        });
+                    }
+                }
+                
+                // Default: no access for other roles
+                return $query->whereRaw('1 = 0');
+            })
             ->defaultSort('created_at', 'desc');
     }
 

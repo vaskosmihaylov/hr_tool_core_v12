@@ -51,6 +51,109 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
+    /**
+     * Get the regions that belong to the user.
+     * For managers - they manage specific regions
+     */
+    public function regions()
+    {
+        return $this->belongsToMany(
+            'viki\Service\Models\Elequent\Region',
+            'viki_user_region',
+            'user_id',
+            'region_id'
+        );
+    }
+
+    /**
+     * Get the workplaces that belong to the user.
+     * For supervisors - they supervise specific workplaces
+     */
+    public function workPlaces()
+    {
+        return $this->belongsToMany(
+            'viki\Service\Models\Elequent\WorkPlace',
+            'viki_supervisor_work_place',
+            'supervisor_id',
+            'work_place_id'
+        );
+    }
+
+    /**
+     * Get active workplaces for the user.
+     */
+    public function activeWorkPlaces()
+    {
+        return $this->belongsToMany(
+            'viki\Service\Models\Elequent\WorkPlace',
+            'viki_supervisor_work_place',
+            'supervisor_id',
+            'work_place_id'
+        )->where('viki_work_place.status', 0); // WORK_PLACE_ACTIVE = 0
+    }
+
+    /**
+     * Assign the given region to the user.
+     *
+     * @param  string $region
+     * @return mixed
+     */
+    public function assignRegion($region)
+    {
+        $regionModel = is_string($region) 
+            ? \viki\Service\Models\Elequent\Region::whereName($region)->firstOrFail()
+            : $region;
+            
+        return $this->regions()->save($regionModel);
+    }
+
+    /**
+     * Assign the given work place to the user.
+     *
+     * @param  string $workPlace
+     * @return mixed
+     */
+    public function assignWorkPlace($workPlace)
+    {
+        $workPlaceModel = is_string($workPlace)
+            ? \viki\Service\Models\Elequent\WorkPlace::whereName($workPlace)->firstOrFail()
+            : $workPlace;
+            
+        return $this->workPlaces()->save($workPlaceModel);
+    }
+
+    /**
+     * Get current user region IDs.
+     *
+     * @param int $userId
+     * @return array
+     */
+    public static function getCurrentUserRegionId($userId)
+    {
+        $user = self::find($userId);
+        if (!$user) {
+            return [];
+        }
+        
+        return $user->regions()->pluck('viki_regions.id')->toArray();
+    }
+
+    /**
+     * Check if user is a manager.
+     *
+     * @param int $userId
+     * @return string
+     */
+    public static function isManager($userId)
+    {
+        $user = self::find($userId);
+        if (!$user) {
+            return 'no';
+        }
+        
+        return $user->hasRole('manager') ? 'isManager' : 'no';
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         // Panel-specific access control using Filament Shield
