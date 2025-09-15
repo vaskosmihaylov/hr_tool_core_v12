@@ -20,28 +20,28 @@ use viki\Service\Models\Elequent\Worker;
 use viki\Service\Models\Elequent\VikiUser;
 use viki\Service\Models\Elequent\WorkerRecord;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
+use viki\Service\Models\Elequent\Vacation;
 use viki\Service\Http\Controllers\ReportController;
 use Filament\Notifications\Notification;
-use pxlrbt\FilamentExcel\Actions\Pages\ExportAction;
-use pxlrbt\FilamentExcel\Exports\ExcelExport;
-use pxlrbt\FilamentExcel\Columns\Column;
 use Carbon\Carbon;
 
-class VikiReportsOLD extends Page implements HasForms, HasActions
+class Reports extends Page implements HasForms, HasActions
 {
     use InteractsWithForms, InteractsWithActions;
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
 
-    protected static string $view = 'filament.service.pages.viki-reports';
+    protected static string $view = 'filament.service.pages.reports';
 
-    protected static ?string $navigationLabel = null; // DISABLED
+    protected static ?string $navigationLabel = 'Справки';
 
-    protected static ?string $title = 'Viki Отчети';
+    protected static ?string $title = 'Справки';
 
     protected static ?string $navigationGroup = '📊 Отчети';
 
     protected static ?int $navigationSort = 2;
+
+    protected static ?string $slug = 'reports';
 
     public ?array $reportData = [];
     public ?array $filters = [];
@@ -305,7 +305,7 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
         $client_id = $filters['client_id'] ?? [];
         $worker_id = $filters['worker_id'] ?? null;
 
-        // Use the existing ReportController logic
+        // Use the existing ReportController logic but fix the multi-object bug
         $user = Auth::user();
         $manRegion_id = '';
 
@@ -314,6 +314,7 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
             $region_id = $manRegion_id;
         }
 
+        // Fixed query - each worker-workplace combination should be a separate row
         $query = WorkerRecord::select(
                 'viki_worker_records.worker_id',
                 'viki_workers.name',
@@ -326,7 +327,8 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
                 'viki_work_place.region_id as regId',
                 DB::raw('sum(viki_worker_records.hours) as total'),
                 DB::raw('group_concat(DISTINCT viki_worker_records.work_place_activity_id) as activities'),
-                DB::raw('MIN(viki_worker_records.id) as ID') // Use MIN to get a representative ID
+                // Create unique ID for each worker-workplace combination
+                DB::raw('CONCAT(viki_worker_records.worker_id, "-", viki_worker_records.work_place_id) as unique_id')
             )
             ->leftJoin('viki_workers', function($join) {
                 $join->on('viki_workers.id', '=', 'viki_worker_records.worker_id');
@@ -363,7 +365,7 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
             $query->where('viki_worker_records.worker_id', '=', $worker_id);
         }
 
-        // Fixed GROUP BY clause - include all non-aggregated columns
+        // Critical fix: Group by worker AND workplace to ensure separate rows for each combination
         $query->groupBy([
             'viki_worker_records.worker_id', 
             'viki_worker_records.work_place_id',
@@ -399,13 +401,14 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
                             DB::raw('sum(viki_worker_records.hours) as totalHours')
                         )
                         ->where('worker_id', $records->worker_id)
+                        ->where('work_place_id', $records->work_place_id) // Add workplace filter
                         ->where('work_place_activity_id', $workplaceActivity->id)
                         ->where('date', 'LIKE', $year_id . '-' . $month_id . '%')
-                        ->groupBy('viki_worker_records.work_place_activity_id') // Add groupBy for consistency
+                        ->groupBy('viki_worker_records.work_place_activity_id')
                         ->get()->toArray();
                     
                     if (!empty($hoursByActivity)) {
-                        $arraySum[$records->ID][] = $workPlaceActivityHourPrice * $hoursByActivity[0]['totalHours'];
+                        $arraySum[$records->unique_id][] = $workPlaceActivityHourPrice * $hoursByActivity[0]['totalHours'];
                     }
                 }
             }
@@ -418,9 +421,10 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
             }
         }
 
-        // Calculate bonuses and penalties for each worker
+        // Calculate bonuses and penalties for each worker-workplace combination
         $bonusData = [];
         $penaltyData = [];
+        $vacationData = []; // New: vacation data
         
         foreach ($workerRecords as $record) {
             // Get bonus amount (type = 0) using proper date filtering
@@ -438,9 +442,67 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
                 ->whereYear('for_month', $year_id)
                 ->whereMonth('for_month', $month_id)
                 ->sum('sum');
+
+            // NEW: Get vacation data for the worker in the specified month
+            $vacationDays = Vacation::where('worker_id', $record->worker_id)
+                ->where('status', 1) // Only approved vacations
+                ->where(function($query) use ($year_id, $month_id) {
+                    $startOfMonth = Carbon::create($year_id, $month_id, 1)->startOfMonth();
+                    $endOfMonth = Carbon::create($year_id, $month_id, 1)->endOfMonth();
+                    
+                    $query->where(function($q) use ($startOfMonth, $endOfMonth) {
+                        // Vacation starts within the month
+                        $q->whereBetween('start_date', [$startOfMonth, $endOfMonth]);
+                    })->orWhere(function($q) use ($startOfMonth, $endOfMonth) {
+                        // Vacation ends within the month  
+                        $q->whereBetween('end_date', [$startOfMonth, $endOfMonth]);
+                    })->orWhere(function($q) use ($startOfMonth, $endOfMonth) {
+                        // Vacation spans the entire month
+                        $q->where('start_date', '<=', $startOfMonth)
+                          ->where('end_date', '>=', $endOfMonth);
+                    });
+                })
+                ->get();
+
+            // Calculate actual vacation days in the month
+            $totalVacationDays = 0;
+            $vacationDetails = [];
+            
+            foreach ($vacationDays as $vacation) {
+                $vacationStart = Carbon::parse($vacation->start_date);
+                $vacationEnd = Carbon::parse($vacation->end_date);
+                $monthStart = Carbon::create($year_id, $month_id, 1)->startOfMonth();
+                $monthEnd = Carbon::create($year_id, $month_id, 1)->endOfMonth();
                 
-            $bonusData[$record->ID] = $bonusAmount;
-            $penaltyData[$record->ID] = $penaltyAmount;
+                // Calculate overlapping days within the month
+                $overlapStart = $vacationStart->max($monthStart);
+                $overlapEnd = $vacationEnd->min($monthEnd);
+                
+                if ($overlapStart <= $overlapEnd) {
+                    $daysInMonth = $overlapStart->diffInDays($overlapEnd) + 1;
+                    $totalVacationDays += $daysInMonth;
+                    
+                    $typeLabels = [
+                        1 => 'Платена',
+                        2 => 'Неплатена', 
+                        3 => 'Болничен'
+                    ];
+                    
+                    $vacationDetails[] = [
+                        'days' => $daysInMonth,
+                        'type' => $typeLabels[$vacation->type] ?? 'Неизвестен',
+                        'start_date' => $overlapStart->format('d.m.Y'),
+                        'end_date' => $overlapEnd->format('d.m.Y')
+                    ];
+                }
+            }
+                
+            $bonusData[$record->unique_id] = $bonusAmount;
+            $penaltyData[$record->unique_id] = $penaltyAmount;
+            $vacationData[$record->unique_id] = [
+                'total_days' => $totalVacationDays,
+                'details' => $vacationDetails
+            ];
         }
 
         $this->reportData = [
@@ -448,13 +510,16 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
             'arraySum' => $newSumArray,
             'bonusData' => $bonusData,
             'penaltyData' => $penaltyData,
+            'vacationData' => $vacationData, // NEW: Add vacation data
             'filters' => $filters,
             'summary' => [
                 'total_workers' => $workerRecords->unique('worker_id')->count(),
+                'total_records' => $workerRecords->count(), // NEW: Total worker-workplace combinations
                 'total_hours' => $workerRecords->sum('total'),
                 'total_salary' => array_sum($newSumArray),
                 'total_bonus' => array_sum($bonusData),
                 'total_penalty' => array_sum($penaltyData),
+                'total_vacation_days' => array_sum(array_column($vacationData, 'total_days')), // NEW
             ]
         ];
 
@@ -469,7 +534,7 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
 
         Notification::make()
             ->title('Отчет генериран успешно')
-            ->body('Отчетът е генериран за ' . $month_id . '/' . $year_id . ' с ' . $this->reportData['summary']['total_workers'] . ' работника')
+            ->body('Отчетът е генериран за ' . $month_id . '/' . $year_id . ' с ' . $this->reportData['summary']['total_workers'] . ' работника и ' . $this->reportData['summary']['total_records'] . ' записа')
             ->success()
             ->send();
     }
@@ -509,10 +574,10 @@ class VikiReportsOLD extends Page implements HasForms, HasActions
             ];
             
             $monthName = $months[$this->filters['month_id']] ?? $this->filters['month_id'];
-            return "Viki Отчети за {$monthName} {$this->filters['year_id']}";
+            return "Справки за {$monthName} {$this->filters['year_id']}";
         }
         
-        return 'Viki Отчети';
+        return 'Справки';
     }
 
     public static function getNavigationBadge(): ?string

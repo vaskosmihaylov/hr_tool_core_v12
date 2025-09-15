@@ -12,13 +12,19 @@ class VikiReportsExport implements FromCollection, WithHeadings, WithMapping, Wi
 {
     protected $workerRecords;
     protected $arraySum;
+    protected $bonusData;
+    protected $penaltyData;
+    protected $vacationData;
     protected $month;
     protected $year;
 
-    public function __construct($workerRecords, $arraySum, $month, $year)
+    public function __construct($workerRecords, $arraySum, $bonusData, $penaltyData, $vacationData, $month, $year)
     {
         $this->workerRecords = $workerRecords;
         $this->arraySum = $arraySum;
+        $this->bonusData = $bonusData;
+        $this->penaltyData = $penaltyData;
+        $this->vacationData = $vacationData;
         $this->month = $month;
         $this->year = $year;
     }
@@ -39,10 +45,12 @@ class VikiReportsExport implements FromCollection, WithHeadings, WithMapping, Wi
             'Клиент',
             'Регион',
             'Изработени часове',
+            'Отпуска (дни)',
+            'Отпуска (детайли)',
             'Бонус',
             'Наказание',
             'Сума',
-            'Сума + бонус'
+            'Сума + бонус - наказание'
         ];
     }
 
@@ -52,7 +60,25 @@ class VikiReportsExport implements FromCollection, WithHeadings, WithMapping, Wi
         $client = $record->clId ? \viki\Service\Models\Elequent\Client::find($record->clId) : null;
         $region = $record->regId ? \viki\Service\Models\Elequent\Region::find($record->regId) : null;
         
-        $salary = $this->arraySum[$record->ID] ?? 0;
+        // Get salary, bonus, penalty using unique_id
+        $salary = $this->arraySum[$record->unique_id] ?? 0;
+        $bonus = $this->bonusData[$record->unique_id] ?? 0;
+        $penalty = $this->penaltyData[$record->unique_id] ?? 0;
+        $totalWithBonus = $salary + $bonus - $penalty;
+        
+        // Get vacation data
+        $vacationInfo = $this->vacationData[$record->unique_id] ?? ['total_days' => 0, 'details' => []];
+        $vacationDays = $vacationInfo['total_days'];
+        
+        // Format vacation details for Excel
+        $vacationDetails = '';
+        if (!empty($vacationInfo['details'])) {
+            $detailsArray = [];
+            foreach ($vacationInfo['details'] as $detail) {
+                $detailsArray[] = $detail['type'] . ': ' . $detail['days'] . 'д (' . $detail['start_date'] . ' - ' . $detail['end_date'] . ')';
+            }
+            $vacationDetails = implode('; ', $detailsArray);
+        }
         
         return [
             $record->name ?? '',
@@ -63,10 +89,12 @@ class VikiReportsExport implements FromCollection, WithHeadings, WithMapping, Wi
             $client->name ?? '',
             $region->name ?? '',
             $record->total ?? 0,
-            0, // Bonus
-            0, // Penalty
+            $vacationDays,
+            $vacationDetails,
+            number_format($bonus, 2),
+            number_format($penalty, 2),
             number_format($salary, 2),
-            number_format($salary, 2), // Total with bonus
+            number_format($totalWithBonus, 2),
         ];
     }
 
