@@ -46,6 +46,9 @@ class Reports extends Page implements HasForms, HasActions
     public ?array $reportData = [];
     public ?array $filters = [];
     public bool $showResults = false;
+    
+    // Add rate limiting properties
+    private const MAX_REQUESTS_PER_MINUTE = 10;
 
     public function mount(): void
     {
@@ -100,21 +103,7 @@ class Reports extends Page implements HasForms, HasActions
                                     Select::make('region_id')
                                         ->label('Регион')
                                         ->options(function () {
-                                            $user = Auth::user();
-                                            if ($user->hasRole('manager') || $user->hasRole('supervisor')) {
-                                                $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
-                                                return Region::whereIn('id', $manRegionId)
-                                                    ->whereNotNull('name')
-                                                    ->where('name', '!=', '')
-                                                    ->orderBy('name')
-                                                    ->pluck('name', 'id')
-                                                    ->filter();
-                                            }
-                                            return Region::whereNotNull('name')
-                                                ->where('name', '!=', '')
-                                                ->orderBy('name')
-                                                ->pluck('name', 'id')
-                                                ->filter();
+                                            return $this->getRegionOptions();
                                         })
                                         ->multiple()
                                         ->searchable()
@@ -124,47 +113,7 @@ class Reports extends Page implements HasForms, HasActions
                                     Select::make('workplace_id')
                                         ->label('Работно място')
                                         ->options(function (callable $get) {
-                                            $selectedRegions = $get('region_id');
-                                            $user = Auth::user();
-                                            
-                                            if ($user->hasRole('supervisor')) {
-                                                $vikiUser = VikiUser::find($user->id);
-                                                if ($vikiUser) {
-                                                    $query = $vikiUser->workPlaces()
-                                                        ->whereNotNull('name')
-                                                        ->where('name', '!=', '');
-                                                    
-                                                    if (!empty($selectedRegions)) {
-                                                        $query->whereIn('region_id', $selectedRegions);
-                                                    }
-                                                    
-                                                    return $query->orderBy('name')
-                                                        ->pluck('name', 'id')
-                                                        ->filter();
-                                                }
-                                                return collect();
-                                            } elseif ($user->hasRole('manager')) {
-                                                $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
-                                                $regions = !empty($selectedRegions) ? $selectedRegions : $manRegionId;
-                                                
-                                                return WorkPlace::whereIn('region_id', $regions)
-                                                    ->whereNotNull('name')
-                                                    ->where('name', '!=', '')
-                                                    ->orderBy('name')
-                                                    ->pluck('name', 'id')
-                                                    ->filter();
-                                            }
-                                            
-                                            $query = WorkPlace::whereNotNull('name')
-                                                ->where('name', '!=', '');
-                                                
-                                            if (!empty($selectedRegions)) {
-                                                $query->whereIn('region_id', $selectedRegions);
-                                            }
-                                            
-                                            return $query->orderBy('name')
-                                                ->pluck('name', 'id')
-                                                ->filter();
+                                            return $this->getWorkplaceOptions($get('region_id'));
                                         })
                                         ->multiple()
                                         ->searchable()
@@ -176,36 +125,7 @@ class Reports extends Page implements HasForms, HasActions
                                     Select::make('client_id')
                                         ->label('Клиент')
                                         ->options(function (callable $get) {
-                                            $selectedRegions = $get('region_id');
-                                            $user = Auth::user();
-                                            
-                                            if ($user->hasRole('manager') || $user->hasRole('supervisor')) {
-                                                $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
-                                                $regions = !empty($selectedRegions) ? $selectedRegions : $manRegionId;
-                                                
-                                                return Client::with('workplaces')
-                                                    ->whereHas('regions', function ($q) use ($regions) {
-                                                        $q->whereIn('id', $regions);
-                                                    })
-                                                    ->whereNotNull('name')
-                                                    ->where('name', '!=', '')
-                                                    ->orderBy('name')
-                                                    ->pluck('name', 'id')
-                                                    ->filter();
-                                            }
-                                            
-                                            $query = Client::whereNotNull('name')
-                                                ->where('name', '!=', '');
-                                                
-                                            if (!empty($selectedRegions)) {
-                                                $query->whereHas('regions', function ($q) use ($selectedRegions) {
-                                                    $q->whereIn('id', $selectedRegions);
-                                                });
-                                            }
-                                            
-                                            return $query->orderBy('name')
-                                                ->pluck('name', 'id')
-                                                ->filter();
+                                            return $this->getClientOptions($get('region_id'));
                                         })
                                         ->multiple()
                                         ->searchable()
@@ -214,45 +134,7 @@ class Reports extends Page implements HasForms, HasActions
                                     Select::make('worker_id')
                                         ->label('Работник')
                                         ->options(function (callable $get) {
-                                            $selectedRegions = $get('region_id');
-                                            $user = Auth::user();
-                                            
-                                            if ($user->hasRole('manager') || $user->hasRole('supervisor')) {
-                                                $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
-                                                $regions = !empty($selectedRegions) ? $selectedRegions : $manRegionId;
-                                                
-                                                return Worker::whereIn('region_id', $regions)
-                                                    ->whereNotNull('name')
-                                                    ->whereNotNull('family_name')
-                                                    ->where('name', '!=', '')
-                                                    ->where('family_name', '!=', '')
-                                                    ->orderBy('name')
-                                                    ->orderBy('family_name')
-                                                    ->get()
-                                                    ->mapWithKeys(function ($worker) {
-                                                        $fullName = trim(($worker->name ?? '') . ' ' . ($worker->family_name ?? ''));
-                                                        return $fullName ? [$worker->id => $fullName] : [];
-                                                    })
-                                                    ->filter();
-                                            }
-                                            
-                                            $query = Worker::whereNotNull('name')
-                                                ->whereNotNull('family_name')
-                                                ->where('name', '!=', '')
-                                                ->where('family_name', '!=', '');
-                                                
-                                            if (!empty($selectedRegions)) {
-                                                $query->whereIn('region_id', $selectedRegions);
-                                            }
-                                            
-                                            return $query->orderBy('name')
-                                                ->orderBy('family_name')
-                                                ->get()
-                                                ->mapWithKeys(function ($worker) {
-                                                    $fullName = trim(($worker->name ?? '') . ' ' . ($worker->family_name ?? ''));
-                                                    return $fullName ? [$worker->id => $fullName] : [];
-                                                })
-                                                ->filter();
+                                            return $this->getWorkerOptions($get('region_id'));
                                         })
                                         ->searchable()
                                         ->preload(),
@@ -270,11 +152,7 @@ class Reports extends Page implements HasForms, HasActions
                 ->color('success')
                 ->visible(fn () => $this->showResults)
                 ->action(function () {
-                    $url = $this->exportToPdf();
-                    if ($url) {
-                        // Use JavaScript to open the URL
-                        $this->js("window.open('$url', '_blank')");
-                    }
+                    $this->exportToExcel();
                 }),
 
             Action::make('clearFilters')
@@ -283,263 +161,225 @@ class Reports extends Page implements HasForms, HasActions
                 ->color('warning')
                 ->visible(fn () => $this->showResults)
                 ->action(function () {
-                    $this->showResults = false;
-                    $this->reportData = [];
-                    
-                    Notification::make()
-                        ->title('Резултати изчистени')
-                        ->body('Данните са премахнати от екрана')
-                        ->info()
-                        ->send();
+                    $this->clearResults();
                 }),
         ];
     }
 
-    public function generateReportData(array $filters): void
+    /**
+     * Get region options with role-based filtering
+     */
+    private function getRegionOptions(): array
     {
-        $this->filters = $filters;
-        $month_id = $filters['month_id'];
-        $year_id = $filters['year_id'];
-        $region_id = $filters['region_id'] ?? [];
-        $workplace_id = $filters['workplace_id'] ?? [];
-        $client_id = $filters['client_id'] ?? [];
-        $worker_id = $filters['worker_id'] ?? null;
-
-        // Use the existing ReportController logic but fix the multi-object bug
         $user = Auth::user();
-        $manRegion_id = '';
-
-        if (($user->hasRole('manager')) || ($user->hasRole('supervisor'))) {
-            $manRegion_id = VikiUser::getCurrentUserRegionId($user->id);
-            $region_id = $manRegion_id;
-        }
-
-        // Fixed query - each worker-workplace combination should be a separate row
-        $query = WorkerRecord::select(
-                'viki_worker_records.worker_id',
-                'viki_workers.name',
-                'viki_workers.family_name',
-                'viki_workers.middle_name',
-                'viki_workers.egn',
-                'viki_worker_records.work_place_id',
-                'viki_work_place.name as workPlaceName',
-                'viki_work_place.client_id as clId',
-                'viki_work_place.region_id as regId',
-                DB::raw('sum(viki_worker_records.hours) as total'),
-                DB::raw('group_concat(DISTINCT viki_worker_records.work_place_activity_id) as activities'),
-                // Create unique ID for each worker-workplace combination
-                DB::raw('CONCAT(viki_worker_records.worker_id, "-", viki_worker_records.work_place_id) as unique_id')
-            )
-            ->leftJoin('viki_workers', function($join) {
-                $join->on('viki_workers.id', '=', 'viki_worker_records.worker_id');
-            })
-            ->leftJoin('viki_work_place', function($join) {
-                $join->on('viki_work_place.id', '=', 'viki_worker_records.work_place_id');
-            })
-            ->where('viki_worker_records.date', 'like', $year_id . '-' . $month_id . '%');
-
-        // Apply role-based filtering
-        if ($user->hasRole('supervisor')) {
-            $vikiUser = VikiUser::find($user->id);
-            $userWorkplaceIds = $vikiUser->workPlaces()->pluck('id')->toArray();
-            $query->whereIn('viki_worker_records.work_place_id', $userWorkplaceIds);
-        }
-
-        // Apply filters
-        if (!empty($workplace_id)) {
-            $query->whereIn('viki_worker_records.work_place_id', $workplace_id);
-        }
-
-        if (!empty($region_id)) {
-            if (!empty($manRegion_id)) {
-                $region_id = $manRegion_id;
-            }
-            $query->whereIn('viki_work_place.region_id', $region_id);
-        }
-
-        if (!empty($client_id)) {
-            $query->whereIn('viki_work_place.client_id', $client_id);
-        }
-
-        if (!empty($worker_id)) {
-            $query->where('viki_worker_records.worker_id', '=', $worker_id);
-        }
-
-        // Critical fix: Group by worker AND workplace to ensure separate rows for each combination
-        $query->groupBy([
-            'viki_worker_records.worker_id', 
-            'viki_worker_records.work_place_id',
-            'viki_workers.name',
-            'viki_workers.family_name',
-            'viki_workers.middle_name',
-            'viki_workers.egn',
-            'viki_work_place.name',
-            'viki_work_place.client_id',
-            'viki_work_place.region_id'
-        ]);
         
-        $workerRecords = $query->get();
-
-        // Calculate salaries using existing logic
-        $arraySum = [];
-        foreach ($workerRecords as $records) {
-            $activitiesArray = explode(",", $records->activities);
-
-            foreach ($activitiesArray as $activity) {
-                $workplaceActivity = WorkPlaceActivity::find($activity);
-                if ($workplaceActivity !== null) {
-                    $workingHours = ReportController::getActivityWorkingHoursForDate(
-                        $workplaceActivity, 
-                        $year_id . '-' . $month_id
-                    );
-
-                    $workPlaceActivityHourPrice = $workingHours != 0 ? 
-                        ($workplaceActivity->neto_salary + $workplaceActivity->social_plus) / $workingHours : 0;
-                    
-                    $hoursByActivity = WorkerRecord::select(
-                            'viki_worker_records.work_place_activity_id', 
-                            DB::raw('sum(viki_worker_records.hours) as totalHours')
-                        )
-                        ->where('worker_id', $records->worker_id)
-                        ->where('work_place_id', $records->work_place_id) // Add workplace filter
-                        ->where('work_place_activity_id', $workplaceActivity->id)
-                        ->where('date', 'LIKE', $year_id . '-' . $month_id . '%')
-                        ->groupBy('viki_worker_records.work_place_activity_id')
-                        ->get()->toArray();
-                    
-                    if (!empty($hoursByActivity)) {
-                        $arraySum[$records->unique_id][] = $workPlaceActivityHourPrice * $hoursByActivity[0]['totalHours'];
-                    }
-                }
-            }
+        if ($user->hasRole('manager') || $user->hasRole('supervisor')) {
+            $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
+            return Region::whereIn('id', $manRegionId)
+                ->whereNotNull('name')
+                ->where('name', '!=', '')
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
         }
-
-        $newSumArray = [];
-        if (!empty($arraySum)) {
-            foreach ($arraySum as $key => $allSum) {
-                $newSumArray[$key] = array_sum($allSum);
-            }
-        }
-
-        // Calculate bonuses and penalties for each worker-workplace combination
-        $bonusData = [];
-        $penaltyData = [];
-        $vacationData = []; // New: vacation data
         
-        foreach ($workerRecords as $record) {
-            // Get bonus amount (type = 0) using proper date filtering
-            $bonusAmount = \viki\Service\Models\Elequent\WorkerBonus::where('worker_id', $record->worker_id)
-                ->where('work_place_id', $record->work_place_id)
-                ->where('type', 0) // BONUS
-                ->whereYear('for_month', $year_id)
-                ->whereMonth('for_month', $month_id)
-                ->sum('sum');
-            
-            // Get penalty amount (type = 1) using proper date filtering
-            $penaltyAmount = \viki\Service\Models\Elequent\WorkerBonus::where('worker_id', $record->worker_id)
-                ->where('work_place_id', $record->work_place_id)
-                ->where('type', 1) // PENALTY
-                ->whereYear('for_month', $year_id)
-                ->whereMonth('for_month', $month_id)
-                ->sum('sum');
-
-            // NEW: Get vacation data for the worker in the specified month
-            $vacationDays = Vacation::where('worker_id', $record->worker_id)
-                ->where('status', 1) // Only approved vacations
-                ->where(function($query) use ($year_id, $month_id) {
-                    $startOfMonth = Carbon::create($year_id, $month_id, 1)->startOfMonth();
-                    $endOfMonth = Carbon::create($year_id, $month_id, 1)->endOfMonth();
-                    
-                    $query->where(function($q) use ($startOfMonth, $endOfMonth) {
-                        // Vacation starts within the month
-                        $q->whereBetween('start_date', [$startOfMonth, $endOfMonth]);
-                    })->orWhere(function($q) use ($startOfMonth, $endOfMonth) {
-                        // Vacation ends within the month  
-                        $q->whereBetween('end_date', [$startOfMonth, $endOfMonth]);
-                    })->orWhere(function($q) use ($startOfMonth, $endOfMonth) {
-                        // Vacation spans the entire month
-                        $q->where('start_date', '<=', $startOfMonth)
-                          ->where('end_date', '>=', $endOfMonth);
-                    });
-                })
-                ->get();
-
-            // Calculate actual vacation days in the month
-            $totalVacationDays = 0;
-            $vacationDetails = [];
-            
-            foreach ($vacationDays as $vacation) {
-                $vacationStart = Carbon::parse($vacation->start_date);
-                $vacationEnd = Carbon::parse($vacation->end_date);
-                $monthStart = Carbon::create($year_id, $month_id, 1)->startOfMonth();
-                $monthEnd = Carbon::create($year_id, $month_id, 1)->endOfMonth();
-                
-                // Calculate overlapping days within the month
-                $overlapStart = $vacationStart->max($monthStart);
-                $overlapEnd = $vacationEnd->min($monthEnd);
-                
-                if ($overlapStart <= $overlapEnd) {
-                    $daysInMonth = $overlapStart->diffInDays($overlapEnd) + 1;
-                    $totalVacationDays += $daysInMonth;
-                    
-                    $typeLabels = [
-                        1 => 'Платена',
-                        2 => 'Неплатена', 
-                        3 => 'Болничен'
-                    ];
-                    
-                    $vacationDetails[] = [
-                        'days' => $daysInMonth,
-                        'type' => $typeLabels[$vacation->type] ?? 'Неизвестен',
-                        'start_date' => $overlapStart->format('d.m.Y'),
-                        'end_date' => $overlapEnd->format('d.m.Y')
-                    ];
-                }
-            }
-                
-            $bonusData[$record->unique_id] = $bonusAmount;
-            $penaltyData[$record->unique_id] = $penaltyAmount;
-            $vacationData[$record->unique_id] = [
-                'total_days' => $totalVacationDays,
-                'details' => $vacationDetails
-            ];
-        }
-
-        $this->reportData = [
-            'workerRecords' => $workerRecords,
-            'arraySum' => $newSumArray,
-            'bonusData' => $bonusData,
-            'penaltyData' => $penaltyData,
-            'vacationData' => $vacationData, // NEW: Add vacation data
-            'filters' => $filters,
-            'summary' => [
-                'total_workers' => $workerRecords->unique('worker_id')->count(),
-                'total_records' => $workerRecords->count(), // NEW: Total worker-workplace combinations
-                'total_hours' => $workerRecords->sum('total'),
-                'total_salary' => array_sum($newSumArray),
-                'total_bonus' => array_sum($bonusData),
-                'total_penalty' => array_sum($penaltyData),
-                'total_vacation_days' => array_sum(array_column($vacationData, 'total_days')), // NEW
-            ]
-        ];
-
-        $this->showResults = true;
-
-        // Log activity
-        activity()
-            ->performedOn(Auth::user())
-            ->causedBy(Auth::user())
-            ->withProperties(['customProperty' => 'customValue'])
-            ->log('пусната обща справка за месец ' . $month_id . ' за година ' . $year_id);
-
-        Notification::make()
-            ->title('Отчет генериран успешно')
-            ->body('Отчетът е генериран за ' . $month_id . '/' . $year_id . ' с ' . $this->reportData['summary']['total_workers'] . ' работника и ' . $this->reportData['summary']['total_records'] . ' записа')
-            ->success()
-            ->send();
+        return Region::whereNotNull('name')
+            ->where('name', '!=', '')
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 
-    public function exportToPdf()
+    /**
+     * Get workplace options with optimized filtering
+     */
+    private function getWorkplaceOptions(?array $selectedRegions): array
+    {
+        $user = Auth::user();
+        
+        if ($user->hasRole('supervisor')) {
+            $vikiUser = VikiUser::find($user->id);
+            if ($vikiUser) {
+                $query = $vikiUser->workPlaces()
+                    ->whereNotNull('name')
+                    ->where('name', '!=', '');
+                
+                if (!empty($selectedRegions)) {
+                    $query->whereIn('region_id', $selectedRegions);
+                }
+                
+                return $query->orderBy('name')
+                    ->pluck('name', 'id')
+                    ->toArray();
+            }
+            return [];
+        }
+        
+        if ($user->hasRole('manager')) {
+            $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
+            $regions = !empty($selectedRegions) ? $selectedRegions : $manRegionId;
+            
+            return WorkPlace::whereIn('region_id', $regions)
+                ->whereNotNull('name')
+                ->where('name', '!=', '')
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+        
+        $query = WorkPlace::whereNotNull('name')
+            ->where('name', '!=', '');
+            
+        if (!empty($selectedRegions)) {
+            $query->whereIn('region_id', $selectedRegions);
+        }
+        
+        return $query->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    /**
+     * Get client options with optimized filtering
+     */
+    private function getClientOptions(?array $selectedRegions): array
+    {
+        $user = Auth::user();
+        
+        if ($user->hasRole('manager') || $user->hasRole('supervisor')) {
+            $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
+            $regions = !empty($selectedRegions) ? $selectedRegions : $manRegionId;
+            
+            return Client::with('workplaces')
+                ->whereHas('regions', function ($q) use ($regions) {
+                    $q->whereIn('id', $regions);
+                })
+                ->whereNotNull('name')
+                ->where('name', '!=', '')
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+        
+        $query = Client::whereNotNull('name')
+            ->where('name', '!=', '');
+            
+        if (!empty($selectedRegions)) {
+            $query->whereHas('regions', function ($q) use ($selectedRegions) {
+                $q->whereIn('id', $selectedRegions);
+            });
+        }
+        
+        return $query->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    /**
+     * Get worker options with optimized loading
+     */
+    private function getWorkerOptions(?array $selectedRegions): array
+    {
+        $user = Auth::user();
+        
+        if ($user->hasRole('manager') || $user->hasRole('supervisor')) {
+            $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
+            $regions = !empty($selectedRegions) ? $selectedRegions : $manRegionId;
+            
+            return Worker::whereIn('region_id', $regions)
+                ->whereNotNull('name')
+                ->whereNotNull('family_name')
+                ->where('name', '!=', '')
+                ->where('family_name', '!=', '')
+                ->orderBy('family_name')
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(function ($worker) {
+                    $fullName = trim($worker->name . ' ' . $worker->family_name);
+                    return $fullName ? [$worker->id => $fullName] : [];
+                })
+                ->toArray();
+        }
+        
+        $query = Worker::whereNotNull('name')
+            ->whereNotNull('family_name')
+            ->where('name', '!=', '')
+            ->where('family_name', '!=', '');
+            
+        if (!empty($selectedRegions)) {
+            $query->whereIn('region_id', $selectedRegions);
+        }
+        
+        return $query->orderBy('family_name')
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function ($worker) {
+                $fullName = trim($worker->name . ' ' . $worker->family_name);
+                return $fullName ? [$worker->id => $fullName] : [];
+            })
+            ->toArray();
+    }
+
+    /**
+     * Generate report data using optimized service
+     */
+    public function generateReportData(array $filters): void
+    {
+        try {
+            // Rate limiting check
+            if (!$this->checkRateLimit()) {
+                Notification::make()
+                    ->title('Твърде много заявки')
+                    ->body('Моля изчакайте преди да генерирате нов отчет')
+                    ->warning()
+                    ->send();
+                return;
+            }
+
+            $reportsService = app(\App\Services\ReportsService::class);
+            
+            $this->reportData = $reportsService->generateReportData($filters);
+            $this->filters = $filters;
+            $this->showResults = true;
+
+            // Log activity
+            activity()
+                ->performedOn(Auth::user())
+                ->causedBy(Auth::user())
+                ->log('Генериран отчет за ' . $filters['month_id'] . '/' . $filters['year_id']);
+
+            Notification::make()
+                ->title('Отчет генериран успешно')
+                ->body(sprintf(
+                    'Отчетът е генериран за %s/%s с %d работника и %d записа',
+                    $filters['month_id'],
+                    $filters['year_id'],
+                    $this->reportData['summary']['total_workers'],
+                    $this->reportData['summary']['total_records']
+                ))
+                ->success()
+                ->send();
+
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Грешка при генериране на отчет')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+            
+            // Log error
+            \Log::error('Reports generation error', [
+                'user_id' => Auth::id(),
+                'filters' => $filters,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Export to Excel with error handling
+     */
+    public function exportToExcel(): void
     {
         if (empty($this->reportData)) {
             Notification::make()
@@ -550,17 +390,59 @@ class Reports extends Page implements HasForms, HasActions
             return;
         }
 
-        // Simply redirect to Excel route with the same filters
-        $url = route('service.reports.export-excel', $this->filters);
-        
-        // Use JavaScript to open in new tab
-        $this->js("window.open('$url', '_blank')");
+        try {
+            $url = route('service.reports.export-excel', $this->filters);
+            $this->js("window.open('$url', '_blank')");
+            
+            Notification::make()
+                ->title('Excel експорт')
+                ->body('Excel файлът се генерира в нов прозорец...')
+                ->success()
+                ->send();
+                
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Грешка при експорт')
+                ->body('Възникна грешка при генериране на Excel файла')
+                ->danger()
+                ->send();
+                
+            \Log::error('Excel export error', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Clear results and reset state
+     */
+    public function clearResults(): void
+    {
+        $this->showResults = false;
+        $this->reportData = [];
         
         Notification::make()
-            ->title('Excel експорт')
-            ->body('Excel файлът се генерира в нов прозорец...')
-            ->success()
+            ->title('Резултати изчистени')
+            ->body('Данните са премахнати от екрана')
+            ->info()
             ->send();
+    }
+
+    /**
+     * Simple rate limiting implementation
+     */
+    private function checkRateLimit(): bool
+    {
+        $key = 'reports_rate_limit:' . Auth::id();
+        $requests = \Cache::get($key, 0);
+        
+        if ($requests >= self::MAX_REQUESTS_PER_MINUTE) {
+            return false;
+        }
+        
+        \Cache::put($key, $requests + 1, 60); // 1 minute TTL
+        return true;
     }
 
     public function getTitle(): string
@@ -582,20 +464,31 @@ class Reports extends Page implements HasForms, HasActions
 
     public static function getNavigationBadge(): ?string
     {
-        $user = Auth::user();
-        $query = WorkerRecord::where('date', 'like', now()->format('Y-m') . '%');
-        
-        if ($user->hasRole('supervisor')) {
-            $vikiUser = VikiUser::find($user->id);
-            $workplaceIds = $vikiUser->workPlaces()->pluck('id')->toArray();
-            $query->whereIn('work_place_id', $workplaceIds);
-        } elseif ($user->hasRole('manager')) {
-            $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
-            $query->whereHas('workPlace', function ($q) use ($manRegionId) {
-                $q->whereIn('region_id', $manRegionId);
-            });
-        }
+        try {
+            $user = Auth::user();
+            $cacheKey = 'navigation_badge:' . $user->id;
+            
+            return \Cache::remember($cacheKey, 300, function () use ($user) {
+                $query = WorkerRecord::where('date', 'like', now()->format('Y-m') . '%');
+                
+                if ($user->hasRole('supervisor')) {
+                    $vikiUser = VikiUser::find($user->id);
+                    if ($vikiUser) {
+                        $workplaceIds = $vikiUser->workPlaces()->pluck('id')->toArray();
+                        $query->whereIn('work_place_id', $workplaceIds);
+                    }
+                } elseif ($user->hasRole('manager')) {
+                    $manRegionId = VikiUser::getCurrentUserRegionId($user->id);
+                    $query->whereHas('workPlace', function ($q) use ($manRegionId) {
+                        $q->whereIn('region_id', $manRegionId);
+                    });
+                }
 
-        return (string) $query->distinct('worker_id')->count('worker_id');
+                return (string) $query->distinct('worker_id')->count('worker_id');
+            });
+        } catch (\Exception $e) {
+            \Log::error('Navigation badge error', ['error' => $e->getMessage()]);
+            return '0';
+        }
     }
 }

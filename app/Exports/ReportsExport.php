@@ -8,7 +8,7 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class VikiReportsExport implements FromCollection, WithHeadings, WithMapping, WithStyles
+class ReportsExport implements FromCollection, WithHeadings, WithMapping, WithStyles
 {
     protected $workerRecords;
     protected $arraySum;
