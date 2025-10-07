@@ -5,6 +5,7 @@ namespace App\Services\Presence;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use viki\Service\Models\Elequent\HoursActivityByMonth;
 use viki\Service\Models\Elequent\SpecialDay;
 use viki\Service\Models\Elequent\WorkPlace;
@@ -94,6 +95,73 @@ class PresenceConfigurationService
         }
 
         return $candidateTotal <= $budget;
+    }
+
+    /**
+     * Attach a worker to a workplace activity for a given month, mirroring the legacy behaviour.
+     */
+    public static function addWorkerToActivity(int $workplaceId, int $activityId, int $workerId, string $monthYear): void
+    {
+        $date = Carbon::createFromFormat('m-Y', $monthYear);
+        if (!$date || $date->format('m-Y') !== $monthYear) {
+            throw new RuntimeException('Невалиден формат на месеца.');
+        }
+
+        $workplace = WorkPlace::findOrFail($workplaceId);
+        $activity = WorkPlaceActivity::findOrFail($activityId);
+
+        if ($activity->work_place_id !== $workplaceId) {
+            throw new RuntimeException('Избраната дейност не принадлежи на този обект.');
+        }
+
+        $worker = Worker::findOrFail($workerId);
+
+        $normalizedDate = $date->copy()->startOfMonth()->toDateString();
+
+        DB::transaction(function () use ($workplace, $activity, $worker, $normalizedDate, $date) {
+            // Prevent duplicate attachments on the workplace-level pivot.
+            $workplacePivotExists = $workplace->temporaryWorkers()
+                ->wherePivot('worker_id', $worker->id)
+                ->wherePivot('date', $normalizedDate)
+                ->exists();
+
+            if ($workplacePivotExists) {
+                throw new RuntimeException('Този работник вече е добавен към обекта за избрания месец.');
+            }
+
+            $activityPivotExists = $activity->temporaryWorkers()
+                ->wherePivot('worker_id', $worker->id)
+                ->wherePivot('date', $normalizedDate)
+                ->exists();
+
+            if ($activityPivotExists) {
+                throw new RuntimeException('Този работник вече е добавен към избраната дейност.');
+            }
+
+            $workplace->temporaryWorkers()->attach($worker->id, ['date' => $normalizedDate]);
+            $activity->temporaryWorkers()->attach($worker->id, ['date' => $normalizedDate]);
+
+            if ($activity->type_working === WorkPlaceActivity::WORKING_STANDART) {
+                $startDate = $worker->start_date ? Carbon::parse($worker->start_date) : $date->copy();
+                $startOfMonth = $date->copy()->startOfMonth();
+                $endOfMonth = $date->copy()->endOfMonth();
+
+                if ($startDate->lt($startOfMonth)) {
+                    $startDate = $startOfMonth;
+                }
+
+                if ($startDate->lte($endOfMonth)) {
+                    self::insertStandardWorkerRecords(
+                        $worker,
+                        $activity,
+                        $activity,
+                        $workplace,
+                        $startDate,
+                        $endOfMonth
+                    );
+                }
+            }
+        });
     }
 
     private static function createMonthlyActivityFromBase(WorkPlaceActivity $baseActivity, int $year, string $monthString): WorkPlaceActivity

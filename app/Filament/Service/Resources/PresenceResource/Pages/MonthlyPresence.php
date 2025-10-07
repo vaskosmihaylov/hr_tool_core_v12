@@ -35,12 +35,9 @@ class MonthlyPresence extends Page
     public $workplaceData;
     public $activities;
     public $vacationData = [];
-    public $availableWorkers = [];
     
     // State properties
     public $isLocked = false;
-    public $showWorkerModal = false;
-    public $selectedWorkers = [];
     public $hoursData = [];
     public $hasUnsavedChanges = false;
 
@@ -50,12 +47,6 @@ class MonthlyPresence extends Page
         $this->parseDateParameter($date);
         $this->loadData();
         $this->initializeHoursData();
-        
-        // Check if we should open the worker modal (from replacement worker route)
-        if (session('open_worker_modal')) {
-            $this->showWorkerModal = true;
-            session()->forget('open_worker_modal');
-        }
     }
 
     protected function getHeaderActions(): array
@@ -142,42 +133,6 @@ class MonthlyPresence extends Page
         } catch (\Exception $e) {
             DB::rollBack();
             $this->showErrorNotification('Грешка при запазване: ' . $e->getMessage());
-        }
-    }
-
-    // Worker management
-    public function openWorkerManagement(): void
-    {
-        $this->loadAvailableWorkers();
-        $this->selectedWorkers = [];
-        $this->showWorkerModal = true;
-    }
-
-    public function closeWorkerModal(): void
-    {
-        $this->showWorkerModal = false;
-        $this->selectedWorkers = [];
-    }
-
-    public function addSelectedWorkers(): void
-    {
-        if (empty($this->selectedWorkers)) {
-            $this->showWarningNotification('Моля изберете поне един работник за добавяне.');
-            return;
-        }
-
-        try {
-            DB::beginTransaction();
-            $this->createWorkerRecords();
-            DB::commit();
-            
-            $this->reloadData();
-            $this->closeWorkerModal();
-            $this->showSuccessNotification('Работниците са добавени успешно.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            $this->showErrorNotification('Грешка при добавяне: ' . $e->getMessage());
         }
     }
 
@@ -305,7 +260,6 @@ class MonthlyPresence extends Page
         $this->workplaceData = WorkPlace::with('region', 'client')->find($this->workplace);
         $this->loadActivities();
         $this->loadVacationData();
-        $this->loadAvailableWorkers();
         $this->loadMonthlyData();
     }
 
@@ -458,33 +412,6 @@ class MonthlyPresence extends Page
         }
     }
 
-    private function loadAvailableWorkers(): void
-    {
-        if (!$this->workplace) {
-            $this->availableWorkers = [];
-            return;
-        }
-
-        $dateRange = $this->getMonthDateRange();
-        $existingWorkerIds = WorkerRecord::where('work_place_id', $this->workplace)
-            ->whereBetween('date', $dateRange)
-            ->distinct()
-            ->pluck('worker_id');
-
-        $this->availableWorkers = Worker::where('work_place_id', $this->workplace)
-            ->where('status', Worker::WORKER_ACTIVE)
-            ->whereNotIn('id', $existingWorkerIds)
-            ->orderBy('name')
-            ->get()
-            ->map(fn($worker) => [
-                'id' => $worker->id,
-                'name' => $worker->name . ' ' . $worker->family_name,
-                'egn' => $worker->egn,
-                'position' => $worker->position,
-            ])
-            ->toArray();
-    }
-
     private function initializeHoursData(): void
     {
         $this->hoursData = [];
@@ -521,18 +448,6 @@ class MonthlyPresence extends Page
                     $this->deleteRecord($workerId, $date);
                 }
             }
-        }
-    }
-
-    private function createWorkerRecords(): void
-    {
-        $firstDay = Carbon::create($this->year, $this->month, 1);
-        
-        foreach ($this->selectedWorkers as $workerId) {
-            WorkerRecord::firstOrCreate(
-                ['worker_id' => $workerId, 'work_place_id' => $this->workplace, 'date' => $firstDay],
-                ['hours' => 0, 'status' => WorkerRecord::WORKER_RECORD_WAITING, 'creator_id' => Auth::id()]
-            );
         }
     }
 
@@ -620,7 +535,22 @@ class MonthlyPresence extends Page
     private function getUnlockAction() { return Actions\Action::make('unlock_month')->label('Отключи месеца')->icon('heroicon-o-lock-open')->color('danger')->action('unlockMonth')->visible(fn () => $this->isLocked && Auth::user()->hasRole(['admin', 'super_admin']))->requiresConfirmation()->modalHeading('Отключване на месеца')->modalDescription('Сигурни ли сте, че искате да отключите този месец?'); }
     private function getExportAction() { return Actions\Action::make('export_monthly_excel')->label('Експорт Excel')->icon('heroicon-o-table-cells')->color('info')->action(fn () => $this->exportMonthlyExcel()); }
     private function getConfigureAction() { return Actions\Action::make('configure_month')->label('Конфигурирай дейности')->icon('heroicon-o-cog-6-tooth')->color('info')->url(sprintf('/service/presences/config/%d/%s', $this->workplace, sprintf('%02d-%d', $this->month, $this->year))); }
-    private function getManageWorkersAction() { return Actions\Action::make('manage_workers')->label('Управление работници')->icon('heroicon-o-users')->color('warning')->action('openWorkerManagement'); }
+    private function getAddWorkerUrl(): string
+    {
+        return sprintf(
+            '/service/presences/monthly/%d/%s/workers/add',
+            $this->workplace,
+            sprintf('%02d-%d', $this->month, $this->year)
+        );
+    }
+    private function getManageWorkersAction()
+    {
+        return Actions\Action::make('manage_workers')
+            ->label('Управление работници')
+            ->icon('heroicon-o-users')
+            ->color('warning')
+            ->url($this->getAddWorkerUrl());
+    }
 
     // Notification helpers
 

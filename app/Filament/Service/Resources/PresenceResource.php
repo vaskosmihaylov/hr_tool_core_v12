@@ -356,6 +356,7 @@ class PresenceResource extends Resource implements HasShieldPermissions
             'config' => Pages\ConfigureMonthlyPresence::route('/config/{workplace}/{date}'),
             'activity-add' => Pages\CreateMonthlyActivity::route('/config/{workplace}/{date}/activity/add'),
             'activity-edit' => Pages\EditMonthlyActivity::route('/config/{workplace}/{date}/activity/{activity}'),
+            'worker-add' => Pages\AddMonthlyWorker::route('/monthly/{workplace}/{date}/workers/add'),
             'records' => Pages\ListPresenceRecords::route('/records'),
             'create' => Pages\CreatePresenceRecord::route('/create'),
             'view' => Pages\ViewPresenceRecord::route('/{record}'),
