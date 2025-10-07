@@ -93,4 +93,23 @@ Route::get('/service/presence/addWorker/{object_id}/{selected_month}', function 
         ->with('success', 'Можете да добавите работник за избрания месец');
 })->middleware(['web', 'auth'])->name('service.presence.add-worker');
 
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::get('/service/presence/config/{workplaceId}/{date}', function (int $workplaceId, string $date) {
+        return redirect("/service/presences/config/{$workplaceId}/{$date}");
+    })->name('service.presence.config.redirect');
+
+    Route::get('/service/presence/activity/add/{workplaceId}/{date}', function (int $workplaceId, string $date) {
+        return redirect("/service/presences/config/{$workplaceId}/{$date}/activity/add");
+    })->name('service.presence.activity.add.redirect');
+
+    Route::get('/service/presence/activity/edit/{activityId}/{date}', function (int $activityId, string $date) {
+        $activity = \viki\Service\Models\Elequent\WorkPlaceActivity::find($activityId);
+
+        if (!$activity) {
+            return redirect('/service/presences')->with('error', 'Дейността не беше намерена.');
+        }
+
+        return redirect("/service/presences/config/{$activity->work_place_id}/{$date}/activity/{$activityId}");
+    })->name('service.presence.activity.edit.redirect');
+});
 
