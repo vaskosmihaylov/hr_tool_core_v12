@@ -15,6 +15,7 @@ use Viki\Service\Models\Elequent\VikiUser;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use viki\Service\Models\Elequent\Approvement;
 use viki\Service\Models\Elequent\SpecialDay;
 
@@ -336,10 +337,16 @@ class MonthlyPresence extends Page
             ->pluck('worker_id');
 
         // Get workers with their WorkPlaceActivity relationships
-        $workers = Worker::whereIn('id', $workerIdsWithRecords)
+        $workersQuery = Worker::whereIn('id', $workerIdsWithRecords)
             ->where('status', Worker::WORKER_ACTIVE)
-            ->with('workPlaceActivity')
-            ->orderBy('position')
+            ->with('workPlaceActivity');
+        
+        // Order by position if column exists (for development/future compatibility)
+        if (Schema::hasColumn('viki_workers', 'position')) {
+            $workersQuery->orderBy('position');
+        }
+        
+        $workers = $workersQuery
             ->orderBy('name')
             ->orderBy('family_name')
             ->get();
