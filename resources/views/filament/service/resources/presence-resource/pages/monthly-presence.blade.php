@@ -61,30 +61,6 @@
                     </div>
                 @endforeach
             </div>
-
-            {{-- Activities Section --}}
-            @if($activities && $activities->count() > 0)
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center">
-                        <x-heroicon-o-clipboard-document-list class="w-5 h-5 mr-2 text-blue-500" />
-                        Дейности за {{ $this->getMonthName() }}
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @foreach($activities as $activity)
-                            <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $activity->activity }}</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    Бюджет: {{ number_format($activity->budget, 2) }} лв
-                                </div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">
-                                    Работници: {{ $activity->worker_count ?? 0 }}
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
             {{-- Monthly Table --}}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

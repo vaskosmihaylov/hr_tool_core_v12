@@ -19,6 +19,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Viki\Service\Models\Elequent\WorkPlace;
 use Viki\Service\Models\Elequent\Region;
 use Viki\Service\Models\Elequent\Client;
@@ -174,8 +175,6 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                     ->sortable()
                     ->toggleable(),
             ])
-            ->defaultSort('name', 'asc')
-            ->persistSortInSession()
             ->persistSearchInSession()
             ->persistFiltersInSession()
             ->striped()
@@ -236,7 +235,12 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                 // Default: no access for other roles
                 return $query->whereRaw('1 = 0');
             })
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('name', 'asc');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->orderBy('name');
     }
 
     public static function getRelations(): array

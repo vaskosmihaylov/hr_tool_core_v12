@@ -160,19 +160,30 @@ class WorkerResource extends Resource implements HasShieldPermissions
 
                     Select::make("work_place_activity_id")
                         ->label("Дейност")
-                        ->options(
-                            fn(
-                                Get $get
-                            ): Collection => WorkPlaceActivity::query()
-                                ->where("work_place_id", $get("work_place_id"))
-                                ->whereNull("date")
+                        ->options(function (Get $get): Collection {
+                            $query = WorkPlaceActivity::query();
+
+                            if ($workplaceId = $get("work_place_id")) {
+                                $query->where("work_place_id", $workplaceId);
+                            }
+
+                            $options = $query
+                                ->orderByRaw('CASE WHEN date IS NULL THEN 0 ELSE 1 END')
+                                ->orderBy('activity')
                                 ->get()
-                                ->mapWithKeys(
-                                    fn($activity) => [
-                                        $activity->id => $activity->activity,
-                                    ]
-                                )
-                        )
+                                ->mapWithKeys(fn ($activity) => [
+                                    $activity->id => $activity->activity,
+                                ]);
+
+                            $current = $get('work_place_activity_id');
+                            if ($current && !$options->has($current)) {
+                                if ($activity = WorkPlaceActivity::find($current)) {
+                                    $options->put($activity->id, $activity->activity);
+                                }
+                            }
+
+                            return $options;
+                        })
                         ->columnSpan(2),
                 ])
                 ->columns(2),

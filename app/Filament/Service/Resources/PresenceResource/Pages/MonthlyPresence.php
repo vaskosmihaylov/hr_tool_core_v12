@@ -3,6 +3,7 @@
 namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
+use App\Services\Presence\PresenceConfigurationService;
 use Filament\Resources\Pages\Page;
 use Filament\Actions;
 use Filament\Notifications\Notification;
@@ -15,7 +16,6 @@ use Viki\Service\Models\Elequent\VikiUser;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
 use viki\Service\Models\Elequent\Approvement;
 use viki\Service\Models\Elequent\SpecialDay;
 
@@ -45,6 +45,7 @@ class MonthlyPresence extends Page
     {
         $this->workplace = $workplace;
         $this->parseDateParameter($date);
+        PresenceConfigurationService::ensureMonthlyActivities($this->workplace, $this->year, $this->month);
         $this->loadData();
         $this->initializeHoursData();
     }
@@ -284,92 +285,87 @@ class MonthlyPresence extends Page
 
     private function loadMonthlyData(): void
     {
-        $dateRange = $this->getMonthDateRange();
-        
-        $workerIdsWithRecords = WorkerRecord::where('work_place_id', $this->workplace)
-            ->whereBetween('date', $dateRange)
-            ->distinct()
-            ->pluck('worker_id');
+        $start = $this->getMonthStartDate();
+        $end = $start->copy()->endOfMonth();
 
-        // Get workers with their WorkPlaceActivity relationships
-        $workersQuery = Worker::whereIn('id', $workerIdsWithRecords)
-            ->where('status', Worker::WORKER_ACTIVE)
-            ->with('workPlaceActivity');
-        
-        // Order by position if column exists (for development/future compatibility)
-        if (Schema::hasColumn('viki_workers', 'position')) {
-            $workersQuery->orderBy('position');
-        }
-        
-        $workers = $workersQuery
-            ->orderBy('name')
-            ->orderBy('family_name')
+        $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
+            ->whereDate('date', $start->toDateString())
+            ->orderBy('activity')
             ->get();
 
-        $records = WorkerRecord::where('work_place_id', $this->workplace)
-            ->whereBetween('date', $dateRange)
-            ->with(['worker', 'activity'])
-            ->get()
-            ->groupBy('worker_id');
-
-        // Group workers by WorkPlaceActivity - using arrays, not collections
         $groupedByActivity = [];
-        
-        foreach ($workers as $worker) {
-            $workerRecords = $records->get($worker->id, collect());
-            
-            // Get the worker's activity for this month/workplace
-            $activity = $worker->workPlaceActivity;
-            
-            // If no specific activity found, try to get from worker records
-            if (!$activity && $workerRecords->isNotEmpty()) {
-                $activity = $workerRecords->first()->activity;
+
+        foreach ($activities as $activity) {
+            $records = WorkerRecord::where('work_place_id', $this->workplace)
+                ->where('work_place_activity_id', $activity->id)
+                ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+                ->with('worker')
+                ->get()
+                ->groupBy('worker_id');
+
+            $pivotWorkerIds = $activity->temporaryWorkers()
+                ->wherePivot('date', $start->toDateString())
+                ->pluck('viki_workers.id');
+
+            $workerIds = $records->keys()->merge($pivotWorkerIds)->unique();
+
+            if ($workerIds->isEmpty()) {
+                continue;
             }
-            
-            // Use position as fallback if no activity found
-            $activityKey = $activity ? $activity->id : 'position_' . $worker->position;
-            $activityName = $activity ? $activity->activity : $worker->position;
-            
-            // Initialize activity group if not exists - using arrays
-            if (!isset($groupedByActivity[$activityKey])) {
-                $groupedByActivity[$activityKey] = [
-                    'activity' => $activity,
-                    'activity_name' => $activityName,
-                    'activity_salary' => $activity ? ($activity->neto_salary + $activity->social_plus) : 0,
-                    'workers' => [], // Use array instead of collection
-                    'group_totals' => [
-                        'total_price' => 0,
-                        'total_hours' => 0,
-                        'total_calculated' => 0
-                    ]
-                ];
-            }
-            
-            // Calculate worker data
-            $totalHours = $workerRecords->sum('hours');
-            $calculatedPrice = $this->calculateWorkerPrice($worker, $totalHours);
-            $calculatedTotal = $this->calculateWorkerTotal($worker, $totalHours);
-            
-            $workerData = [
-                'worker' => $worker,
-                'total_hours' => $totalHours,
-                'working_days' => $workerRecords->count(),
-                'average_hours' => $this->calculateAverageHours($workerRecords),
-                'records' => $workerRecords->keyBy(fn($record) => Carbon::parse($record->date)->day),
-                'calculated_price' => $calculatedPrice,
-                'calculated_total' => $calculatedTotal,
+
+            $groupedByActivity[$activity->id] = [
+                'activity' => $activity,
+                'activity_name' => $activity->activity,
+                'activity_salary' => $activity->neto_salary + $activity->social_plus,
+                'workers' => [],
+                'group_totals' => [
+                    'total_price' => 0,
+                    'total_hours' => 0,
+                    'total_calculated' => 0,
+                ],
             ];
-            
-            // Add worker to activity group - array push
-            $groupedByActivity[$activityKey]['workers'][] = $workerData;
-            
-            // Update group totals
-            $groupedByActivity[$activityKey]['group_totals']['total_price'] += $calculatedPrice;
-            $groupedByActivity[$activityKey]['group_totals']['total_hours'] += $totalHours;
-            $groupedByActivity[$activityKey]['group_totals']['total_calculated'] += $calculatedTotal;
+
+            foreach ($workerIds as $workerId) {
+                $worker = $records->has($workerId)
+                    ? $records[$workerId]->first()->worker
+                    : Worker::find($workerId);
+
+                if (!$worker || $worker->status !== Worker::WORKER_ACTIVE) {
+                    continue;
+                }
+
+                $workerRecords = $records->get($workerId, collect());
+                $recordsByDay = $workerRecords->keyBy(fn ($record) => Carbon::parse($record->date)->day);
+
+                $totalHours = 0;
+                $dailyRecords = [];
+
+                for ($day = 1; $day <= $this->getDaysInMonth(); $day++) {
+                    $dailyRecords[$day] = $recordsByDay->get($day);
+                    if ($dailyRecords[$day]) {
+                        $totalHours += $dailyRecords[$day]->hours;
+                    }
+                }
+
+                $calculatedPrice = $this->calculateWorkerPriceForActivity($activity);
+                $calculatedTotal = $this->calculateWorkerTotalForActivity($activity, $totalHours);
+
+                $groupedByActivity[$activity->id]['workers'][] = [
+                    'worker' => $worker,
+                    'total_hours' => $totalHours,
+                    'working_days' => $workerRecords->count(),
+                    'average_hours' => $this->calculateAverageHours($workerRecords),
+                    'records' => collect($dailyRecords),
+                    'calculated_price' => $calculatedPrice,
+                    'calculated_total' => $calculatedTotal,
+                ];
+
+                $groupedByActivity[$activity->id]['group_totals']['total_price'] += $calculatedPrice;
+                $groupedByActivity[$activity->id]['group_totals']['total_hours'] += $totalHours;
+                $groupedByActivity[$activity->id]['group_totals']['total_calculated'] += $calculatedTotal;
+            }
         }
 
-        // Convert back to collection for consistency with rest of the app
         $this->monthlyData = collect($groupedByActivity);
     }
 
@@ -377,8 +373,11 @@ class MonthlyPresence extends Page
 
     private function loadActivities(): void
     {
+        $start = $this->getMonthStartDate();
+
         $this->activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->where('date', 'like', sprintf('%02d-%d%%', $this->month, $this->year))
+            ->whereDate('date', $start->toDateString())
+            ->orderBy('activity')
             ->get();
     }
 
@@ -557,26 +556,51 @@ class MonthlyPresence extends Page
     // TODO: Price & Total calculation methods - need old app logic
     private function calculateWorkerPrice($worker, $totalHours): float
     {
-        // MISSING INFORMATION: Need old app code to understand how Цена is calculated
-        // Possible scenarios:
-        // - hourly_rate * total_hours
-        // - worker->neto_salary / working_days_in_month * working_days
-        // - Some combination with WorkPlaceActivity budget allocation
-        
-        // Placeholder calculation - replace with actual logic from old app
-        return $totalHours * 15.0; // Using fixed rate as placeholder
+        $activityId = $this->getWorkerMonthlyActivityId($worker->id);
+        if (!$activityId) {
+            return 0.0;
+        }
+
+        $activity = WorkPlaceActivity::find($activityId);
+        if (!$activity) {
+            return 0.0;
+        }
+
+        return $this->calculateWorkerPriceForActivity($activity);
     }
 
     private function calculateWorkerTotal($worker, $totalHours): float
     {
-        // MISSING INFORMATION: Need old app code to understand how Общо is calculated
-        // Questions:
-        // - Is Общо different from Цена?
-        // - Does it include bonuses, taxes, or other factors?
-        // - How does it relate to WorkPlaceActivity budget?
-        
-        // Placeholder calculation - replace with actual logic from old app
-        return $this->calculateWorkerPrice($worker, $totalHours); // Same as price for now
+        $activityId = $this->getWorkerMonthlyActivityId($worker->id);
+        if (!$activityId) {
+            return 0.0;
+        }
+
+        $activity = WorkPlaceActivity::find($activityId);
+        if (!$activity) {
+            return 0.0;
+        }
+
+        return $this->calculateWorkerTotalForActivity($activity, $totalHours);
+    }
+
+    private function calculateWorkerPriceForActivity(WorkPlaceActivity $activity): float
+    {
+        return $activity->neto_salary + $activity->social_plus;
+    }
+
+    private function calculateWorkerTotalForActivity(WorkPlaceActivity $activity, float $totalHours): float
+    {
+        $monthString = sprintf('%02d-%d', $this->month, $this->year);
+        $monthlyHours = $this->getActivityWorkingHoursForDate($activity, $monthString);
+
+        if ($monthlyHours <= 0) {
+            return $this->calculateWorkerPriceForActivity($activity);
+        }
+
+        $hourRate = ($activity->neto_salary + $activity->social_plus) / $monthlyHours;
+
+        return round($totalHours * $hourRate, 2);
     }
 
     private function showUnsavedChangesWarning() { Notification::make()->title('Незапазени промени')->body('Имате незапазени промени. Моля запазете ги преди да променяте месеца.')->warning()->send(); }
@@ -592,10 +616,11 @@ class MonthlyPresence extends Page
         foreach ($this->hoursData as $workerId => $days) {
             foreach ($days as $day => $hours) {
                 if ($hours !== null && $hours !== '' && $hours > 0) {
-                    // Find the worker's activity for this workplace
-                    $worker = Worker::find($workerId);
-                    $workPlaceActivityId = $this->getWorkerActivityId($worker);
-                    
+                    $workPlaceActivityId = $this->getWorkerMonthlyActivityId($workerId);
+                    if (!$workPlaceActivityId) {
+                        continue;
+                    }
+
                     $userData[] = [
                         'workPlaceActivityId' => $workPlaceActivityId,
                         'workerId' => $workerId,
@@ -611,23 +636,57 @@ class MonthlyPresence extends Page
     
     private function getWorkerActivityId($worker): int
     {
-        // Try to find the worker's current activity for this workplace
-        $activity = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
+        return $this->getWorkerMonthlyActivityId($worker->id) ?? 0;
+    }
+
+    private function getWorkerMonthlyActivityId(int $workerId): ?int
+    {
+        $start = $this->getMonthStartDate();
+        $end = $start->copy()->endOfMonth();
+
+        $record = WorkerRecord::where('work_place_id', $this->workplace)
+            ->where('worker_id', $workerId)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->orderBy('date')
             ->first();
-            
-        if (!$activity) {
-            // Create a default activity if none exists using the correct method signature
-            $activity = WorkPlaceActivity::create([
-                'activity' => $worker->position ?: 'Стандартна дейност',
-                'neto_salary' => 800, // Default salary
-                'social_plus' => 200, // Default social
-                'worker_count' => 1,
-                'type_working' => WorkPlaceActivity::WORKING_STANDART,
-            ], $this->workplace, sprintf('%04d-%02d-01', $this->year, $this->month));
+
+        if ($record && $record->work_place_activity_id) {
+            return $record->work_place_activity_id;
         }
-        
-        return $activity->id;
+
+        $activity = WorkPlaceActivity::where('work_place_id', $this->workplace)
+            ->whereDate('date', $start->toDateString())
+            ->whereHas('temporaryWorkers', function ($query) use ($workerId, $start) {
+                $query->where('viki_workers.id', $workerId)
+                    ->wherePivot('date', $start->toDateString());
+            })
+            ->first();
+
+        if ($activity) {
+            return $activity->id;
+        }
+
+        $worker = Worker::find($workerId);
+        if (!$worker || !$worker->work_place_activity_id) {
+            return null;
+        }
+
+        $baseActivity = WorkPlaceActivity::find($worker->work_place_activity_id);
+        if (!$baseActivity) {
+            return null;
+        }
+
+        $monthlyMatch = WorkPlaceActivity::where('work_place_id', $this->workplace)
+            ->whereDate('date', $start->toDateString())
+            ->where('activity', $baseActivity->activity)
+            ->first();
+
+        return $monthlyMatch?->id;
+    }
+
+    private function getMonthStartDate(): Carbon
+    {
+        return Carbon::create($this->year, $this->month, 1);
     }
 
     private function checkIfInBudget($extraData): array
@@ -768,7 +827,11 @@ class MonthlyPresence extends Page
     private function determineRecordStatus($workerId, $day, $hours, $budgetCheck, &$remainingFreeBudget): int
     {
         // Calculate cost for this record
-        $activityId = $this->getWorkerActivityId(Worker::find($workerId));
+        $activityId = $this->getWorkerMonthlyActivityId($workerId);
+        if (!$activityId) {
+            return WorkerRecord::WORKER_RECORD_WAITING;
+        }
+
         $hourCost = $budgetCheck['workPlaceActivityCostForHour'][$activityId] ?? 15.0;
         $recordCost = $hours * $hourCost;
         
