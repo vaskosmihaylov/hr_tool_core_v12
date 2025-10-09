@@ -43,6 +43,9 @@ class MonthlyPresence extends Page
     public $hoursData = [];
     public $hasUnsavedChanges = false;
 
+    /** @var array<int, array{label: string, type: int}> */
+    private ?array $cachedSpecialDays = null;
+
     public function mount(int $workplace, ?string $date = null): void
     {
         $this->workplace = $workplace;
@@ -256,6 +259,8 @@ class MonthlyPresence extends Page
 
     private function loadData(): void
     {
+        $this->cachedSpecialDays = null;
+
         $this->loadUserWorkplaces();
         
         if (!$this->workplace || !$this->workplaces->has($this->workplace)) {
@@ -946,6 +951,39 @@ class MonthlyPresence extends Page
         }
 
         return $weekDays;
+    }
+
+    public function getSpecialDayInfo(int $day): ?array
+    {
+        $map = $this->getSpecialDaysMap();
+
+        return $map[$day] ?? null;
+    }
+
+    /**
+     * @return array<int, array{label: string, type: int}>
+     */
+    private function getSpecialDaysMap(): array
+    {
+        if ($this->cachedSpecialDays !== null) {
+            return $this->cachedSpecialDays;
+        }
+
+        $specialDays = SpecialDay::where('date', 'like', sprintf('%04d-%02d-%%', $this->year, $this->month))->get();
+
+        $map = [];
+
+        foreach ($specialDays as $specialDay) {
+            $day = (int) \Carbon\Carbon::parse($specialDay->date)->day;
+            $map[$day] = [
+                'label' => $specialDay->comment ?? 'Празничен ден',
+                'type' => (int) $specialDay->type,
+            ];
+        }
+
+        $this->cachedSpecialDays = $map;
+
+        return $this->cachedSpecialDays;
     }
 
     private function getSpecialDays($month, $year): array
