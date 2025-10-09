@@ -70,8 +70,6 @@ class ServicePanelProvider extends PanelProvider
                 '✅ Одобрения',
                 '📊 Отчети',
                 '📂 Архив',
-            ])
-            ->renderHook('panels::page.start', fn (): string => view('filament.service.table-optimization')->render());
+            ]);
     }
 }
-

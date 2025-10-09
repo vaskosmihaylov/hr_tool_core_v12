@@ -7,6 +7,7 @@ use App\Services\Presence\PresenceConfigurationService;
 use Filament\Resources\Pages\Page;
 use Filament\Actions;
 use Filament\Notifications\Notification;
+use Illuminate\Contracts\View\View;
 use Viki\Service\Models\Elequent\WorkPlace;
 use Viki\Service\Models\Elequent\Worker;
 use Viki\Service\Models\Elequent\WorkerRecord;
@@ -23,6 +24,7 @@ class MonthlyPresence extends Page
 {
     protected static string $resource = PresenceResource::class;
     protected static string $view = 'filament.service.resources.presence-resource.pages.monthly-presence';
+    protected ?string $maxContentWidth = 'full';
 
     // Route parameters
     public int $workplace;
@@ -61,9 +63,12 @@ class MonthlyPresence extends Page
             $this->getLockAction(),
             $this->getUnlockAction(),
             $this->getExportAction(),
-            $this->getConfigureAction(),
-            $this->getManageWorkersAction(),
         ];
+    }
+
+    public function getHeader(): ?View
+    {
+        return view('filament.service.resources.monthly-presence-resource.pages.partials.header');
     }
 
     // Navigation methods
@@ -533,22 +538,23 @@ class MonthlyPresence extends Page
     private function getLockAction() { return Actions\Action::make('lock_month')->label('Заключи месеца')->icon('heroicon-o-lock-closed')->color('warning')->action('lockMonth')->visible(fn () => !$this->isLocked && Auth::user()->hasRole(['admin', 'super_admin', 'manager']))->requiresConfirmation()->modalHeading('Заключване на месеца')->modalDescription('Сигурни ли сте, че искате да заключите този месец?'); }
     private function getUnlockAction() { return Actions\Action::make('unlock_month')->label('Отключи месеца')->icon('heroicon-o-lock-open')->color('danger')->action('unlockMonth')->visible(fn () => $this->isLocked && Auth::user()->hasRole(['admin', 'super_admin']))->requiresConfirmation()->modalHeading('Отключване на месеца')->modalDescription('Сигурни ли сте, че искате да отключите този месец?'); }
     private function getExportAction() { return Actions\Action::make('export_monthly_excel')->label('Експорт Excel')->icon('heroicon-o-table-cells')->color('info')->action(fn () => $this->exportMonthlyExcel()); }
-    private function getConfigureAction() { return Actions\Action::make('configure_month')->label('Конфигурирай дейности')->icon('heroicon-o-cog-6-tooth')->color('info')->url(sprintf('/service/presences/config/%d/%s', $this->workplace, sprintf('%02d-%d', $this->month, $this->year))); }
-    private function getAddWorkerUrl(): string
+
+    public function getConfigureActivitiesUrl(): string
+    {
+        return sprintf(
+            '/service/presences/config/%d/%s',
+            $this->workplace,
+            sprintf('%02d-%d', $this->month, $this->year)
+        );
+    }
+
+    public function getManageWorkersUrl(): string
     {
         return sprintf(
             '/service/presences/monthly/%d/%s/workers/add',
             $this->workplace,
             sprintf('%02d-%d', $this->month, $this->year)
         );
-    }
-    private function getManageWorkersAction()
-    {
-        return Actions\Action::make('manage_workers')
-            ->label('Управление работници')
-            ->icon('heroicon-o-users')
-            ->color('warning')
-            ->url($this->getAddWorkerUrl());
     }
 
     // Notification helpers

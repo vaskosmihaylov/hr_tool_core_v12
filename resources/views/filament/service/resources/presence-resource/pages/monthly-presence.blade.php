@@ -1,40 +1,5 @@
 <x-filament-panels::page>
     <div class="space-y-6">
-        {{-- Header Section --}}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                <div>
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                        {{ $workplaces[$workplace] ?? 'Неизвестно работно място' }}
-                    </h2>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                        Месечно управление на присъствието за {{ $this->getMonthName() }}
-                    </p>
-                    @if($isLocked)
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 mt-2">
-                            <x-heroicon-s-lock-closed class="w-3 h-3 mr-1" />
-                            Месецът е заключен
-                        </span>
-                    @endif
-                </div>
-                
-                <div class="text-center">
-                    <div class="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
-                        {{ $this->getMonthName() }}
-                    </div>
-                    @if($hasUnsavedChanges)
-                        <div class="text-sm text-orange-600 dark:text-orange-400">⚠️ Незапазени промени</div>
-                    @endif
-                </div>
-
-                <div class="text-right">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                        Навигацията се управлява от бутоните в горния ред
-                    </div>
-                </div>
-            </div>
-        </div>
-
         {{-- Monthly Statistics --}}
         @if($monthlyData && $monthlyData->count() > 0)
             @php
@@ -64,20 +29,49 @@
             {{-- Monthly Table --}}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                            Редактируема таблица за {{ $this->getMonthName() }}
-                        </h3>
-                        <div class="flex space-x-2">
+                    <div class="flex flex-col gap-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                                Редактируема таблица за {{ $this->getMonthName() }}
+                            </h3>
+                            @if($isLocked)
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                    <x-heroicon-s-lock-closed class="w-3 h-3 mr-1" />
+                                    Месецът е заключен
+                                </span>
+                            @endif
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 justify-end md:self-end">
+                            <x-filament::button
+                                tag="a"
+                                :href="$this->getConfigureActivitiesUrl()"
+                                color="primary"
+                                icon="heroicon-o-cog-6-tooth"
+                                size="sm"
+                            >
+                                Конфигурирай дейности
+                            </x-filament::button>
+
+                            <x-filament::button
+                                tag="a"
+                                :href="$this->getManageWorkersUrl()"
+                                color="warning"
+                                icon="heroicon-o-users"
+                                size="sm"
+                            >
+                                Управление работници
+                            </x-filament::button>
 
                             @if(!$isLocked)
-                                <button wire:click="saveHours" 
-                                        @disabled(!$hasUnsavedChanges)
-                                        class="inline-flex items-center px-3 py-2 border-0 text-sm font-medium rounded-md text-white 
-                                               {{ $hasUnsavedChanges ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed' }}">
-                                    <x-heroicon-o-check class="w-4 h-4 mr-1" />
+                                <x-filament::button
+                                    wire:click="saveHours"
+                                    :disabled="!$hasUnsavedChanges"
+                                    color="success"
+                                    icon="heroicon-o-check"
+                                    size="sm"
+                                >
                                     Запази часовете
-                                </button>
+                                </x-filament::button>
                             @endif
                         </div>
                     </div>
@@ -242,7 +236,7 @@
 
                 {{-- Footer --}}
                 <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-                    <div class="flex justify-between items-center">
+                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div class="text-sm text-gray-500 dark:text-gray-400 flex flex-wrap gap-4">
                             <span class="flex items-center">
                                 <div class="w-3 h-3 bg-red-100 border border-red-300 rounded mr-2"></div>
@@ -263,18 +257,32 @@
                                 </span>
                             @endif
                         </div>
-                        <div class="flex items-center space-x-2">
+                        <div class="flex flex-wrap items-center gap-2 justify-end">
                             @if($hasUnsavedChanges && !$isLocked)
                                 <span class="text-sm text-orange-600 dark:text-orange-400 flex items-center">
                                     <x-heroicon-o-exclamation-triangle class="w-4 h-4 mr-1" />
                                     Незапазени промени
                                 </span>
                             @endif
-                            <button wire:click="exportMonthlyExcel" 
-                                    class="inline-flex items-center px-3 py-2 border-0 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                                <x-heroicon-o-table-cells class="w-4 h-4 mr-1" />
+                            @if(!$isLocked)
+                                <x-filament::button
+                                    wire:click="saveHours"
+                                    :disabled="!$hasUnsavedChanges"
+                                    color="success"
+                                    icon="heroicon-o-check"
+                                    size="sm"
+                                >
+                                    Запази часовете
+                                </x-filament::button>
+                            @endif
+                            <x-filament::button
+                                wire:click="exportMonthlyExcel"
+                                color="primary"
+                                icon="heroicon-o-table-cells"
+                                size="sm"
+                            >
                                 Експорт Excel
-                            </button>
+                            </x-filament::button>
                         </div>
                     </div>
                 </div>
@@ -303,11 +311,14 @@
                             </div>
                         </div>
                     </div>
-                    <a href="{{ url('/service/presences/monthly/' . $workplace . '/' . sprintf('%02d-%d', $this->month, $this->year) . '/workers/add') }}"
-                       class="inline-flex items-center px-4 py-2 border-0 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                        <x-heroicon-o-plus class="w-4 h-4 mr-2" />
+                    <x-filament::button
+                        tag="a"
+                        :href="$this->getManageWorkersUrl()"
+                        color="primary"
+                        icon="heroicon-o-plus"
+                    >
                         Добави работници за {{ $this->getMonthName() }}
-                    </a>
+                    </x-filament::button>
                 </div>
             </div>
         @endif
