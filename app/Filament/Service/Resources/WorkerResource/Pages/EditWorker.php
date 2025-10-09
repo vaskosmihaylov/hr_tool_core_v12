@@ -20,7 +20,8 @@ class EditWorker extends EditRecord
                 ->action('save')
                 ->keyBindings(['mod+s']),
             Actions\DeleteAction::make()
-                ->label('Изтриване'),
+                ->label('Изтриване')
+                ->visible(fn (): bool => WorkerResource::canDeleteWorkers()),
         ];
     }
 

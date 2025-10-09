@@ -20,6 +20,7 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Model;
 
 class ServiceUserResource extends Resource implements HasShieldPermissions
 {
@@ -209,14 +210,15 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
                     ->visible(fn (): bool => static::canManageUsers()),
                 Tables\Actions\DeleteAction::make()
                     ->label('Изтриване')
-                    ->visible(fn (): bool => static::canManageUsers()),
+                    ->visible(fn (): bool => static::canDeleteUsers()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->label('Изтриване на избраните'),
+                        ->label('Изтриване на избраните')
+                        ->visible(fn (): bool => static::canDeleteUsers()),
                 ])
-                ->visible(fn (): bool => static::canManageUsers()),
+                ->visible(fn (): bool => static::canDeleteUsers()),
             ])
             ->modifyQueryUsing(function (Builder $query) {
                 return static::applyRoleBasedFiltering($query);
@@ -303,6 +305,21 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
     public static function canManageUsers(): bool
     {
         return auth()->user()?->hasAnyRole(['admin', 'super_admin', 'manager']) ?? false;
+    }
+
+    public static function canDeleteUsers(): bool
+    {
+        return auth()->user()?->hasAnyRole(['admin', 'super_admin']) ?? false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canDeleteUsers();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::canDeleteUsers();
     }
 
     /**

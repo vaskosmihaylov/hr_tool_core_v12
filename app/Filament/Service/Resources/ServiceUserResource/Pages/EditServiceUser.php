@@ -16,7 +16,7 @@ class EditServiceUser extends EditRecord
         return [
             Actions\DeleteAction::make()
                 ->label('Изтриване')
-                ->visible(fn (): bool => ServiceUserResource::canManageUsers()),
+                ->visible(fn (): bool => ServiceUserResource::canDeleteUsers()),
         ];
     }
     

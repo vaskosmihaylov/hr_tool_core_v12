@@ -15,7 +15,6 @@ use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
@@ -25,8 +24,8 @@ use Filament\Forms\Set;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Actions\Action;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 class WorkerResource extends Resource implements HasShieldPermissions
 {
@@ -344,10 +343,19 @@ class WorkerResource extends Resource implements HasShieldPermissions
                             ->toArray()
                     ),
             ])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->label('Изтриване')
+                    ->visible(fn (): bool => static::canDeleteWorkers()),
+            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()->label("Изтриване"),
-                ]),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label("Изтриване")
+                        ->visible(fn (): bool => static::canDeleteWorkers()),
+                ])->visible(fn (): bool => static::canDeleteWorkers()),
             ])
             ->modifyQueryUsing(function (Builder $query) {
                 $user = auth()->user();
@@ -383,6 +391,21 @@ class WorkerResource extends Resource implements HasShieldPermissions
                 return $query->whereRaw('1 = 0');
             })
             ->defaultSort("created_at", "desc");
+    }
+
+    public static function canDeleteWorkers(): bool
+    {
+        return auth()->user()?->hasAnyRole(['admin', 'super_admin']) ?? false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canDeleteWorkers();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return static::canDeleteWorkers();
     }
 
     public static function getRelations(): array

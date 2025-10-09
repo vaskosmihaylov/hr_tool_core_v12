@@ -128,6 +128,17 @@
                                 <th class="px-3 py-4 text-center text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[100px]">
                                     ЕГН
                                 </th>
+                                @php
+                                    $bgDayNames = [
+                                        1 => 'Пон',
+                                        2 => 'Вто',
+                                        3 => 'Сря',
+                                        4 => 'Чет',
+                                        5 => 'Пет',
+                                        6 => 'Съб',
+                                        7 => 'Нед',
+                                    ];
+                                @endphp
                                 @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                     @php
                                         $date = \Carbon\Carbon::create($year, $month, $day);
@@ -139,6 +150,7 @@
                                             'px-1 py-3 text-center text-base font-semibold uppercase tracking-wide min-w-[50px] transition-colors text-gray-700 dark:text-gray-200',
                                         ];
                                         $headerTitle = $specialDay['label'] ?? ($isWeekend ? 'Почивен ден' : '');
+                                        $dayName = $bgDayNames[$date->dayOfWeekIso] ?? $date->isoFormat('ddd');
 
                                         if ($isNonWorking) {
                                             $headerClasses[] = 'text-red-600 dark:text-red-300';
@@ -146,7 +158,7 @@
                                     @endphp
                                     <th class="{{ implode(' ', $headerClasses) }}" title="{{ $headerTitle }}">
                                         <div>{{ $day }}</div>
-                                        <div class="text-xs font-normal">{{ $date->format('D') }}</div>
+                                        <div class="text-xs font-normal">{{ $dayName }}</div>
                                     </th>
                                 @endfor
                                 <th class="px-3 py-4 text-center text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[80px]">
