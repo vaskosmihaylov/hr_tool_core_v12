@@ -42,11 +42,8 @@ class EditServiceUser extends EditRecord
         }
         
         // Get user's region (single for managers)
-        $userRegion = $user->regions->first();
-        if ($userRegion) {
-            $data['user_region'] = $userRegion->id;
-        }
-        
+        $data['user_regions'] = $user->regions->pluck('id')->toArray();
+
         // Get user's workplaces (multiple for supervisors)
         $data['user_workplaces'] = $user->workPlaces->pluck('id')->toArray();
         
@@ -57,7 +54,7 @@ class EditServiceUser extends EditRecord
     {
         // Extract custom fields
         $roleName = $data['user_role'] ?? null;
-        $regionId = $data['user_region'] ?? null;
+        $regionIds = $data['user_regions'] ?? [];
         $workplaceIds = $data['user_workplaces'] ?? [];
         
         // Clean data for User model
@@ -68,8 +65,8 @@ class EditServiceUser extends EditRecord
         
         // Update role and relationships
         $this->updateUserRole($record, $roleName);
-        $this->updateUserRegions($record, $roleName, $regionId);
-        $this->updateUserWorkplaces($record, $roleName, $workplaceIds);
+        $this->updateUserRegions($record, $regionIds);
+        $this->updateUserWorkplaces($record, $workplaceIds);
         
         return $record;
     }
@@ -84,7 +81,7 @@ class EditServiceUser extends EditRecord
      */
     private function prepareUserData(array $data): array
     {
-        unset($data['user_role'], $data['user_region'], $data['user_workplaces'], $data['password_confirmation']);
+        unset($data['user_role'], $data['user_regions'], $data['user_workplaces'], $data['password_confirmation']);
         return $data;
     }
 
@@ -101,28 +98,18 @@ class EditServiceUser extends EditRecord
     }
 
     /**
-     * Update user regions (for managers)
+     * Sync selected regions with the user.
      */
-    private function updateUserRegions(Model $record, ?string $roleName, ?int $regionId): void
+    private function updateUserRegions(Model $record, array $regionIds): void
     {
-        if ($roleName === 'manager' && $regionId) {
-            $record->regions()->sync([$regionId]);
-        } else {
-            // Clear regions if not a manager or no region selected
-            $record->regions()->sync([]);
-        }
+        $record->regions()->sync($regionIds);
     }
 
     /**
-     * Update user workplaces (for supervisors)
+     * Sync selected workplaces with the user.
      */
-    private function updateUserWorkplaces(Model $record, ?string $roleName, array $workplaceIds): void
+    private function updateUserWorkplaces(Model $record, array $workplaceIds): void
     {
-        if ($roleName === 'supervisor' && !empty($workplaceIds)) {
-            $record->workPlaces()->sync($workplaceIds);
-        } else {
-            // Clear workplaces if not a supervisor or no workplaces selected
-            $record->workPlaces()->sync([]);
-        }
+        $record->workPlaces()->sync($workplaceIds);
     }
 }

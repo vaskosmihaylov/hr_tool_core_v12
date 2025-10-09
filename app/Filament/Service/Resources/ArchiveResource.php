@@ -5,6 +5,7 @@ namespace App\Filament\Service\Resources;
 use App\Filament\Service\Resources\ArchiveResource\Pages;
 use viki\Service\Models\Elequent\Archive;
 use viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\Region;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -99,6 +100,21 @@ class ArchiveResource extends Resource implements HasShieldPermissions
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('region_id')
+                    ->label('Регион')
+                    ->options(fn () => static::getRegionFilterOptions())
+                    ->searchable()
+                    ->placeholder('Всички региони')
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['value'] ?? null,
+                            fn (Builder $query, $regionId): Builder => $query->whereHas(
+                                'workplace',
+                                fn (Builder $workplaceQuery) => $workplaceQuery->where('region_id', $regionId)
+                            )
+                        );
+                    }),
+
                 SelectFilter::make('work_place_id')
                     ->label('Обект')
                     ->relationship('workplace', 'name')
@@ -228,6 +244,63 @@ class ArchiveResource extends Resource implements HasShieldPermissions
                     ->collapsible()
                     ->collapsed(false),
             ]);
+    }
+
+    protected static function getRegionFilterOptions(): array
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return [];
+        }
+
+        $roles = $user->roles->pluck('name')->toArray();
+
+        if (in_array('admin', $roles) || in_array('super_admin', $roles)) {
+            return Region::query()
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        if (in_array('manager', $roles)) {
+            $regionIds = $user->regions()
+                ->pluck('viki_regions.id')
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($regionIds)) {
+                return [];
+            }
+
+            return Region::query()
+                ->whereIn('id', $regionIds)
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        if (in_array('supervisor', $roles)) {
+            $regionIds = $user->workPlaces()
+                ->pluck('region_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($regionIds)) {
+                return [];
+            }
+
+            return Region::query()
+                ->whereIn('id', $regionIds)
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        return [];
     }
 
     public static function getPages(): array

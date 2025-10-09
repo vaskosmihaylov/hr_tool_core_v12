@@ -25,7 +25,7 @@ class CreateServiceUser extends CreateRecord
     {
         // Extract custom fields
         $roleName = $data['user_role'] ?? null;
-        $regionId = $data['user_region'] ?? null;
+        $regionIds = $data['user_regions'] ?? [];
         $workplaceIds = $data['user_workplaces'] ?? [];
         
         // Clean data for User model
@@ -36,8 +36,8 @@ class CreateServiceUser extends CreateRecord
         
         // Assign role and relationships
         $this->assignUserRole($user, $roleName);
-        $this->assignUserRegions($user, $roleName, $regionId);
-        $this->assignUserWorkplaces($user, $roleName, $workplaceIds);
+        $this->assignUserRegions($user, $regionIds);
+        $this->assignUserWorkplaces($user, $workplaceIds);
         
         return $user;
     }
@@ -52,7 +52,7 @@ class CreateServiceUser extends CreateRecord
      */
     private function prepareUserData(array $data): array
     {
-        unset($data['user_role'], $data['user_region'], $data['user_workplaces'], $data['password_confirmation']);
+        unset($data['user_role'], $data['user_regions'], $data['user_workplaces'], $data['password_confirmation']);
         return $data;
     }
 
@@ -67,22 +67,18 @@ class CreateServiceUser extends CreateRecord
     }
 
     /**
-     * Assign regions to user (for managers)
+     * Sync selected regions with the user.
      */
-    private function assignUserRegions(User $user, ?string $roleName, ?int $regionId): void
+    private function assignUserRegions(User $user, array $regionIds): void
     {
-        if ($roleName === 'manager' && $regionId) {
-            $user->regions()->sync([$regionId]);
-        }
+        $user->regions()->sync($regionIds);
     }
 
     /**
-     * Assign workplaces to user (for supervisors)
+     * Sync selected workplaces with the user.
      */
-    private function assignUserWorkplaces(User $user, ?string $roleName, array $workplaceIds): void
+    private function assignUserWorkplaces(User $user, array $workplaceIds): void
     {
-        if ($roleName === 'supervisor' && !empty($workplaceIds)) {
-            $user->workPlaces()->sync($workplaceIds);
-        }
+        $user->workPlaces()->sync($workplaceIds);
     }
 }

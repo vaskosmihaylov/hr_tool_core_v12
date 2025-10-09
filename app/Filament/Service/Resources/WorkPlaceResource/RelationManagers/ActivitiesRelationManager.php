@@ -10,13 +10,11 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
-use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Viki\Service\Models\Elequent\WorkPlaceActivity;
 
 class ActivitiesRelationManager extends RelationManager
@@ -187,32 +185,6 @@ class ActivitiesRelationManager extends RelationManager
 
                 Tables\Actions\DeleteAction::make()
                     ->label('Изтриване'),
-
-                Action::make('copy_for_month')
-                    ->label('Копирай за месец')
-                    ->icon('heroicon-o-document-duplicate')
-                    ->color('info')
-                    ->form([
-                        DatePicker::make('target_date')
-                            ->label('Целева дата')
-                            ->required()
-                            ->default(now()->format('Y-m-d')),
-                    ])
-                    ->action(function (WorkPlaceActivity $record, array $data): void {
-                        WorkPlaceActivity::create([
-                            'activity' => $record->activity,
-                            'neto_salary' => $record->neto_salary,
-                            'social_plus' => $record->social_plus,
-                            'worker_count' => $record->worker_count,
-                            'type_working' => $record->type_working,
-                            'work_place_id' => $record->work_place_id,
-                            'date' => $data['target_date'],
-                            'created_by' => auth()->id(),
-                            'copied' => WorkPlaceActivity::COPIED_ACTIVITY,
-                        ]);
-                    })
-                    ->successNotificationTitle('Дейността е копирана успешно!')
-                    ->visible(fn (WorkPlaceActivity $record): bool => $record->date === null),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

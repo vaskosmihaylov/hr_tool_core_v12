@@ -102,31 +102,28 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
                             ])
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function (Set $set, $state) {
-                                $set('user_region', null);
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('user_regions', []);
                                 $set('user_workplaces', []);
                             }),
-                            
-                        Forms\Components\Select::make('user_region')
+
+                        Forms\Components\Select::make('user_regions')
                             ->label('Регион')
-                            ->options(function () {
-                                return static::getAvailableRegions();
-                            })
-                            ->searchable()
-                            ->visible(fn (Get $get): bool => $get('user_role') === 'manager')
-                            ->required(fn (Get $get): bool => $get('user_role') === 'manager')
-                            ->helperText('Мениджърът може да управлява само един регион'),
-                            
-                        Forms\Components\Select::make('user_workplaces')
-                            ->label('Обекти')
-                            ->options(function () {
-                                return static::getAvailableWorkplaces();
-                            })
+                            ->options(fn () => static::getAvailableRegions())
                             ->multiple()
                             ->searchable()
-                            ->visible(fn (Get $get): bool => $get('user_role') === 'supervisor')
-                            ->required(fn (Get $get): bool => $get('user_role') === 'supervisor')
-                            ->helperText('Изберете обекти за които супервайзорът отговаря'),
+                            ->preload()
+                            ->helperText('Изберете регионите, до които потребителят ще има достъп.')
+                            ->required(fn (Get $get): bool => $get('user_role') === 'manager'),
+
+                        Forms\Components\Select::make('user_workplaces')
+                            ->label('Обекти')
+                            ->options(fn () => static::getAvailableWorkplaces())
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Изберете обекти, до които потребителят ще има достъп.')
+                            ->required(fn (Get $get): bool => $get('user_role') === 'supervisor'),
                     ]),
             ]);
     }
