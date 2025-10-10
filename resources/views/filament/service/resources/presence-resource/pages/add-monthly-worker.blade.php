@@ -1,6 +1,6 @@
 <x-filament-panels::page>
-    <div class="max-w-4xl mx-auto space-y-6">
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+    <div class="w-full space-y-6">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg w-full">
             <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Добавяне работник за месец <b>{{ $monthYear }}</b>

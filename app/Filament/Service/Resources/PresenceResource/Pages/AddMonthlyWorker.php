@@ -11,6 +11,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Facades\Auth;
 use RuntimeException;
 use viki\Service\Models\Elequent\WorkPlace;
@@ -64,24 +65,39 @@ class AddMonthlyWorker extends Page implements HasForms
         }
     }
 
+    public function getMaxContentWidth(): MaxWidth | string | null
+    {
+        return MaxWidth::Full;
+    }
+
     public function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('worker_id')
-                    ->label('Работници в региона')
-                    ->options(fn () => $this->workerOptions)
-                    ->searchable()
-                    ->required()
-                    ->native(false)
-                    ->placeholder('Изберете работник'),
+                Forms\Components\Grid::make([
+                    'default' => 1,
+                    'md' => 2,
+                ])->schema([
+                    Forms\Components\Select::make('worker_id')
+                        ->label('Работници в региона')
+                        ->options(fn () => $this->workerOptions)
+                        ->searchable()
+                        ->preload()
+                        ->optionsLimit(2000)
+                        ->required()
+                        ->native(false)
+                        ->placeholder('Изберете работник')
+                        ->columnSpan(1),
 
-                Forms\Components\Select::make('work_place_activity_id')
-                    ->label('Дейност')
-                    ->options(fn () => $this->activityOptions)
-                    ->required()
-                    ->native(false)
-                    ->placeholder('Изберете дейност'),
+                    Forms\Components\Select::make('work_place_activity_id')
+                        ->label('Дейност')
+                        ->options(fn () => $this->activityOptions)
+                        ->preload()
+                        ->required()
+                        ->native(false)
+                        ->placeholder('Изберете дейност')
+                        ->columnSpan(1),
+                ]),
             ])
             ->statePath('data');
     }
