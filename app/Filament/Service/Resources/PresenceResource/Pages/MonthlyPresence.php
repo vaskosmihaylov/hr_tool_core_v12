@@ -323,15 +323,24 @@ class MonthlyPresence extends Page
                 continue;
             }
 
+            $monthKey = sprintf('%02d-%d', $this->month, $this->year);
+            $hourRate = $this->getHourCostOnWorkPlaceActivityByDate($activity, $monthKey);
+            $monthlyHours = $this->getActivityWorkingHoursForDate($activity, $monthKey);
+            $workerCount = (int) ($activity->worker_count ?? 0);
+            $maxBudget = ($activity->neto_salary + $activity->social_plus) * $workerCount;
+            $maxHours = $monthlyHours * $workerCount;
+
             $groupedByActivity[$activity->id] = [
                 'activity' => $activity,
                 'activity_name' => $activity->activity,
                 'activity_salary' => $activity->neto_salary + $activity->social_plus,
+                'hour_rate' => $hourRate,
                 'workers' => [],
                 'group_totals' => [
-                    'total_price' => 0,
-                    'total_hours' => 0,
-                    'total_calculated' => 0,
+                    'used_budget' => 0,
+                    'max_budget' => $maxBudget,
+                    'used_hours' => 0,
+                    'max_hours' => $maxHours,
                 ],
             ];
 
@@ -357,12 +366,13 @@ class MonthlyPresence extends Page
                     }
                 }
 
-                $calculatedPrice = $this->calculateWorkerPriceForActivity($activity);
+                $calculatedPrice = $this->calculateWorkerPriceForActivity($activity, $totalHours, $hourRate);
                 $calculatedTotal = $this->calculateWorkerTotalForActivity($activity, $totalHours);
+                $roundedHours = round($totalHours, 2);
 
                 $groupedByActivity[$activity->id]['workers'][] = [
                     'worker' => $worker,
-                    'total_hours' => $totalHours,
+                    'total_hours' => $roundedHours,
                     'working_days' => $workerRecords->count(),
                     'average_hours' => $this->calculateAverageHours($workerRecords),
                     'records' => collect($dailyRecords),
@@ -370,10 +380,14 @@ class MonthlyPresence extends Page
                     'calculated_total' => $calculatedTotal,
                 ];
 
-                $groupedByActivity[$activity->id]['group_totals']['total_price'] += $calculatedPrice;
-                $groupedByActivity[$activity->id]['group_totals']['total_hours'] += $totalHours;
-                $groupedByActivity[$activity->id]['group_totals']['total_calculated'] += $calculatedTotal;
+                $groupedByActivity[$activity->id]['group_totals']['used_budget'] += $calculatedPrice;
+                $groupedByActivity[$activity->id]['group_totals']['used_hours'] += $roundedHours;
             }
+
+            $groupedByActivity[$activity->id]['group_totals']['used_budget'] = round($groupedByActivity[$activity->id]['group_totals']['used_budget'], 2);
+            $groupedByActivity[$activity->id]['group_totals']['used_hours'] = round($groupedByActivity[$activity->id]['group_totals']['used_hours'], 2);
+            $groupedByActivity[$activity->id]['group_totals']['max_budget'] = round($groupedByActivity[$activity->id]['group_totals']['max_budget'], 2);
+            $groupedByActivity[$activity->id]['group_totals']['max_hours'] = round($groupedByActivity[$activity->id]['group_totals']['max_hours'], 2);
         }
 
         $this->monthlyData = collect($groupedByActivity);
@@ -577,7 +591,7 @@ class MonthlyPresence extends Page
             return 0.0;
         }
 
-        return $this->calculateWorkerPriceForActivity($activity);
+        return $this->calculateWorkerPriceForActivity($activity, $totalHours);
     }
 
     private function calculateWorkerTotal($worker, $totalHours): float
@@ -595,23 +609,24 @@ class MonthlyPresence extends Page
         return $this->calculateWorkerTotalForActivity($activity, $totalHours);
     }
 
-    private function calculateWorkerPriceForActivity(WorkPlaceActivity $activity): float
+    private function calculateWorkerPriceForActivity(WorkPlaceActivity $activity, float $totalHours, ?float $hourRate = null): float
     {
-        return $activity->neto_salary + $activity->social_plus;
+        if ($totalHours <= 0) {
+            return 0.0;
+        }
+
+        $effectiveHourRate = $hourRate ?? $this->getHourCostOnWorkPlaceActivityByDate($activity, sprintf('%02d-%d', $this->month, $this->year));
+
+        if ($effectiveHourRate <= 0) {
+            return 0.0;
+        }
+
+        return round($totalHours * $effectiveHourRate, 2);
     }
 
     private function calculateWorkerTotalForActivity(WorkPlaceActivity $activity, float $totalHours): float
     {
-        $monthString = sprintf('%02d-%d', $this->month, $this->year);
-        $monthlyHours = $this->getActivityWorkingHoursForDate($activity, $monthString);
-
-        if ($monthlyHours <= 0) {
-            return $this->calculateWorkerPriceForActivity($activity);
-        }
-
-        $hourRate = ($activity->neto_salary + $activity->social_plus) / $monthlyHours;
-
-        return round($totalHours * $hourRate, 2);
+        return round($totalHours, 2);
     }
 
     private function showUnsavedChangesWarning() { Notification::make()->title('Незапазени промени')->body('Имате незапазени промени. Моля запазете ги преди да променяте месеца.')->warning()->send(); }

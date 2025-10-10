@@ -18,20 +18,30 @@
             background-color: inherit;
         }
 
-        .monthly-presence-table .day-off {
+        .monthly-presence-table .non-working-cell {
             background-color: #dc2626 !important;
             color: #ffffff !important;
+            border-color: #b91c1c !important;
         }
 
-        .dark .monthly-presence-table .day-off {
+        .dark .monthly-presence-table .non-working-cell {
             background-color: #b91c1c !important;
             color: #ffffff !important;
+            border-color: #7f1d1d !important;
         }
     </style>
 @endpush
 
 <x-filament-panels::page>
     <div class="space-y-6">
+        @php
+            $formatPresenceNumber = function ($value, int $decimals = 2): string {
+                $formatted = number_format((float) $value, $decimals, '.', '');
+                $trimmed = rtrim(rtrim($formatted, '0'), '.');
+
+                return $trimmed === '' ? '0' : $trimmed;
+            };
+        @endphp
         {{-- Monthly Statistics --}}
         @if($monthlyData && $monthlyData->count() > 0)
             @php
@@ -210,14 +220,35 @@
                                             <div class="text-xs font-bold {{ $isNonWorking ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400' }}">-</div>
                                         </td>
                                     @endfor
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
-                                            {{ number_format($activityGroup['group_totals']['total_price'], 2) }}
+                                    @php
+                                        $usedBudget = $activityGroup['group_totals']['used_budget'] ?? 0;
+                                        $maxBudget = $activityGroup['group_totals']['max_budget'] ?? 0;
+                                        $usedHours = $activityGroup['group_totals']['used_hours'] ?? 0;
+                                        $maxHours = $activityGroup['group_totals']['max_hours'] ?? 0;
+
+                                        $budgetExceeded = $maxBudget !== null && $usedBudget > $maxBudget;
+                                        $hoursExceeded = $maxHours !== null && $usedHours > $maxHours;
+
+                                        $budgetCellClasses = $maxBudget === null
+                                            ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                                            : ($budgetExceeded
+                                                ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-200'
+                                                : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-200');
+
+                                        $hoursCellClasses = $maxHours === null
+                                            ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                                            : ($hoursExceeded
+                                                ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-200'
+                                                : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-200');
+                                    @endphp
+                                    <td class="px-3 py-4 whitespace-nowrap text-center {{ $budgetCellClasses }}">
+                                        <span class="inline-flex items-center justify-center px-2 py-1 text-sm font-semibold rounded">
+                                            {{ $formatPresenceNumber($usedBudget) }}@if($maxBudget !== null) / {{ $formatPresenceNumber($maxBudget) }}@endif
                                         </span>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <span class="text-sm font-bold text-green-600 dark:text-green-400">
-                                            {{ number_format($activityGroup['group_totals']['total_calculated'], 2) }}
+                                    <td class="px-3 py-4 whitespace-nowrap text-center {{ $hoursCellClasses }}">
+                                        <span class="inline-flex items-center justify-center px-2 py-1 text-sm font-semibold rounded">
+                                            {{ $formatPresenceNumber($usedHours) }}@if($maxHours !== null) / {{ $formatPresenceNumber($maxHours) }}@endif
                                         </span>
                                     </td>
                                 </tr>
@@ -266,8 +297,18 @@
                                                 $cellTitle = $specialDay['label'] ?? ($isWeekend ? 'Почивен ден' : '');
 
                                                 if ($isNonWorking) {
-                                                    $cellClasses[] = 'day-off';
-                                                    $cellClasses[] = 'bg-red-600 text-white dark:bg-red-700';
+                                                    $cellClasses[] = 'text-red-600 dark:text-red-300';
+                                                }
+
+                                                $inputClasses = 'w-12 h-8 text-sm text-center border-gray-300 dark:border-gray-600 rounded focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-700';
+                                                $displayClasses = 'inline-flex w-12 h-8 items-center justify-center text-xs rounded border border-gray-200 dark:border-gray-600';
+
+                                                if ($isNonWorking) {
+                                                    $inputClasses .= ' non-working-cell';
+                                                    $displayClasses .= ' non-working-cell font-semibold';
+                                                } else {
+                                                    $inputClasses .= ' text-gray-900 dark:text-gray-100';
+                                                    $displayClasses .= $currentValue ? ' text-gray-900 dark:text-gray-100' : ' text-gray-300 dark:text-gray-600';
                                                 }
                                             @endphp
                                             <td class="{{ implode(' ', $cellClasses) }}" title="{{ $cellTitle }}">
@@ -279,26 +320,26 @@
                                                         <span class="text-xs font-semibold">{{ $vacInfo['short'] }}</span>
                                                     </div>
                                                 @elseif($isLocked)
-                                                    <div class="inline-flex w-12 h-8 items-center justify-center text-xs {{ $isNonWorking ? 'text-white font-semibold' : ($currentValue ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600') }}">
+                                                    <div class="{{ $displayClasses }}">
                                                         {{ $currentValue ?: '-' }}
                                                     </div>
                                                 @else
                                                     <input type="number" 
                                                            wire:model.live="hoursData.{{ $workerId }}.{{ $day }}"
                                                            min="0" max="24" step="0.5"
-                                                           class="w-12 h-8 text-sm text-center border-gray-300 dark:border-gray-600 rounded focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                                           class="{{ $inputClasses }}"
                                                            placeholder="-">
                                                 @endif
                                             </td>
                                         @endfor
                                         <td class="px-3 py-4 whitespace-nowrap text-center">
                                             <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                                                {{ number_format($data['calculated_price'] ?? 0, 2) }}
+                                                {{ $formatPresenceNumber($data['calculated_price'] ?? 0) }}
                                             </span>
                                         </td>
                                         <td class="px-3 py-4 whitespace-nowrap text-center">
                                             <span class="text-sm font-semibold text-green-600 dark:text-green-400">
-                                                {{ number_format($data['calculated_total'] ?? 0, 2) }}
+                                                {{ $formatPresenceNumber($data['calculated_total'] ?? 0) }}
                                             </span>
                                         </td>
                                     </tr>
