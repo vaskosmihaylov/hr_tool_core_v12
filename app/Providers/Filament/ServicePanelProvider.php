@@ -18,6 +18,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Illuminate\Support\HtmlString;
 
 class ServicePanelProvider extends PanelProvider
 {
@@ -28,7 +29,7 @@ class ServicePanelProvider extends PanelProvider
             ->path('/service')
             ->login()
             ->brandName('Viki Services')
-            ->brandLogo(asset('images/viki-logo.png'))
+            ->brandLogo(fn () => new HtmlString(''))
             ->brandLogoHeight('2rem')
             ->favicon(asset('images/favicon.ico'))
             ->colors([
