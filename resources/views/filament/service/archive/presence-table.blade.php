@@ -1,3 +1,33 @@
+@push('styles')
+    <style>
+        .archive-export-button {
+            background-color: #16a34a !important; /* green-600 */
+            color: #ffffff !important;
+            border-color: #15803d !important;
+        }
+
+        .archive-export-button:hover,
+        .archive-export-button:focus {
+            background-color: #15803d !important; /* green-700 */
+            color: #ffffff !important;
+            border-color: #166534 !important;
+        }
+
+        .dark .archive-export-button {
+            background-color: #22c55e !important; /* green-500 */
+            color: #0b1120 !important;
+            border-color: #16a34a !important;
+        }
+
+        .dark .archive-export-button:hover,
+        .dark .archive-export-button:focus {
+            background-color: #16a34a !important; /* green-600 */
+            color: #0b1120 !important;
+            border-color: #15803d !important;
+        }
+    </style>
+@endpush
+
 <div class="w-full overflow-x-auto">
     @php
         $archiveData = json_decode($record->json_data, true);
@@ -29,6 +59,10 @@
             $totalBudget = $firstActivity['workPlaceBudget'] ?? 0;
             $totalUsedBudget = $firstActivity['workPlaceTotalUsedBudget'] ?? 0;
         }
+
+        $monthOptions = $archiveMonthOptions ?? [];
+        $selectedMonthLabel = $selectedMonthLabel ?? ($monthNames[$month] ?? date('m.Y', $date));
+        $exportLink = $exportUrl ?? null;
     @endphp
 
     @if(!$archiveData || empty($archiveData))
@@ -39,12 +73,36 @@
     @else
         <!-- Archive Header -->
         <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
-            <div class="flex justify-between items-center">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
                 <h3 class="text-lg font-semibold text-gray-900">
                     Архив на присъствена форма за <strong>{{ $monthNames[$month] ?? $month }} {{ $year }}</strong> месец
                 </h3>
-                <div class="text-sm text-gray-600">
-                    <span>Бюджет на обекта: <strong>{{ number_format($totalUsedBudget, 0) }} / {{ number_format($totalBudget, 0) }} лв</strong></span>
+                <div class="flex flex-wrap gap-3 items-center">
+                    @if(!empty($monthOptions))
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <span class="font-medium">Месец:</span>
+                            <select class="rounded-md border-gray-300 text-sm focus:border-primary-500 focus:ring-primary-500"
+                                onchange="if (this.value) { window.location.href = this.value; }">
+                                @foreach($monthOptions as $option)
+                                    <option value="{{ $option['url'] }}" @selected($option['label'] === $selectedMonthLabel)>
+                                        {{ $option['label'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </label>
+                    @endif
+
+                    <div class="text-sm text-gray-600">
+                        <span>Бюджет на обекта: <strong>{{ number_format($totalUsedBudget, 0) }} / {{ number_format($totalBudget, 0) }} лв</strong></span>
+                    </div>
+
+                    @if($exportLink)
+                        <a href="{{ $exportLink }}" target="_blank"
+                           class="inline-flex items-center gap-2 rounded-md archive-export-button px-3 py-2 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+                            <span aria-hidden="true">📄</span>
+                            Експорт Excel
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>
@@ -183,6 +241,16 @@
                 </div>
             @endif
         @endforeach
+
+        @if($exportLink)
+            <div class="flex justify-end mt-6">
+                <a href="{{ $exportLink }}" target="_blank"
+                   class="inline-flex items-center gap-2 rounded-md archive-export-button px-4 py-2 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+                    <span aria-hidden="true">📄</span>
+                    Експорт Excel
+                </a>
+            </div>
+        @endif
     @endif
 </div>
 

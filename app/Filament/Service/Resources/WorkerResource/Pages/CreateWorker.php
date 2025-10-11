@@ -39,11 +39,9 @@ class CreateWorker extends CreateRecord
             throw new \Exception('Изберете дейност!');
         }
 
-        // Handle position field - copy to note for create
-        if (isset($data['position']) && !empty(trim($data['position']))) {
-            $data['note'] = $data['position'];
-        } else {
-            $data['note'] = null;
+        // Ensure note defaults to an empty string for older schemas where the column is non-nullable
+        if (!isset($data['note']) || trim((string) $data['note']) === '') {
+            $data['note'] = '';
         }
 
         return $data;

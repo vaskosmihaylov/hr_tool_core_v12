@@ -106,4 +106,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
         return redirect("/service/presences/config/{$activity->work_place_id}/{$date}/activity/{$activityId}");
     })->name('service.presence.activity.edit.redirect');
+
+    Route::get('/service/archives/{archive}/export', [App\Http\Controllers\ArchiveExportController::class, '__invoke'])
+        ->name('service.archives.export');
 });

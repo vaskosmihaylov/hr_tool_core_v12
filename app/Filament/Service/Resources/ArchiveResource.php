@@ -238,7 +238,12 @@ class ArchiveResource extends Resource implements HasShieldPermissions
                         Infolists\Components\ViewEntry::make('presence_table')
                             ->label('')
                             ->view('filament.service.archive.presence-table')
-                            ->viewData(fn (Archive $record) => ['record' => $record])
+                            ->viewData(fn (Archive $record) => [
+                                'record' => $record,
+                                'archiveMonthOptions' => static::getArchiveMonthOptions($record),
+                                'selectedMonthLabel' => Carbon::parse($record->date)->format('m.Y'),
+                                'exportUrl' => route('service.archives.export', ['archive' => $record->getKey()])
+                            ])
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
@@ -346,5 +351,28 @@ class ArchiveResource extends Resource implements HasShieldPermissions
             "delete",
             "delete_any",
         ];
+    }
+
+    protected static function getArchiveMonthOptions(Archive $record): array
+    {
+        $oneYearAgo = Carbon::now()->subYear()->startOfDay();
+        $now = Carbon::now();
+
+        return Archive::query()
+            ->where('work_place_id', $record->work_place_id)
+            ->whereBetween('date', [$oneYearAgo, $now])
+            ->orderBy('date', 'desc')
+            ->get()
+            ->map(function (Archive $archive) {
+                $label = Carbon::parse($archive->date)->format('m.Y');
+
+                return [
+                    'label' => $label,
+                    'url' => self::getUrl('view', ['record' => $archive]),
+                ];
+            })
+            ->unique('label')
+            ->values()
+            ->toArray();
     }
 }

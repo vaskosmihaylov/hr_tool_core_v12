@@ -115,13 +115,6 @@ class ClientResource extends Resource implements HasShieldPermissions
                     ->size('lg')
                     ->wrap(),
 
-                TextColumn::make('budget')
-                    ->label('💰 Бюджет')
-                    ->money('BGN', locale: 'bg')
-                    ->sortable()
-                    ->alignRight()
-                    ->size('lg'),
-
                 TextColumn::make('workplaces_count')
                     ->label('Обекти')
                     ->counts('workplaces')

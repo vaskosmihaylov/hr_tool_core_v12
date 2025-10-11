@@ -53,9 +53,9 @@ class EditWorker extends EditRecord
             throw new \Exception('Изберете дейност!');
         }
 
-        // Handle empty note field - convert empty string to null
-        if (isset($data['note']) && trim($data['note']) === '') {
-            $data['note'] = null;
+        // Handle empty note field - keep empty string to satisfy legacy NOT NULL constraint
+        if (!isset($data['note']) || trim((string) $data['note']) === '') {
+            $data['note'] = '';
         }
 
         return $data;

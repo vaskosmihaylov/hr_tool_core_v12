@@ -3,6 +3,7 @@
 namespace App\Filament\Service\Resources;
 
 use App\Filament\Service\Resources\ApprovementResource\Pages;
+use App\Services\Approvement\ApprovementActionService;
 use Viki\Service\Models\Elequent\Approvement;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -10,6 +11,7 @@ use Filament\Resources\Resource;
 use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 
 class ApprovementResource extends Resource implements HasShieldPermissions
@@ -151,36 +153,89 @@ class ApprovementResource extends Resource implements HasShieldPermissions
                         '2' => 'Неодобрен',
                     ]),
             ])
+            ->actionsColumnLabel('Опции')
+            ->recordUrl(null)
             ->actions([
                 Tables\Actions\Action::make('approve')
-                    ->label('Одобри')
-                    ->icon('heroicon-o-check')
+                    ->iconButton()
+                    ->icon('heroicon-s-hand-thumb-up')
+                    ->tooltip('Одобри')
                     ->color('success')
-                    ->action(function (Approvement $record) {
-                        $record->update(['status' => 1]);
-                    })
                     ->requiresConfirmation()
                     ->modalHeading('Одобри заявката')
                     ->modalDescription('Сигурни ли сте, че искате да одобрите тази заявка?')
-                    ->visible(fn (Approvement $record): bool => 
-                        $record->status == 0 && (auth()->user()->hasRole('admin') || auth()->user()->hasRole('manager'))
-                    ),
-                    
-                Tables\Actions\Action::make('disapprove')
-                    ->label('Неодобри')
-                    ->icon('heroicon-o-x-mark')
-                    ->color('danger')
                     ->action(function (Approvement $record) {
-                        $record->update(['status' => 2]);
+                        app(ApprovementActionService::class)->approve($record);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Искането е одобрено')
+                            ->body('Статусът беше променен на "одобрен".')
+                            ->send();
                     })
+                    ->visible(fn (Approvement $record): bool =>
+                        $record->status === Approvement::STATUS_NEW
+                        && static::canManageApprovementActions()
+                    ),
+
+                Tables\Actions\Action::make('disapprove')
+                    ->iconButton()
+                    ->icon('heroicon-s-hand-thumb-down')
+                    ->tooltip('Неодобрявай')
+                    ->color('danger')
                     ->requiresConfirmation()
                     ->modalHeading('Неодобри заявката')
                     ->modalDescription('Сигурни ли сте, че искате да неодобрите тази заявка?')
-                    ->visible(fn (Approvement $record): bool => 
-                        $record->status == 0 && (auth()->user()->hasRole('admin') || auth()->user()->hasRole('manager'))
+                    ->action(function (Approvement $record) {
+                        app(ApprovementActionService::class)->disapprove($record);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Искането е неодобрено')
+                            ->body('Статусът беше променен на "неодобрен".')
+                            ->send();
+                    })
+                    ->visible(fn (Approvement $record): bool =>
+                        $record->status === Approvement::STATUS_NEW
+                        && static::canManageApprovementActions()
                     ),
-                    
-                Tables\Actions\EditAction::make(),
+
+                Tables\Actions\Action::make('comment')
+                    ->iconButton()
+                    ->icon('heroicon-s-chat-bubble-left-ellipsis')
+                    ->tooltip('Добави коментар')
+                    ->color('primary')
+                    ->form([
+                        Forms\Components\Textarea::make('comment')
+                            ->label('Коментар')
+                            ->required()
+                            ->maxLength(1000)
+                            ->rows(4),
+                    ])
+                    ->modalHeading('Добавяне на коментар')
+                    ->modalSubmitActionLabel('Добави')
+                    ->action(function (Approvement $record, array $data) {
+                        $comment = trim((string) ($data['comment'] ?? ''));
+
+                        if ($comment === '') {
+                            Notification::make()
+                                ->warning()
+                                ->title('Коментарът е задължителен')
+                                ->body('Моля, въведете съдържание на коментара.')
+                                ->send();
+
+                            return;
+                        }
+
+                        app(ApprovementActionService::class)->addComment($record, $comment);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Коментар добавен')
+                            ->body('Коментарът беше записан успешно.')
+                            ->send();
+                    })
+                    ->visible(fn (): bool => static::canCommentOnApprovement()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -237,8 +292,6 @@ class ApprovementResource extends Resource implements HasShieldPermissions
     {
         return [
             'index' => Pages\ListApprovements::route('/'),
-            // 'create' => Pages\CreateApprovement::route('/create'), // Removed - auto-generated only
-            'edit' => Pages\EditApprovement::route('/{record}/edit'),
         ];
     }
 
@@ -252,5 +305,41 @@ class ApprovementResource extends Resource implements HasShieldPermissions
             "delete",
             "delete_any",
         ];
+    }
+
+    protected static function canManageApprovementActions(): bool
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['admin', 'manager', 'super_admin'])) {
+            return true;
+        }
+
+        if (method_exists($user, 'hasPermissionUrl')) {
+            if ($user->hasPermissionUrl('/service/approvement/approve') || $user->hasPermissionUrl('/service/approvement/disapprove')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected static function canCommentOnApprovement(): bool
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasPermissionUrl') && $user->hasPermissionUrl('/service/approvement/comment/')) {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -76,17 +76,12 @@ class WorkerResource extends Resource implements HasShieldPermissions
                         ->helperText("Въведете 10 цифри")
                         ->columnSpan(1),
 
-                    TextInput::make("position")
-                        ->label("Длъжност")
-                        ->maxLength(255)
-                        ->nullable()
-                        ->columnSpan(1)
-                        ->visibleOn('create'),
-
                     TextInput::make("note")
                         ->label("Бележки")
                         ->maxLength(255)
                         ->nullable()
+                        ->default('')
+                        ->dehydrateStateUsing(fn ($state) => $state ?? '')
                         ->columnSpan(1),
                 ])
                 ->columns(2),
@@ -148,6 +143,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                             fn(Get $get): Collection => WorkPlace::query()
                                 ->where("region_id", $get("region_id"))
                                 ->where("status", WorkPlace::WORK_PLACE_ACTIVE)
+                                ->orderBy("name")
                                 ->pluck("name", "id")
                         )
                         ->required()
@@ -159,20 +155,18 @@ class WorkerResource extends Resource implements HasShieldPermissions
 
                     Select::make("work_place_activity_id")
                         ->label("Дейност")
+                        ->required()
                         ->options(function (Get $get): Collection {
-                            $query = WorkPlaceActivity::query();
-
-                            if ($workplaceId = $get("work_place_id")) {
-                                $query->where("work_place_id", $workplaceId);
+                            $workplaceId = $get("work_place_id");
+                            if (!$workplaceId) {
+                                return collect();
                             }
 
-                            $options = $query
+                            $options = WorkPlaceActivity::query()
+                                ->where("work_place_id", $workplaceId)
                                 ->orderByRaw('CASE WHEN date IS NULL THEN 0 ELSE 1 END')
                                 ->orderBy('activity')
-                                ->get()
-                                ->mapWithKeys(fn ($activity) => [
-                                    $activity->id => $activity->activity,
-                                ]);
+                                ->pluck('activity', 'id');
 
                             $current = $get('work_place_activity_id');
                             if ($current && !$options->has($current)) {
@@ -343,13 +337,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                             ->toArray()
                     ),
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make()
-                    ->label('Изтриване')
-                    ->visible(fn (): bool => static::canDeleteWorkers()),
-            ])
+            ->actions([])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
