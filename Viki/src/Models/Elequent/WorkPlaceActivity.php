@@ -4,6 +4,7 @@ namespace viki\Service\Models\Elequent;
 use \Carbon\Carbon;
 use \Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
 
 class WorkPlaceActivity extends Model
 {
@@ -82,6 +83,11 @@ class WorkPlaceActivity extends Model
 	public function temporaryWorkers()
     {
         return $this->belongsToMany(Worker::class,'viki_work_place_activity_worker')->withPivot('date');
+    }
+
+    public function hoursPerDay()
+    {
+        return $this->hasOne(WorkPlaceActivityHoursPerDay::class, 'work_place_activity_id');
     }
 	
 	public  static function workerTypeWorking()

@@ -50,15 +50,8 @@ class VacationsRelationManager extends RelationManager
                     ->nullable()
                     ->columnSpanFull(),
 
-                Forms\Components\Select::make('status')
-                    ->label('Статус')
-                    ->options([
-                        0 => 'Чакаща одобрение',
-                        1 => 'Одобрена',
-                        2 => 'Отказана',
-                    ])
-                    ->default(0)
-                    ->required(),
+                Forms\Components\Hidden::make('status')
+                    ->default(1),
             ]);
     }
 
@@ -158,9 +151,12 @@ class VacationsRelationManager extends RelationManager
                             $end = \Carbon\Carbon::parse($data['end_date']);
                             $data['day_count'] = $start->diffInDays($end) + 1;
                         }
-                        
+
                         // Set created_by to current user ID
                         $data['created_by'] = auth()->id();
+
+                        // Vacations created by HR are auto-approved
+                        $data['status'] = 1;
                         
                         // Handle nullable comment
                         if (isset($data['comment']) && trim($data['comment']) === '') {
@@ -180,12 +176,15 @@ class VacationsRelationManager extends RelationManager
                             $end = \Carbon\Carbon::parse($data['end_date']);
                             $data['day_count'] = $start->diffInDays($end) + 1;
                         }
-                        
+
                         // Handle nullable comment
                         if (isset($data['comment']) && trim($data['comment']) === '') {
                             $data['comment'] = null;
                         }
-                        
+
+                        // Ensure status stays approved when edited through HR interface
+                        $data['status'] = 1;
+
                         return $data;
                     }),
                 Tables\Actions\DeleteAction::make()

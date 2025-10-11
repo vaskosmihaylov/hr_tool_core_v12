@@ -105,7 +105,6 @@ class ActivitiesRelationManager extends RelationManager
 
                 TextColumn::make('worker_count')
                     ->label('Работници')
-                    ->suffix(' чл.')
                     ->sortable()
                     ->badge()
                     ->color('info'),

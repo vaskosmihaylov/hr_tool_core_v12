@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -196,6 +197,31 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                     ->relationship('client', 'name'),
             ])
 
+            ->actionsColumnLabel('Опции')
+            ->actions([
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->icon('heroicon-s-pencil-square')
+                    ->tooltip('Редакция')
+                    ->hiddenLabel()
+                    ->url(fn (WorkPlace $record): string => static::getUrl('edit', ['record' => $record]))
+                    ->visible(fn (WorkPlace $record): bool => static::canEdit($record)),
+
+                Action::make('manageActivities')
+                    ->iconButton()
+                    ->icon('heroicon-s-briefcase')
+                    ->tooltip('Дейности')
+                    ->hiddenLabel()
+                    ->url(fn (WorkPlace $record): string => static::getUrl('activities', ['record' => $record]))
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole(['admin', 'super_admin', 'manager'])),
+
+                DeleteAction::make()
+                    ->iconButton()
+                    ->icon('heroicon-s-trash')
+                    ->tooltip('Изтриване')
+                    ->hiddenLabel()
+                    ->visible(fn (WorkPlace $record): bool => static::canDelete($record)),
+            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
@@ -246,7 +272,6 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
     public static function getRelations(): array
     {
         return [
-            RelationManagers\ActivitiesRelationManager::class,
             RelationManagers\MonthlyBudgetsRelationManager::class,
         ];
     }
@@ -258,6 +283,7 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
             'create' => Pages\CreateWorkPlace::route('/create'),
             'view' => Pages\ViewWorkPlace::route('/{record}'),
             'edit' => Pages\EditWorkPlace::route('/{record}/edit'),
+            'activities' => Pages\ManageActivities::route('/{record}/activities'),
         ];
     }
 
