@@ -18,16 +18,68 @@
             background-color: inherit;
         }
 
-        .monthly-presence-table .non-working-cell {
-            background-color: #dc2626 !important;
-            color: #ffffff !important;
-            border-color: #b91c1c !important;
+        /* Weekend/holiday cells - RED background */
+        .monthly-presence-table .weekend-cell {
+            background-color: #fecaca !important; /* red-200 for light theme */
         }
 
-        .dark .monthly-presence-table .non-working-cell {
-            background-color: #b91c1c !important;
+        .dark .monthly-presence-table .weekend-cell {
+            background-color: #991b1b !important; /* red-800 for dark theme */
+        }
+
+        /* Unsaved changes - YELLOW background */
+        .monthly-presence-table .unsaved-cell {
+            background-color: #fef08a !important; /* yellow-200 */
+        }
+
+        .dark .monthly-presence-table .unsaved-cell {
+            background-color: #854d0e !important; /* yellow-800 for dark theme */
+        }
+
+        /* Input field styles for editable cells - make inputs visible */
+        .monthly-presence-table input[type="number"] {
+            background-color: transparent;
+            color: #111827;
+            border: 0;
+            width: 140%;
+            height: 100%;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.75rem; /* text-xs */
+        }
+
+        .dark .monthly-presence-table input[type="number"] {
+            color: #f9fafb;
+        }
+
+        .monthly-presence-table input[type="number"]:focus {
+            outline: 2px solid #6366f1;
+            outline-offset: -2px;
+        }
+
+        /* Locked cells display */
+        .monthly-presence-table .locked-hours {
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        /* Day cells - ensure consistent height and visibility */
+        .monthly-presence-table td {
+            min-height: 28px;
+            height: 28px;
+        }
+
+        .monthly-presence-table tbody td {
+            vertical-align: middle;
+        }
+
+        /* Ensure header text stays white in light theme */
+        .monthly-presence-table thead th {
             color: #ffffff !important;
-            border-color: #7f1d1d !important;
+        }
+
+        .dark .monthly-presence-table thead th {
+            color: #ffffff !important;
         }
     </style>
 @endpush
@@ -95,35 +147,21 @@
                 </div>
                 
                 <div class="overflow-x-auto" data-monthly-presence-table-wrapper>
-                    <table class="monthly-presence-table min-w-full divide-y divide-gray-200 dark:divide-gray-700" data-monthly-presence-table>
-                        <thead class="bg-gray-50 dark:bg-gray-700">
-                            <tr>
-                                <th class="px-3 py-4 text-center text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[120px]">
+                    <table class="monthly-presence-table w-full text-xs border-collapse" data-monthly-presence-table>
+                        <thead>
+                            <tr class="bg-gray-800 dark:bg-gray-700 text-white" style="background: black;">
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">
                                     Длъжност
                                 </th>
-                                <th class="px-3 py-4 text-center text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[80px]">
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[80px]">
                                     Заплата
                                 </th>
-                                <th class="px-3 py-4 text-left text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[100px]">
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">
                                     Име
                                 </th>
-                                <th class="px-3 py-4 text-left text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[100px]">
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">
                                     Фамилия
                                 </th>
-                                <th class="px-3 py-4 text-center text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[100px]">
-                                    ЕГН
-                                </th>
-                                @php
-                                    $bgDayNames = [
-                                        1 => 'Пон',
-                                        2 => 'Вто',
-                                        3 => 'Сря',
-                                        4 => 'Чет',
-                                        5 => 'Пет',
-                                        6 => 'Съб',
-                                        7 => 'Нед',
-                                    ];
-                                @endphp
                                 @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                     @php
                                         $date = \Carbon\Carbon::create($year, $month, $day);
@@ -131,51 +169,40 @@
                                         $specialDay = $this->getSpecialDayInfo($day);
                                         $isOfficialHoliday = $specialDay && ($specialDay['type'] ?? null) === 1;
                                         $isNonWorking = $isOfficialHoliday || $isWeekend;
-                                        $headerClasses = [
-                                            'px-1 py-3 text-center text-base font-semibold uppercase tracking-wide min-w-[50px] transition-colors text-gray-700 dark:text-gray-200',
-                                        ];
                                         $headerTitle = $specialDay['label'] ?? ($isWeekend ? 'Почивен ден' : '');
-                                        $dayName = $bgDayNames[$date->dayOfWeekIso] ?? $date->isoFormat('ddd');
-
+                                        $headerClasses = 'border border-gray-600 dark:border-gray-500 p-1 text-center min-w-[36px]';
                                         if ($isNonWorking) {
-                                            $headerClasses[] = 'text-red-600 dark:text-red-300';
+                                            $headerClasses .= ' bg-gray-300 text-gray-600';
                                         }
                                     @endphp
-                                    <th class="{{ implode(' ', $headerClasses) }}" title="{{ $headerTitle }}">
-                                        <div>{{ $day }}</div>
-                                        <div class="text-xs font-normal">{{ $dayName }}</div>
+                                    <th class="{{ $headerClasses }}" title="{{ $headerTitle }}">
+                                        {{ $day }}
                                     </th>
                                 @endfor
-                                <th class="px-3 py-4 text-center text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[80px]">
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-center min-w-[80px]">
                                     Цена
                                 </th>
-                                <th class="px-3 py-4 text-center text-base font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide min-w-[80px]">
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-center min-w-[80px]">
                                     Общо
                                 </th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tbody>
                             @foreach($monthlyData as $activityGroup)
                                 {{-- Activity Group Header Row --}}
-                                <tr class="bg-gray-100 dark:bg-gray-700 font-semibold border-b-2 border-gray-300 dark:border-gray-600">
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <div class="text-sm font-bold text-gray-900 dark:text-gray-100">
-                                            {{ $activityGroup['activity_name'] }}
-                                        </div>
+                                <tr class="bg-gray-100 dark:bg-gray-700 font-semibold">
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" title="{{ $activityGroup['activity_name'] }}">
+                                        <span class="font-bold text-gray-900 dark:text-gray-100">
+                                            {{ Str::limit($activityGroup['activity_name'], 8, '') }}
+                                        </span>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <div class="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-right">
+                                        <span class="font-bold text-gray-900 dark:text-gray-100">
                                             {{ number_format($activityGroup['activity_salary'], 0) }}
-                                        </div>
+                                        </span>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <div class="text-sm font-bold text-gray-500 dark:text-gray-400">-</div>
-                                    </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <div class="text-sm font-bold text-gray-500 dark:text-gray-400">-</div>
-                                    </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
-                                        <div class="text-sm font-bold text-gray-500 dark:text-gray-400">-</div>
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" colspan="2">
+                                        <span class="font-bold text-gray-500 dark:text-gray-400">-</span>
                                     </td>
                                     @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                         @php
@@ -184,15 +211,11 @@
                                             $specialDay = $this->getSpecialDayInfo($day);
                                             $isOfficialHoliday = $specialDay && ($specialDay['type'] ?? null) === 1;
                                             $isNonWorking = $isOfficialHoliday || $isWeekend;
-                                            $cellClasses = ['px-1 py-2 whitespace-nowrap text-center'];
                                             $cellTitle = $specialDay['label'] ?? ($isWeekend ? 'Почивен ден' : '');
-
-                                        if ($isNonWorking) {
-                                            $cellClasses[] = 'text-red-600 dark:text-red-300';
-                                        }
-                                    @endphp
-                                        <td class="{{ implode(' ', $cellClasses) }}" title="{{ $cellTitle }}">
-                                            <div class="text-xs font-bold {{ $isNonWorking ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400' }}">-</div>
+                                            $cellBgClass = $isNonWorking ? 'bg-gray-200 dark:bg-gray-600' : '';
+                                        @endphp
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $cellBgClass }}" title="{{ $cellTitle }}">
+                                            <span class="font-bold {{ $isNonWorking ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400' }}">-</span>
                                         </td>
                                     @endfor
                                     @php
@@ -216,47 +239,42 @@
                                                 ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-200'
                                                 : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-200');
                                     @endphp
-                                    <td class="px-3 py-4 whitespace-nowrap text-center {{ $budgetCellClasses }}">
-                                        <span class="inline-flex items-center justify-center px-2 py-1 text-sm font-semibold rounded">
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $budgetCellClasses }}" style="width: 5%; background-color: palegreen;">
+                                        <span class="font-semibold" style="font-size: 105%;">
                                             {{ $formatPresenceNumber($usedBudget) }}@if($maxBudget !== null) / {{ $formatPresenceNumber($maxBudget) }}@endif
                                         </span>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center {{ $hoursCellClasses }}">
-                                        <span class="inline-flex items-center justify-center px-2 py-1 text-sm font-semibold rounded">
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $hoursCellClasses }}" style="width: 5%; background-color: palegreen;">
+                                        <span class="font-semibold" style="font-size: 105%;">
                                             {{ $formatPresenceNumber($usedHours) }}@if($maxHours !== null) / {{ $formatPresenceNumber($maxHours) }}@endif
                                         </span>
                                     </td>
                                 </tr>
                                 
                                 {{-- Individual Workers in this Activity --}}
-                                @foreach($activityGroup['workers'] as $data)
+                                @foreach($activityGroup['workers'] as $workerIndex => $data)
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                        <td class="px-3 py-4 whitespace-nowrap text-center">
-                                            <div class="text-sm text-gray-500 dark:text-gray-400">-</div>
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                            <span class="text-gray-700 dark:text-gray-300">-</span>
                                         </td>
-                                        <td class="px-3 py-4 whitespace-nowrap text-center">
-                                            <div class="text-sm text-gray-500 dark:text-gray-400">-</div>
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-right">
+                                            <span class="text-gray-700 dark:text-gray-300">-</span>
                                         </td>
-                                        <td class="px-3 py-4 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                {{ $data['worker']->name }}
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                            <div class="flex items-center justify-between">
+                                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->name }}</span>
+                                                @if(!$isLocked)
+                                                    <button wire:click="removeWorkerFromMonth({{ $data['worker']->id }})"
+                                                            wire:confirm="Сигурни ли сте, че искате да премахнете {{ $data['worker']->name }} {{ $data['worker']->family_name }} от {{ $this->getMonthName() }}?"
+                                                            class="ml-2 p-0.5 text-red-400 hover:text-red-600"
+                                                            title="Премахни от месеца">
+                                                        <x-heroicon-o-x-mark class="w-3 h-3" />
+                                                    </button>
+                                                @endif
                                             </div>
                                         </td>
-                                        <td class="px-3 py-4 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                {{ $data['worker']->family_name }}
-                                            </div>
-                                        </td>
-                                        <td class="px-3 py-4 whitespace-nowrap text-center">
-                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $data['worker']->egn }}</div>
-                                            @if(!$isLocked)
-                                                <button wire:click="removeWorkerFromMonth({{ $data['worker']->id }})" 
-                                                        wire:confirm="Сигурни ли сте, че искате да премахнете {{ $data['worker']->name }} {{ $data['worker']->family_name }} от {{ $this->getMonthName() }}?"
-                                                        class="mt-1 p-1 text-red-400 hover:text-red-600"
-                                                        title="Премахни от месеца">
-                                                    <x-heroicon-o-x-mark class="w-3 h-3" />
-                                                </button>
-                                            @endif
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                            <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->family_name }}</span>
                                         </td>
                                         @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                             @php
@@ -268,52 +286,58 @@
                                                 $specialDay = $this->getSpecialDayInfo($day);
                                                 $isOfficialHoliday = $specialDay && ($specialDay['type'] ?? null) === 1;
                                                 $isNonWorking = $isOfficialHoliday || $isWeekend;
-                                                $cellClasses = ['px-1 py-2 whitespace-nowrap text-center'];
                                                 $cellTitle = $specialDay['label'] ?? ($isWeekend ? 'Почивен ден' : '');
 
-                                                if ($isNonWorking) {
-                                                    $cellClasses[] = 'text-red-600 dark:text-red-300';
+                                                // Get the original saved value from database
+                                                $dayRecord = $data['records']->get($day);
+                                                $originalValue = $dayRecord ? $dayRecord->hours : null;
+
+                                                // Check if current value differs from original (unsaved change)
+                                                $hasUnsavedChange = false;
+                                                if (!$isLocked && !$vacationInfo) {
+                                                    // Convert both to strings for comparison to handle null/empty correctly
+                                                    $currentStr = $currentValue === null || $currentValue === '' ? '' : (string)$currentValue;
+                                                    $originalStr = $originalValue === null ? '' : (string)$originalValue;
+                                                    $hasUnsavedChange = $currentStr !== $originalStr;
                                                 }
 
-                                                $inputClasses = 'w-12 h-8 text-sm text-center border-gray-300 dark:border-gray-600 rounded focus:border-indigo-500 focus:ring-indigo-500 bg-white dark:bg-gray-700';
-                                                $displayClasses = 'inline-flex w-12 h-8 items-center justify-center text-xs rounded border border-gray-200 dark:border-gray-600';
-
-                                                if ($isNonWorking) {
-                                                    $inputClasses .= ' non-working-cell';
-                                                    $displayClasses .= ' non-working-cell font-semibold';
-                                                } else {
-                                                    $inputClasses .= ' text-gray-900 dark:text-gray-100';
-                                                    $displayClasses .= $currentValue ? ' text-gray-900 dark:text-gray-100' : ' text-gray-300 dark:text-gray-600';
+                                                // Cell coloring: YELLOW for unsaved changes, RED for weekends/holidays
+                                                $cellBgClass = '';
+                                                if (!$vacationInfo) {
+                                                    if ($hasUnsavedChange) {
+                                                        // YELLOW background for unsaved changes (highest priority)
+                                                        $cellBgClass = 'unsaved-cell';
+                                                    } elseif ($isNonWorking) {
+                                                        // RED background for weekend/holiday cells
+                                                        $cellBgClass = 'weekend-cell';
+                                                    }
                                                 }
                                             @endphp
-                                            <td class="{{ implode(' ', $cellClasses) }}" title="{{ $cellTitle }}">
+                                            <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $cellBgClass }}" title="{{ $cellTitle }}">
                                                 @if($vacationInfo)
                                                     @php $vacInfo = $this->getVacationTypeInfo($vacationInfo['type']); @endphp
-                                                    <div class="relative w-12 h-8 mx-auto rounded border flex items-center justify-center"
+                                                    <div class="relative w-full h-6 flex items-center justify-center"
                                                          style="{{ $vacInfo['style'] }}"
                                                          title="{{ $vacInfo['label'] }}{{ $vacationInfo['comment'] ? ': ' . $vacationInfo['comment'] : '' }}">
-                                                        <span class="text-xs font-semibold">{{ $vacInfo['short'] }}</span>
+                                                        <span class="text-xs font-bold">{{ $vacInfo['short'] }}</span>
                                                     </div>
                                                 @elseif($isLocked)
-                                                    <div class="{{ $displayClasses }}">
-                                                        {{ $currentValue ?: '-' }}
-                                                    </div>
+                                                    <span class="locked-hours">{{ $currentValue ?: '-' }}</span>
                                                 @else
-                                                    <input type="number" 
+                                                    <input type="number"
                                                            wire:model.live="hoursData.{{ $workerId }}.{{ $day }}"
                                                            min="0" max="24" step="0.5"
-                                                           class="{{ $inputClasses }}"
                                                            placeholder="-">
                                                 @endif
                                             </td>
                                         @endfor
-                                        <td class="px-3 py-4 whitespace-nowrap text-center">
-                                            <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-center">
+                                            <span class="font-semibold text-blue-600 dark:text-blue-400">
                                                 {{ $formatPresenceNumber($data['calculated_price'] ?? 0) }}
                                             </span>
                                         </td>
-                                        <td class="px-3 py-4 whitespace-nowrap text-center">
-                                            <span class="text-sm font-semibold text-green-600 dark:text-green-400">
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-center">
+                                            <span class="font-semibold text-green-600 dark:text-green-400">
                                                 {{ $formatPresenceNumber($data['calculated_total'] ?? 0) }}
                                             </span>
                                         </td>

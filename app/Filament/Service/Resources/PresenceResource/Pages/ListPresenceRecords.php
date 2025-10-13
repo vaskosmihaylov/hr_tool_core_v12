@@ -18,13 +18,7 @@ class ListPresenceRecords extends ListRecords
         return [
             Actions\CreateAction::make()
                 ->label('Нов запис'),
-            
-            Actions\Action::make('presence_table')
-                ->label('Таблица за присъствие')
-                ->icon('heroicon-o-table-cells')
-                ->color('info')
-                ->url('/service/presences/table/1'),
-                
+
             Actions\Action::make('monthly_view')
                 ->label('Месечен преглед')
                 ->icon('heroicon-o-calendar')
