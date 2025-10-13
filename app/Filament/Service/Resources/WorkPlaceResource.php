@@ -204,6 +204,7 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                     ->icon('heroicon-s-pencil-square')
                     ->tooltip('Редакция')
                     ->hiddenLabel()
+                    ->color('secondary')
                     ->url(fn (WorkPlace $record): string => static::getUrl('edit', ['record' => $record]))
                     ->visible(fn (WorkPlace $record): bool => static::canEdit($record)),
 
@@ -212,6 +213,7 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                     ->icon('heroicon-s-briefcase')
                     ->tooltip('Дейности')
                     ->hiddenLabel()
+                    ->color('success')
                     ->url(fn (WorkPlace $record): string => static::getUrl('activities', ['record' => $record]))
                     ->visible(fn (): bool => auth()->user()?->hasAnyRole(['admin', 'super_admin', 'manager'])),
 
