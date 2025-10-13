@@ -361,7 +361,6 @@ class PresenceResource extends Resource implements HasShieldPermissions
             'create' => Pages\CreatePresenceRecord::route('/create'),
             'view' => Pages\ViewPresenceRecord::route('/{record}'),
             'edit' => Pages\EditPresenceRecord::route('/{record}/edit'),
-            'table' => Pages\PresenceTable::route('/table/{workplace}/{date?}'),
         ];
     }
 

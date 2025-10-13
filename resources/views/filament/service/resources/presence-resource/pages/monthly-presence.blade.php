@@ -42,32 +42,7 @@
                 return $trimmed === '' ? '0' : $trimmed;
             };
         @endphp
-        {{-- Monthly Statistics --}}
         @if($monthlyData && $monthlyData->count() > 0)
-            @php
-                $totalWorkers = $monthlyData->sum(function($group) { return count($group['workers']); });
-                $totalHours = $monthlyData->sum(function($group) { 
-                    $hours = 0;
-                    foreach($group['workers'] as $worker) {
-                        $hours += $worker['total_hours'];
-                    }
-                    return $hours;
-                });
-                $averageHours = $totalWorkers > 0 ? $totalHours / $totalWorkers : 0;
-            @endphp
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                @foreach([
-                    ['label' => 'Общо работници', 'value' => $totalWorkers, 'color' => 'gray'],
-                    ['label' => 'Общо часове', 'value' => number_format($totalHours, 1), 'color' => 'green'],
-                    ['label' => 'Средно часове/ден', 'value' => number_format($averageHours, 1), 'color' => 'blue'],
-                    ['label' => 'Дни в месеца', 'value' => $this->getDaysInMonth(), 'color' => 'indigo']
-                ] as $stat)
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $stat['label'] }}</div>
-                        <div class="text-2xl font-bold text-{{ $stat['color'] }}-600 dark:text-{{ $stat['color'] }}-400">{{ $stat['value'] }}</div>
-                    </div>
-                @endforeach
-            </div>
             {{-- Monthly Table --}}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Exports\PresenceTableExport;
 use App\Exports\MonthlyPresenceExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Viki\Service\Models\Elequent\WorkPlace;
@@ -13,36 +12,6 @@ use Carbon\Carbon;
 
 class PresenceExportController extends Controller
 {
-    public function exportPresenceTable(Request $request)
-    {
-        $workplace = $request->get('workplace');
-        $date = $request->get('date') ? Carbon::parse($request->get('date')) : Carbon::today();
-
-        $workplaces = WorkPlace::where('status', WorkPlace::WORK_PLACE_ACTIVE)
-            ->with('region')
-            ->get()
-            ->pluck('name', 'id');
-
-        $workers = Worker::where('work_place_id', $workplace)
-            ->where('status', Worker::WORKER_ACTIVE)
-            ->with(['workplace', 'region'])
-            ->get();
-
-        $presenceData = WorkerRecord::where('work_place_id', $workplace)
-            ->whereDate('date', $date)
-            ->with(['worker', 'activity'])
-            ->get()
-            ->keyBy('worker_id');
-
-        $workplaceName = str_replace(' ', '_', $workplaces[$workplace] ?? 'workplace');
-        $dateString = $date->format('Y-m-d');
-        $filename = "presence_table_{$workplaceName}_{$dateString}.xlsx";
-
-        $export = new PresenceTableExport($workers, $presenceData, $workplace, $date);
-
-        return Excel::download($export, $filename);
-    }
-
     public function exportMonthlyPresence(Request $request)
     {
         $workplace = $request->get('workplace');

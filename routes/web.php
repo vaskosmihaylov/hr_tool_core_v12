@@ -16,10 +16,6 @@ Route::get('/service/reports/export-excel', [App\Http\Controllers\ExcelExportCon
     ->middleware(['web', 'auth'])
     ->name('service.reports.export-excel');
 
-Route::get('/service/presence/export-table', [App\Http\Controllers\PresenceExportController::class, 'exportPresenceTable'])
-    ->middleware(['web', 'auth'])
-    ->name('service.presence.export-table');
-
 Route::get('/service/presence/export-monthly', [App\Http\Controllers\PresenceExportController::class, 'exportMonthlyPresence'])
     ->middleware(['web', 'auth'])
     ->name('service.presence.export-monthly');
