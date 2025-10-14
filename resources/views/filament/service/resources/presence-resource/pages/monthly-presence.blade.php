@@ -41,7 +41,7 @@
             background-color: transparent;
             color: #111827;
             border: 0;
-            width: 140%;
+            width: 150%;
             height: 100%;
             text-align: center;
             font-weight: 600;
@@ -188,7 +188,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($monthlyData as $activityGroup)
+                            @foreach($monthlyData as $activityId => $activityGroup)
                                 {{-- Activity Group Header Row --}}
                                 <tr class="bg-gray-100 dark:bg-gray-700 font-semibold">
                                     <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" title="{{ $activityGroup['activity_name'] }}">
@@ -281,7 +281,7 @@
                                                 $date = \Carbon\Carbon::create($year, $month, $day);
                                                 $isWeekend = $date->isWeekend();
                                                 $workerId = $data['worker']->id;
-                                                $currentValue = $hoursData[$workerId][$day] ?? '';
+                                                $currentValue = $hoursData[$activityId][$workerId][$day] ?? '';
                                                 $vacationInfo = $vacationData[$workerId][$day] ?? null;
                                                 $specialDay = $this->getSpecialDayInfo($day);
                                                 $isOfficialHoliday = $specialDay && ($specialDay['type'] ?? null) === 1;
@@ -325,7 +325,7 @@
                                                     <span class="locked-hours">{{ $currentValue ?: '-' }}</span>
                                                 @else
                                                     <input type="number"
-                                                           wire:model.live="hoursData.{{ $workerId }}.{{ $day }}"
+                                                           wire:model.live="hoursData.{{ $activityId }}.{{ $workerId }}.{{ $day }}"
                                                            min="0" max="24" step="0.5"
                                                            placeholder="-">
                                                 @endif

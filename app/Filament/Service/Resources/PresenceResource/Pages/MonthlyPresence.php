@@ -441,17 +441,19 @@ class MonthlyPresence extends Page
         
         if (!$this->monthlyData) return;
 
-        foreach ($this->monthlyData as $activityGroup) {
+        foreach ($this->monthlyData as $activityId => $activityGroup) {
+            $this->hoursData[$activityId] = [];
+            
             // Access workers as array since we're using arrays inside collections
             foreach ($activityGroup['workers'] as $data) {
                 $workerId = $data['worker']->id;
-                $this->hoursData[$workerId] = [];
+                $this->hoursData[$activityId][$workerId] = [];
                 
                 for ($day = 1; $day <= $this->getDaysInMonth(); $day++) {
                     if (isset($this->vacationData[$workerId][$day])) continue;
                     
                     $dayRecord = $data['records']->get($day);
-                    $this->hoursData[$workerId][$day] = $dayRecord ? $dayRecord->hours : null;
+                    $this->hoursData[$activityId][$workerId][$day] = $dayRecord ? $dayRecord->hours : null;
                 }
             }
         }
@@ -459,16 +461,18 @@ class MonthlyPresence extends Page
 
     private function processHoursData(): void
     {
-        foreach ($this->hoursData as $workerId => $days) {
-            foreach ($days as $day => $hours) {
-                if (isset($this->vacationData[$workerId][$day])) continue;
-                
-                $date = Carbon::create($this->year, $this->month, $day);
-                
-                if ($hours !== null && $hours !== '') {
-                    $this->createOrUpdateRecord($workerId, $date, $hours);
-                } else {
-                    $this->deleteRecord($workerId, $date);
+        foreach ($this->hoursData as $activityId => $workers) {
+            foreach ($workers as $workerId => $days) {
+                foreach ($days as $day => $hours) {
+                    if (isset($this->vacationData[$workerId][$day])) continue;
+                    
+                    $date = Carbon::create($this->year, $this->month, $day);
+                    
+                    if ($hours !== null && $hours !== '') {
+                        $this->createOrUpdateRecord($workerId, $date, $hours, $activityId);
+                    } else {
+                        $this->deleteRecord($workerId, $date, $activityId);
+                    }
                 }
             }
         }
@@ -484,11 +488,20 @@ class MonthlyPresence extends Page
             ->delete();
     }
 
-    private function createOrUpdateRecord($workerId, $date, $hours): void
+    private function createOrUpdateRecord($workerId, $date, $hours, $activityId = null): void
     {
         $record = WorkerRecord::firstOrCreate(
-            ['worker_id' => $workerId, 'work_place_id' => $this->workplace, 'date' => $date],
-            ['hours' => $hours, 'status' => WorkerRecord::WORKER_RECORD_WAITING, 'creator_id' => Auth::id()]
+            [
+                'worker_id' => $workerId, 
+                'work_place_id' => $this->workplace, 
+                'date' => $date,
+                'work_place_activity_id' => $activityId
+            ],
+            [
+                'hours' => $hours, 
+                'status' => WorkerRecord::WORKER_RECORD_WAITING, 
+                'creator_id' => Auth::id()
+            ]
         );
 
         if ($record->hours != $hours) {
@@ -498,9 +511,19 @@ class MonthlyPresence extends Page
         }
     }
 
-    private function deleteRecord($workerId, $date): void
+    private function deleteRecord($workerId, $date, $activityId = null): void
     {
-        WorkerRecord::where(['worker_id' => $workerId, 'work_place_id' => $this->workplace, 'date' => $date])->delete();
+        $query = WorkerRecord::where([
+            'worker_id' => $workerId, 
+            'work_place_id' => $this->workplace, 
+            'date' => $date
+        ]);
+        
+        if ($activityId !== null) {
+            $query->where('work_place_activity_id', $activityId);
+        }
+        
+        $query->delete();
     }
 
     private function processVacationDays($vacation, $dateRange): void
@@ -639,20 +662,17 @@ class MonthlyPresence extends Page
     {
         $userData = [];
         
-        foreach ($this->hoursData as $workerId => $days) {
-            foreach ($days as $day => $hours) {
-                if ($hours !== null && $hours !== '' && $hours > 0) {
-                    $workPlaceActivityId = $this->getWorkerMonthlyActivityId($workerId);
-                    if (!$workPlaceActivityId) {
-                        continue;
+        foreach ($this->hoursData as $activityId => $workers) {
+            foreach ($workers as $workerId => $days) {
+                foreach ($days as $day => $hours) {
+                    if ($hours !== null && $hours !== '' && $hours > 0) {
+                        $userData[] = [
+                            'workPlaceActivityId' => $activityId,
+                            'workerId' => $workerId,
+                            'day' => $day,
+                            'hours' => (float)$hours
+                        ];
                     }
-
-                    $userData[] = [
-                        'workPlaceActivityId' => $workPlaceActivityId,
-                        'workerId' => $workerId,
-                        'day' => $day,
-                        'hours' => (float)$hours
-                    ];
                 }
             }
         }
@@ -833,27 +853,28 @@ class MonthlyPresence extends Page
     {
         $remainingFreeBudget = $budgetCheck['freeBudgetBeforeChange'];
         
-        foreach ($this->hoursData as $workerId => $days) {
-            foreach ($days as $day => $hours) {
-                if (isset($this->vacationData[$workerId][$day])) continue;
-                
-                $date = Carbon::create($this->year, $this->month, $day);
-                
-                if ($hours !== null && $hours !== '') {
-                    // Determine if this record should be approved or waiting
-                    $status = $this->determineRecordStatus($workerId, $day, $hours, $budgetCheck, $remainingFreeBudget);
-                    $this->createOrUpdateRecordWithStatus($workerId, $date, $hours, $status, $approvalId);
-                } else {
-                    $this->deleteRecord($workerId, $date);
+        foreach ($this->hoursData as $activityId => $workers) {
+            foreach ($workers as $workerId => $days) {
+                foreach ($days as $day => $hours) {
+                    if (isset($this->vacationData[$workerId][$day])) continue;
+                    
+                    $date = Carbon::create($this->year, $this->month, $day);
+                    
+                    if ($hours !== null && $hours !== '') {
+                        // Determine if this record should be approved or waiting
+                        $status = $this->determineRecordStatus($activityId, $workerId, $day, $hours, $budgetCheck, $remainingFreeBudget);
+                        $this->createOrUpdateRecordWithStatus($workerId, $date, $hours, $status, $approvalId, $activityId);
+                    } else {
+                        $this->deleteRecord($workerId, $date, $activityId);
+                    }
                 }
             }
         }
     }
 
-    private function determineRecordStatus($workerId, $day, $hours, $budgetCheck, &$remainingFreeBudget): int
+    private function determineRecordStatus($activityId, $workerId, $day, $hours, $budgetCheck, &$remainingFreeBudget): int
     {
-        // Calculate cost for this record
-        $activityId = $this->getWorkerMonthlyActivityId($workerId);
+        // Use the provided activityId instead of looking it up
         if (!$activityId) {
             return WorkerRecord::WORKER_RECORD_WAITING;
         }
@@ -871,7 +892,7 @@ class MonthlyPresence extends Page
         return WorkerRecord::WORKER_RECORD_WAITING;
     }
 
-    private function createOrUpdateRecordWithStatus($workerId, $date, $hours, $status, $approvalId = null): void
+    private function createOrUpdateRecordWithStatus($workerId, $date, $hours, $status, $approvalId = null, $activityId = null): void
     {
         $workerRecordData = [
             'hours' => $hours,
@@ -890,14 +911,17 @@ class MonthlyPresence extends Page
             $workerRecordData['approvement_id'] = $approvalId;
         }
 
-        WorkerRecord::updateOrCreate(
-            [
-                'worker_id' => $workerId,
-                'work_place_id' => $this->workplace,
-                'date' => $date
-            ],
-            $workerRecordData
-        );
+        $uniqueKeys = [
+            'worker_id' => $workerId,
+            'work_place_id' => $this->workplace,
+            'date' => $date
+        ];
+        
+        if ($activityId !== null) {
+            $uniqueKeys['work_place_activity_id'] = $activityId;
+        }
+
+        WorkerRecord::updateOrCreate($uniqueKeys, $workerRecordData);
     }
 
     // Helper methods ported from PresenceController
