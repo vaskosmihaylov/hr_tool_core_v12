@@ -41,7 +41,7 @@
             background-color: transparent;
             color: #111827;
             border: 0;
-            width: 150%;
+            width: 180%;
             height: 100%;
             text-align: center;
             font-weight: 600;
@@ -130,18 +130,6 @@
                             >
                                 Управление работници
                             </x-filament::button>
-
-                            @if(!$isLocked)
-                                <x-filament::button
-                                    wire:click="saveHours"
-                                    :disabled="!$hasUnsavedChanges"
-                                    color="success"
-                                    icon="heroicon-o-check"
-                                    size="sm"
-                                >
-                                    Запази часовете
-                                </x-filament::button>
-                            @endif
                         </div>
                     </div>
                 </div>
@@ -373,25 +361,14 @@
                         </div>
                         <div class="flex flex-wrap items-center gap-2 justify-end">
                             @if($hasUnsavedChanges && !$isLocked)
-                                <span class="text-sm text-orange-600 dark:text-orange-400 flex items-center">
-                                    <x-heroicon-o-exclamation-triangle class="w-4 h-4 mr-1" />
-                                    Незапазени промени
+                                <span class="text-sm text-blue-600 dark:text-blue-400 flex items-center">
+                                    <x-heroicon-o-arrow-path class="w-4 h-4 mr-1 animate-spin" />
+                                    Автоматично запазване...
                                 </span>
-                            @endif
-                            @if(!$isLocked)
-                                <x-filament::button
-                                    wire:click="saveHours"
-                                    :disabled="!$hasUnsavedChanges"
-                                    color="success"
-                                    icon="heroicon-o-check"
-                                    size="sm"
-                                >
-                                    Запази часовете
-                                </x-filament::button>
                             @endif
                             <x-filament::button
                                 wire:click="exportMonthlyExcel"
-                                color="primary"
+                                color="info"
                                 icon="heroicon-o-table-cells"
                                 size="sm"
                             >
@@ -453,6 +430,53 @@
 
 @push('scripts')
     <script>
+        // Auto-save functionality with debounce
+        let autoSaveTimeout = null;
+        const AUTO_SAVE_DELAY = 1000; // 1 second after last change
+
+        const triggerAutoSave = () => {
+            // Clear any pending auto-save
+            if (autoSaveTimeout) {
+                clearTimeout(autoSaveTimeout);
+            }
+
+            // Schedule auto-save
+            autoSaveTimeout = setTimeout(() => {
+                // Use Livewire.dispatch to trigger save
+                if (window.Livewire) {
+                    Livewire.dispatch('trigger-auto-save');
+                }
+                autoSaveTimeout = null;
+            }, AUTO_SAVE_DELAY);
+        };
+
+        // Set up auto-save on input blur
+        const setupAutoSave = () => {
+            const inputs = document.querySelectorAll('.monthly-presence-table input[type="number"]');
+            inputs.forEach(input => {
+                // Remove existing listener if any
+                input.removeEventListener('blur', triggerAutoSave);
+                // Add blur listener
+                input.addEventListener('blur', triggerAutoSave);
+            });
+        };
+
+        // Initialize auto-save on page load and Livewire updates
+        document.addEventListener('DOMContentLoaded', () => {
+            setupAutoSave();
+        });
+
+        document.addEventListener('livewire:navigated', () => {
+            setupAutoSave();
+        });
+
+        // Re-setup after Livewire updates the DOM
+        if (window.Livewire) {
+            Livewire.hook('morph.updated', ({ el, component }) => {
+                setupAutoSave();
+            });
+        }
+
         const initializeMonthlyPresenceFloatingHeader = () => {
             if (window.cleanupMonthlyPresenceFloatingHeader) {
                 window.cleanupMonthlyPresenceFloatingHeader();
