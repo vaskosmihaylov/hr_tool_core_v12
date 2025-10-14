@@ -46,7 +46,6 @@ class CreateMonthlyActivity extends Page implements HasForms
             'type_working' => WorkPlaceActivity::WORKING_STANDART,
             'worker_count' => 1,
             'neto_salary' => 0,
-            'social_plus' => 0,
             'hours_for_person' => 8,
         ]);
     }
@@ -80,15 +79,8 @@ class CreateMonthlyActivity extends Page implements HasForms
                     ->numeric()
                     ->required()
                     ->minValue(0)
-                    ->rule('regex:/^\\d*(\\.\\d{1,3})?$/')
-                    ->suffix('лв'),
-
-                Forms\Components\TextInput::make('social_plus')
-                    ->label('Социален пакет')
-                    ->numeric()
-                    ->minValue(0)
-                    ->default(0)
-                    ->rule('regex:/^\\d*(\\.\\d{1,3})?$/')
+                    ->rule('regex:/^\d*(?:[\\.,]\d{1,4})?$/')
+                    ->formatStateUsing(fn ($state) => $this->formatAmount($state))
                     ->suffix('лв'),
 
                 Forms\Components\TextInput::make('hours_for_person')
@@ -104,6 +96,9 @@ class CreateMonthlyActivity extends Page implements HasForms
     public function submit(): void
     {
         $data = $this->form->getState();
+
+        $data['neto_salary'] = $this->normalizeAmount($data['neto_salary'] ?? 0);
+        $data['social_plus'] = 0;
 
         if (!PresenceConfigurationService::checkWorkplaceBudget($data, $this->workplace, $this->normalizedDate)) {
             $this->showError('Добавяйки тази дейност надвишавате бюджета на обекта!');
@@ -128,6 +123,38 @@ class CreateMonthlyActivity extends Page implements HasForms
     public function getSubheading(): ?string
     {
         return sprintf('Добавяне на дейност за %s', $this->monthYear);
+    }
+
+    private function formatAmount($value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        $normalized = str_replace(',', '.', (string) $value);
+
+        if (!is_numeric($normalized)) {
+            return (string) $value;
+        }
+
+        $formatted = number_format((float) $normalized, 4, '.', '');
+
+        return rtrim(rtrim($formatted, '0'), '.') ?: '0';
+    }
+
+    private function normalizeAmount($value): string
+    {
+        if ($value === null || $value === '') {
+            return '0';
+        }
+
+        $normalized = str_replace(',', '.', (string) $value);
+
+        if (!is_numeric($normalized)) {
+            return (string) $value;
+        }
+
+        return number_format((float) $normalized, 4, '.', '');
     }
 
     private function parseMonthYear(string $date): void
