@@ -156,6 +156,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     Select::make("work_place_activity_id")
                         ->label("Дейност")
                         ->required()
+                        ->searchable()
                         ->options(function (Get $get): Collection {
                             $workplaceId = $get("work_place_id");
                             if (!$workplaceId) {
@@ -291,6 +292,13 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     ->sortable()
                     ->alignCenter(),
 
+                BadgeColumn::make("status")
+                    ->label("Статус")
+                    ->formatStateUsing(fn (int|string|null $state): string => (int) $state === Worker::WORKER_ACTIVE ? 'Активен' : 'Неактивен')
+                    ->color(fn (int|string|null $state): string => (int) $state === Worker::WORKER_ACTIVE ? 'success' : 'danger')
+                    ->sortable()
+                    ->alignCenter(),
+
                 TextColumn::make("note")
                     ->label("Бележки")
                     ->searchable()
@@ -307,7 +315,6 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('name', 'asc')
             ->persistSortInSession()
             ->persistSearchInSession()
             ->persistFiltersInSession()
@@ -323,11 +330,64 @@ class WorkerResource extends Resource implements HasShieldPermissions
 
                 SelectFilter::make("region_id")
                     ->label("Регион")
-                    ->relationship("region", "name"),
+                    ->options(fn (): array => Region::query()
+                        ->where("status", Region::REGION_ACTIVE)
+                        ->orderBy("name")
+                        ->pluck("name", "id")
+                        ->toArray()
+                    ),
 
                 SelectFilter::make("work_place_id")
                     ->label("Обект")
-                    ->relationship("workplace", "name"),
+                    ->options(function (SelectFilter $filter): array {
+                        $livewire = $filter->getLivewire();
+
+                        $regionId = data_get($livewire->tableFilters ?? [], "region_id.value");
+
+                        if ($regionId === null) {
+                            $regionId = data_get($livewire->getTableFilterState("region_id"), "value");
+                        }
+
+                        if ($regionId === null) {
+                            $regionId = data_get(request()->input("serverMemo.data.tableFilters"), "region_id.value");
+                        }
+
+                        if ($regionId === null) {
+                            $regionId = data_get(request()->input("tableFilters"), "region_id.value");
+                        }
+
+                        if ($regionId === null) {
+                            $regionId = data_get(request()->query("tableFilters", []), "region_id.value");
+                        }
+
+                        $query = WorkPlace::query()
+                            ->where("status", WorkPlace::WORK_PLACE_ACTIVE)
+                            ->orderBy("name");
+
+                        if ($regionId !== null && $regionId !== '') {
+                            $query->where("region_id", (int) $regionId);
+                        } else {
+                            $query->whereHas("region", fn (Builder $regionQuery) => $regionQuery
+                                ->where("status", Region::REGION_ACTIVE)
+                            );
+                        }
+
+                        return $query->pluck("name", "id")->toArray();
+                    })
+                    ->query(function (Builder $query, array $data): void {
+                        $workPlaceId = $data["value"] ?? null;
+
+                        if (filled($workPlaceId)) {
+                            $query->where("work_place_id", $workPlaceId)
+                                ->whereHas("workplace", function (Builder $workplaceQuery) {
+                                    $workplaceQuery
+                                        ->where("status", WorkPlace::WORK_PLACE_ACTIVE)
+                                        ->whereHas("region", fn (Builder $regionQuery) => $regionQuery
+                                            ->where("status", Region::REGION_ACTIVE)
+                                        );
+                                });
+                        }
+                    }),
 
                 SelectFilter::make("type_working")
                     ->label("Тип работа")
@@ -378,7 +438,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                 // Default: no access for other roles
                 return $query->whereRaw('1 = 0');
             })
-            ->defaultSort("created_at", "desc");
+            ->defaultSort("name", "asc");
     }
 
     public static function canDeleteWorkers(): bool

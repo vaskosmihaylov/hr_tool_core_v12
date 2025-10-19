@@ -174,6 +174,10 @@ class ManageActivities extends Page implements HasForms, HasTable
                     $payload = $this->prepareActivityData($data);
                     $hoursPerDay = Arr::pull($payload, 'hours_per_day');
 
+                    if (!array_key_exists('social_plus', $payload)) {
+                        $payload['social_plus'] = 0;
+                    }
+
                     $activity = WorkPlaceActivity::query()->create(array_merge(
                         $payload,
                         [
@@ -210,7 +214,6 @@ class ManageActivities extends Page implements HasForms, HasTable
                     'worker_count' => $record->worker_count,
                     'type_working' => $record->type_working,
                     'neto_salary' => $record->neto_salary,
-                    'social_plus' => $record->social_plus,
                     'hours_per_day' => $record->hoursPerDay?->hours_per_day,
                     'date' => $record->date,
                 ])
@@ -290,15 +293,6 @@ class ManageActivities extends Page implements HasForms, HasTable
                         ->prefix('лв.')
                         ->columnSpan(1),
 
-                    TextInput::make('social_plus')
-                        ->label('Социални доплащания (лв.)')
-                        ->numeric()
-                        ->minValue(0)
-                        ->step(0.01)
-                        ->default(0)
-                        ->prefix('лв.')
-                        ->columnSpan(1),
-
                     TextInput::make('hours_per_day')
                         ->label('Часове на ден')
                         ->required()
@@ -325,14 +319,19 @@ class ManageActivities extends Page implements HasForms, HasTable
 
     protected function prepareActivityData(array $data): array
     {
-        return [
+        $prepared = [
             'activity' => Arr::get($data, 'activity'),
             'worker_count' => (int) Arr::get($data, 'worker_count', 1),
             'type_working' => (int) Arr::get($data, 'type_working', WorkPlaceActivity::WORKING_STANDART),
             'neto_salary' => (float) Arr::get($data, 'neto_salary', 0),
-            'social_plus' => (float) Arr::get($data, 'social_plus', 0),
             'date' => Arr::get($data, 'date') ?: null,
             'hours_per_day' => Arr::has($data, 'hours_per_day') ? (int) Arr::get($data, 'hours_per_day') : null,
         ];
+
+        if (Arr::has($data, 'social_plus')) {
+            $prepared['social_plus'] = (float) Arr::get($data, 'social_plus', 0);
+        }
+
+        return $prepared;
     }
 }

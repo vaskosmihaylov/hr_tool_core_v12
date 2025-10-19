@@ -186,9 +186,9 @@
                                         
                                         <td class="border border-gray-200 dark:border-gray-600 p-1 text-center text-xs
                                             @if($hours > 0 && !$isWeekend)
-                                                bg-red-500 text-white font-bold
+                                                bg-red-500 text-dark font-bold
                                             @elseif($hours > 0 && $isWeekend)
-                                                bg-blue-500 text-white font-bold
+                                                bg-blue-500 text-dark font-bold
                                             @elseif($isWeekend)
                                                 bg-gray-100 dark:bg-gray-700
                                             @endif

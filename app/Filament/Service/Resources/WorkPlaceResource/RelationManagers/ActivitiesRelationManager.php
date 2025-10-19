@@ -70,16 +70,8 @@ class ActivitiesRelationManager extends RelationManager
                             ->prefix('лв.')
                             ->columnSpan(1),
 
-                        TextInput::make('social_plus')
-                            ->label('Социални доплащания (лв.)')
-                            ->numeric()
-                            ->minValue(0)
-                            ->step(0.01)
-                            ->prefix('лв.')
-                            ->default(0)
-                            ->columnSpan(1),
                     ])
-                    ->columns(2),
+                    ->columns(1),
 
                 Section::make('📅 Планиране')
                     ->schema([
@@ -175,6 +167,9 @@ class ActivitiesRelationManager extends RelationManager
                     ->label('Създай дейност')
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['created_by'] = auth()->id();
+                        if (!array_key_exists('social_plus', $data)) {
+                            $data['social_plus'] = 0;
+                        }
                         return $data;
                     }),
             ])
