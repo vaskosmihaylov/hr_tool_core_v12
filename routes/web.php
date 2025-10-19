@@ -86,11 +86,11 @@ Route::get('/service/presence/addWorker/{object_id}/{selected_month}', function 
 
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/service/presence/config/{workplaceId}/{date}', function (int $workplaceId, string $date) {
-        return redirect("/service/presences/config/{$workplaceId}/{$date}");
+        return redirect("/service/work-places/{$workplaceId}/activities");
     })->name('service.presence.config.redirect');
 
     Route::get('/service/presence/activity/add/{workplaceId}/{date}', function (int $workplaceId, string $date) {
-        return redirect("/service/presences/config/{$workplaceId}/{$date}/activity/add");
+        return redirect("/service/work-places/{$workplaceId}/activities");
     })->name('service.presence.activity.add.redirect');
 
     Route::get('/service/presence/activity/edit/{activityId}/{date}', function (int $activityId, string $date) {
@@ -100,7 +100,7 @@ Route::middleware(['web', 'auth'])->group(function () {
             return redirect('/service/presences')->with('error', 'Дейността не беше намерена.');
         }
 
-        return redirect("/service/presences/config/{$activity->work_place_id}/{$date}/activity/{$activityId}");
+        return redirect("/service/work-places/{$activity->work_place_id}/activities");
     })->name('service.presence.activity.edit.redirect');
 
     Route::get('/service/archives/{archive}/export', [App\Http\Controllers\ArchiveExportController::class, '__invoke'])

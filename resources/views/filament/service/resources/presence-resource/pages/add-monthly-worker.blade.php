@@ -32,7 +32,14 @@
 
                 @if(!$this->hasActivities())
                     <div class="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700 p-4 text-sm text-blue-800 dark:text-blue-100">
-                        Няма конфигурирани дейности за този месец. Добавете дейности от "Конфигурирай дейности" преди да продължите.
+                        Няма налични дейности за този обект. Управлявайте дейностите от
+                        <a
+                            href="{{ $this->getManageActivitiesUrl() }}"
+                            class="font-medium text-blue-700 underline dark:text-blue-300"
+                        >
+                            страницата „Управление на дейности“
+                        </a>
+                        преди да продължите.
                     </div>
                 @endif
 

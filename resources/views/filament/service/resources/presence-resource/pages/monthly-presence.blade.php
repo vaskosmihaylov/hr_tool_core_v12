@@ -113,12 +113,12 @@
                         <div class="flex flex-wrap items-center gap-2 justify-end md:self-end">
                             <x-filament::button
                                 tag="a"
-                                :href="$this->getConfigureActivitiesUrl()"
+                                :href="$this->getWorkplaceActivitiesUrl()"
                                 color="primary"
                                 icon="heroicon-o-cog-6-tooth"
                                 size="sm"
                             >
-                                Конфигурирай дейности
+                                Управлявай дейности
                             </x-filament::button>
 
                             <x-filament::button

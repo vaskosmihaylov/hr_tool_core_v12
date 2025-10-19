@@ -6,7 +6,6 @@ use App\Filament\Service\Resources\WorkPlaceResource;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -215,7 +214,6 @@ class ManageActivities extends Page implements HasForms, HasTable
                     'type_working' => $record->type_working,
                     'neto_salary' => $record->neto_salary,
                     'hours_per_day' => $record->hoursPerDay?->hours_per_day,
-                    'date' => $record->date,
                 ])
                 ->action(function (WorkPlaceActivity $record, array $data): void {
                     $payload = $this->prepareActivityData($data);
@@ -301,13 +299,6 @@ class ManageActivities extends Page implements HasForms, HasTable
                         ->maxValue(24)
                         ->default(8)
                         ->columnSpan(1),
-
-                    DatePicker::make('date')
-                        ->label('Дата на планиране')
-                        ->native(false)
-                        ->displayFormat('d.m.Y')
-                        ->helperText('Оставете празно за постоянна дейност')
-                        ->columnSpanFull(),
                 ])
                 ->columns([
                     'sm' => 1,
@@ -324,7 +315,6 @@ class ManageActivities extends Page implements HasForms, HasTable
             'worker_count' => (int) Arr::get($data, 'worker_count', 1),
             'type_working' => (int) Arr::get($data, 'type_working', WorkPlaceActivity::WORKING_STANDART),
             'neto_salary' => (float) Arr::get($data, 'neto_salary', 0),
-            'date' => Arr::get($data, 'date') ?: null,
             'hours_per_day' => Arr::has($data, 'hours_per_day') ? (int) Arr::get($data, 'hours_per_day') : null,
         ];
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
+use App\Filament\Service\Resources\WorkPlaceResource;
 use App\Services\Presence\PresenceConfigurationService;
 use Filament\Resources\Pages\Page;
 use Filament\Actions;
@@ -593,13 +594,9 @@ class MonthlyPresence extends Page
     private function getUnlockAction() { return Actions\Action::make('unlock_month')->label('Отключи месеца')->icon('heroicon-o-lock-open')->color('danger')->action('unlockMonth')->visible(fn () => $this->isLocked && Auth::user()->hasRole(['admin', 'super_admin']))->requiresConfirmation()->modalHeading('Отключване на месеца')->modalDescription('Сигурни ли сте, че искате да отключите този месец?'); }
     private function getExportAction() { return Actions\Action::make('export_monthly_excel')->label('Експорт Excel')->icon('heroicon-o-table-cells')->color('info')->action(fn () => $this->exportMonthlyExcel()); }
 
-    public function getConfigureActivitiesUrl(): string
+    public function getWorkplaceActivitiesUrl(): string
     {
-        return sprintf(
-            '/service/presences/config/%d/%s',
-            $this->workplace,
-            sprintf('%02d-%d', $this->month, $this->year)
-        );
+        return WorkPlaceResource::getUrl('activities', ['record' => $this->workplace]);
     }
 
     public function getManageWorkersUrl(): string

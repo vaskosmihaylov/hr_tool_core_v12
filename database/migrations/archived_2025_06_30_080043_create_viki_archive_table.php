@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('viki_archive')) {
+            return;
+        }
+
         Schema::create('viki_archive', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('work_place_id');

@@ -6,7 +6,6 @@ use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -73,14 +72,6 @@ class ActivitiesRelationManager extends RelationManager
                     ])
                     ->columns(1),
 
-                Section::make('📅 Планиране')
-                    ->schema([
-                        DatePicker::make('date')
-                            ->label('Дата на планиране')
-                            ->helperText('Оставете празно за постоянна дейност')
-                            ->columnSpan(1),
-                    ])
-                    ->columns(1),
             ]);
     }
 

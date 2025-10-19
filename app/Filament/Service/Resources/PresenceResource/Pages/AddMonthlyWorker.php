@@ -3,6 +3,7 @@
 namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
+use App\Filament\Service\Resources\WorkPlaceResource;
 use App\Services\Presence\PresenceConfigurationService;
 use Carbon\Carbon;
 use Filament\Forms;
@@ -149,6 +150,11 @@ class AddMonthlyWorker extends Page implements HasForms
     public function getBackUrl(): string
     {
         return sprintf('/service/presences/monthly/%d/%s', $this->workplace, $this->monthYear);
+    }
+
+    public function getManageActivitiesUrl(): string
+    {
+        return WorkPlaceResource::getUrl('activities', ['record' => $this->workplace]);
     }
 
     private function parseMonthYear(string $date): void
