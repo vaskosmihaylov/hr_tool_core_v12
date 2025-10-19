@@ -41,7 +41,7 @@
             background-color: transparent;
             color: #111827;
             border: 0;
-            width: 180%;
+            width: 230%;
             height: 100%;
             text-align: center;
             font-weight: 600;
@@ -227,12 +227,12 @@
                                                 ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-200'
                                                 : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-200');
                                     @endphp
-                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $budgetCellClasses }}" style="width: 5%; background-color: palegreen;">
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $budgetCellClasses }} whitespace-nowrap align-middle" style="min-width: 88px; background-color: palegreen;">
                                         <span class="font-semibold" style="font-size: 105%;">
                                             {{ $formatPresenceNumber($usedBudget) }}@if($maxBudget !== null) / {{ $formatPresenceNumber($maxBudget) }}@endif
                                         </span>
                                     </td>
-                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $hoursCellClasses }}" style="width: 5%; background-color: palegreen;">
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $hoursCellClasses }} whitespace-nowrap align-middle" style="min-width: 88px; background-color: palegreen;">
                                         <span class="font-semibold" style="font-size: 105%;">
                                             {{ $formatPresenceNumber($usedHours) }}@if($maxHours !== null) / {{ $formatPresenceNumber($maxHours) }}@endif
                                         </span>

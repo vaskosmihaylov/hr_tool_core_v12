@@ -22,22 +22,50 @@ class PresenceConfigurationService
     public static function ensureMonthlyActivities(int $workplaceId, int $year, int $month): void
     {
         $monthString = str_pad((string) $month, 2, '0', STR_PAD_LEFT);
-
-        if (WorkPlaceActivity::checkIfActivitiesAreCopied($workplaceId, $year, $monthString)) {
-            return;
-        }
-
         $workplace = WorkPlace::findOrFail($workplaceId);
         $baseActivities = WorkPlaceActivity::where('work_place_id', $workplaceId)
             ->whereNull('date')
             ->get();
 
-        foreach ($baseActivities as $baseActivity) {
-            DB::transaction(function () use ($baseActivity, $workplace, $year, $month, $monthString) {
-                $monthlyActivity = self::createMonthlyActivityFromBase($baseActivity, $year, $monthString);
-                self::attachExistingWorkersToMonthlyActivity($workplace, $baseActivity, $monthlyActivity, $year, $month);
-            });
+        if ($baseActivities->isEmpty()) {
+            return;
         }
+
+        foreach ($baseActivities as $baseActivity) {
+            self::ensureMonthlyActivityForBase($workplace, $baseActivity, $year, $month, $monthString);
+        }
+    }
+
+    private static function ensureMonthlyActivityForBase(
+        WorkPlace $workplace,
+        WorkPlaceActivity $baseActivity,
+        int $year,
+        int $month,
+        string $monthString
+    ): void {
+        $normalizedDate = sprintf('%d-%s-01', $year, $monthString);
+
+        $existingMonthly = WorkPlaceActivity::query()
+            ->where('work_place_id', $workplace->id)
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
+            ->whereDate('date', $normalizedDate)
+            ->where('activity', $baseActivity->activity)
+            ->where('type_working', $baseActivity->type_working)
+            ->first();
+
+        if ($existingMonthly) {
+            $existingMonthly->update([
+                'neto_salary' => $baseActivity->neto_salary,
+                'social_plus' => $baseActivity->social_plus,
+                'worker_count' => $baseActivity->worker_count,
+            ]);
+            return;
+        }
+
+        DB::transaction(function () use ($workplace, $baseActivity, $year, $month, $monthString) {
+            $monthlyActivity = self::createMonthlyActivityFromBase($baseActivity, $year, $monthString);
+            self::attachExistingWorkersToMonthlyActivity($workplace, $baseActivity, $monthlyActivity, $year, $month);
+        });
     }
 
     /**

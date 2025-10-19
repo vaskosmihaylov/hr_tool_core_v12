@@ -332,10 +332,6 @@ class MonthlyPresence extends Page
 
             $workerIds = $records->keys()->merge($pivotWorkerIds)->unique();
 
-            if ($workerIds->isEmpty()) {
-                continue;
-            }
-
             $monthKey = sprintf('%02d-%d', $this->month, $this->year);
             $hourRate = $this->getHourCostOnWorkPlaceActivityByDate($activity, $monthKey);
             $monthlyHours = $this->getActivityWorkingHoursForDate($activity, $monthKey);
@@ -362,11 +358,17 @@ class MonthlyPresence extends Page
                     ? $records[$workerId]->first()->worker
                     : Worker::find($workerId);
 
-                if (!$worker || $worker->status !== Worker::WORKER_ACTIVE) {
+                if (!$worker) {
                     continue;
                 }
 
                 $workerRecords = $records->get($workerId, collect());
+                $hasWorkerRecords = $workerRecords->isNotEmpty();
+
+                if (!$hasWorkerRecords && $worker->status !== Worker::WORKER_ACTIVE) {
+                    continue;
+                }
+
                 $recordsByDay = $workerRecords->keyBy(fn ($record) => Carbon::parse($record->date)->day);
 
                 $totalHours = 0;
