@@ -311,8 +311,10 @@ class MonthlyPresence extends Page
         $start = $this->getMonthStartDate();
         $end = $start->copy()->endOfMonth();
 
+        // Load monthly activity instances (copied = 0 with specific date, NOT snapshots with copied = 1)
         $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $start->toDateString())
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
             ->orderBy('activity')
             ->get();
 
@@ -957,10 +959,13 @@ class MonthlyPresence extends Page
         if ($workPlaceActivityHours) {
             return $workPlaceActivityHours->hours_for_person;
         } else if ($workPlaceActivity->type_working == WorkPlaceActivity::WORKING_STANDART) {
+            // Calculate standard working hours based on working days
             return (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * 8;
         }
 
-        return 0;
+        // Fallback for WORKING_BY_HOURS (Сумарно) activities without hours record
+        // Use a default calculation to avoid division by zero
+        return (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * 8;
     }
 
     private function getWorkPlaceActivityWorkersByDate($workPlaceActivity, $date)

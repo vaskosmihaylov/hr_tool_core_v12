@@ -17,7 +17,8 @@ use viki\Service\Models\Elequent\WorkerRecord;
 class PresenceConfigurationService
 {
     /**
-     * Ensure that a monthly snapshot of workplace activities exists for the given month.
+     * Ensure that monthly activity instances exist for the given month.
+     * Creates monthly activities with copied=0 (not copied=1 snapshots).
      */
     public static function ensureMonthlyActivities(int $workplaceId, int $year, int $month): void
     {
@@ -25,6 +26,7 @@ class PresenceConfigurationService
         $workplace = WorkPlace::findOrFail($workplaceId);
         $baseActivities = WorkPlaceActivity::where('work_place_id', $workplaceId)
             ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->get();
 
         if ($baseActivities->isEmpty()) {
@@ -45,9 +47,10 @@ class PresenceConfigurationService
     ): void {
         $normalizedDate = sprintf('%d-%s-01', $year, $monthString);
 
+        // Look for monthly instance with copied=0 (not copied=1 snapshots)
         $existingMonthly = WorkPlaceActivity::query()
             ->where('work_place_id', $workplace->id)
-            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Changed from COPIED_ACTIVITY
             ->whereDate('date', $normalizedDate)
             ->where('activity', $baseActivity->activity)
             ->where('type_working', $baseActivity->type_working)
@@ -198,7 +201,7 @@ class PresenceConfigurationService
 
         $attributes = [
             'activity' => $baseActivity->activity,
-            'copied' => WorkPlaceActivity::COPIED_ACTIVITY,
+            'copied' => WorkPlaceActivity::NOT_COPIED_ACTIVITY,  // Changed from COPIED_ACTIVITY to NOT_COPIED_ACTIVITY
             'type_working' => $baseActivity->type_working,
             'neto_salary' => $baseActivity->neto_salary,
             'social_plus' => $baseActivity->social_plus,
@@ -208,7 +211,8 @@ class PresenceConfigurationService
             'created_by' => Auth::id(),
         ];
 
-        $monthlyActivity = WorkPlaceActivity::createCopied($attributes);
+        // Use regular create instead of createCopied since we want copied=0
+        $monthlyActivity = WorkPlaceActivity::create($attributes, $baseActivity->work_place_id, $normalizedDate);
 
         if ($baseActivity->type_working === WorkPlaceActivity::WORKING_STANDART) {
             $hoursPerDay = WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity($baseActivity->id);

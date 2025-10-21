@@ -144,14 +144,6 @@ class ActivitiesRelationManager extends RelationManager
                         WorkPlaceActivity::WORKING_STANDART => 'Стандартно',
                         WorkPlaceActivity::WORKING_BY_HOURS => 'Сумарно',
                     ]),
-
-                Tables\Filters\Filter::make('permanent')
-                    ->label('Постоянни дейности')
-                    ->query(fn (Builder $query): Builder => $query->whereNull('date')),
-
-                Tables\Filters\Filter::make('planned')
-                    ->label('Планирани дейности')
-                    ->query(fn (Builder $query): Builder => $query->whereNotNull('date')),
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
@@ -177,6 +169,7 @@ class ActivitiesRelationManager extends RelationManager
                         ->label('Изтриване'),
                 ]),
             ])
+            ->modifyQueryUsing(fn (Builder $query) => $query->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY))
             ->defaultSort('created_at', 'desc');
     }
 }

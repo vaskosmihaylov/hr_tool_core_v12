@@ -52,6 +52,7 @@ class MainPresenceSelection extends Page
     private function loadMonths(): void
     {
         $this->months = [];
+        // Show last month, current month, and next month
         for ($i = -1; $i <= 1; $i++) {
             $date = Carbon::now()->addMonths($i);
             $key = $date->format('m-Y');
