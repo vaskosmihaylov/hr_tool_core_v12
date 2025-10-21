@@ -1,8 +1,77 @@
-*.log
-.DS_Store
+# ============================================================================
+# SECURITY-CRITICAL: Never commit sensitive files
+# ============================================================================
+
+# Environment & Configuration Files
 .env
 .env.backup
+.env.local
+.env.*.local
 .env.production
+.env.production.local
+.env.*.php
+
+# Credentials & Secrets
+.aws/
+.ssh/
+*.pem
+*.key
+*.ppk
+*.pub
+/auth.json
+
+# Database & Shell Scripts (may contain credentials)
+*.sql
+*.sql.bak
+*.sql.backup
+import_*.sh
+export_*.sh
+dump_*.sh
+backup_*.sh
+restore_*.sh
+*_production_*.sh
+*_production_data.*
+
+# Session & Cookie Files (contain sensitive tokens)
+cookies.txt
+session_*
+*.sessionid
+*.session
+*.sid
+
+# Authentication & Tokens
+.credentials
+credentials.json
+tokens.json
+*.token
+*.jwt
+*.oauth
+.oauth*
+
+# API Keys & Secrets
+.apikey
+.api_key
+api_key.txt
+secret_*.txt
+secret_*.json
+
+# Database Files
+*.sqlite
+*.sqlite3
+*.db
+*.mdb
+
+# Temporary & Cache Files
+*.log
+*.tmp
+*.temp
+*.cache
+.cache/
+/storage/*.key
+/storage/pail
+
+# IDE & Editor Files
+.DS_Store
 .phpactor.json
 .phpunit.result.cache
 .serena
@@ -12,15 +81,80 @@
 /.phpunit.cache
 /.vscode
 /.zed
-/auth.json
+/.vscode-server
+/.vscode/settings.json
+/.vscode/launch.json
+/.vscode/extensions.json
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+.rspec
+.rubocop.json
+
+# Node.js
 /node_modules
+/npm-debug.log
+/yarn-error.log
+package-lock.json
+yarn.lock
+
+# PHP
+/vendor
+/Viki/vendor
+composer.lock
+*.phar
+
+# Build & Distribution
 /public/build
 /public/hot
 /public/storage
-/storage/*.key
-/storage/pail
-/vendor
-/Viki/vendor
+/dist
+/build
+
+# Homestead
 Homestead.json
 Homestead.yaml
+
+# Windows
 Thumbs.db
+.gitkeep-windows
+
+# macOS
+.AppleDouble
+.AppleDB
+.LSOverride
+.Spotlight-V100
+.Trashes
+
+# Linux
+.directory
+
+# System
+.DS_Store
+*.swp
+*~
+.vagrant/
+
+# Backup Files
+*.backup
+*.bak
+*.old
+*.orig
+
+# Archive Files (except for intentional archives)
+*.zip
+*.rar
+*.7z
+*.tar.gz
+!public/downloads/
+
+# ============================================================================
+# SECURITY: If accidentally committed, use git filter-branch to remove
+# from history: git filter-branch --force --index-filter 'git rm --cached 
+# --ignore-unmatch <filename>' --prune-empty --tag-name-filter cat -- --all
+# ============================================================================
