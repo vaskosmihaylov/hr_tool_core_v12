@@ -128,7 +128,7 @@
                         <div class="text-sm text-gray-500">Часове</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-purple-600">{{ number_format($reportData['summary']['total_salary'] ?? 0, 2) }} лв.</div>
+                        <div class="text-2xl font-bold text-purple-600">{{ number_format($reportData['summary']['total_salary'] ?? 0, 0) }} лв.</div>
                         <div class="text-sm text-gray-500">Обща сума</div>
                     </div>
                 </div>
@@ -206,35 +206,27 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                     {{ $record->total ?? 0 }}
                                 </td>
-                                <!-- NEW: Vacation Column -->
-                                <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                                <!-- Vacation Column - showing only total days -->
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                     @php
                                         $vacationInfo = $reportData['vacationData'][$record->unique_id] ?? ['total_days' => 0, 'details' => []];
                                     @endphp
                                     @if($vacationInfo['total_days'] > 0)
-                                        <div class="space-y-1">
-                                            <div class="font-medium text-blue-600">
-                                                {{ $vacationInfo['total_days'] }} дни
-                                            </div>
-                                            @foreach($vacationInfo['details'] as $detail)
-                                                <div class="text-xs text-gray-500">
-                                                    {{ $detail['type'] }}: {{ $detail['days'] }}д 
-                                                    ({{ $detail['start_date'] }} - {{ $detail['end_date'] }})
-                                                </div>
-                                            @endforeach
-                                        </div>
+                                        <span class="font-medium text-blue-600">
+                                            {{ $vacationInfo['total_days'] }} дни
+                                        </span>
                                     @else
                                         <span class="text-gray-400">-</span>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                    {{ number_format($reportData['bonusData'][$record->unique_id] ?? 0, 2) }}
+                                    {{ number_format($reportData['bonusData'][$record->unique_id] ?? 0, 0) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                    {{ number_format($reportData['penaltyData'][$record->unique_id] ?? 0, 2) }}
+                                    {{ number_format($reportData['penaltyData'][$record->unique_id] ?? 0, 0) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {{ number_format($reportData['arraySum'][$record->unique_id] ?? 0, 2) }}
+                                    {{ number_format($reportData['arraySum'][$record->unique_id] ?? 0, 0) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                                     @php
@@ -243,7 +235,7 @@
                                         $penalty = $reportData['penaltyData'][$record->unique_id] ?? 0;
                                         $totalWithBonus = $baseSalary + $bonus - $penalty;
                                     @endphp
-                                    {{ number_format($totalWithBonus, 2) }}
+                                    {{ number_format($totalWithBonus, 0) }}
                                 </td>
                             </tr>
                             @endforeach
@@ -260,13 +252,13 @@
                                     {{ number_format($reportData['summary']['total_vacation_days'] ?? 0) }}
                                 </td>
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {{ number_format($reportData['summary']['total_bonus'] ?? 0, 2) }}
+                                    {{ number_format($reportData['summary']['total_bonus'] ?? 0, 0) }}
                                 </td>
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {{ number_format($reportData['summary']['total_penalty'] ?? 0, 2) }}
+                                    {{ number_format($reportData['summary']['total_penalty'] ?? 0, 0) }}
                                 </td>
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {{ number_format($reportData['summary']['total_salary'] ?? 0, 2) }}
+                                    {{ number_format($reportData['summary']['total_salary'] ?? 0, 0) }}
                                 </td>
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                                     @php
@@ -275,7 +267,7 @@
                                         $totalPenalty = $reportData['summary']['total_penalty'] ?? 0;
                                         $grandTotal = $totalSalary + $totalBonus - $totalPenalty;
                                     @endphp
-                                    {{ number_format($grandTotal, 2) }}
+                                    {{ number_format($grandTotal, 0) }}
                                 </td>
                             </tr>
                         </tfoot>

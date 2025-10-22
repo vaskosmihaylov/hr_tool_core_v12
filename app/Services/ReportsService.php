@@ -162,6 +162,9 @@ class ReportsService
     {
         $user = Auth::user();
         
+        // Calculate the correct last day of the month (handles 28, 29, 30, or 31 days)
+        $lastDayOfMonth = Carbon::create($filters['year_id'], $filters['month_id'], 1)->endOfMonth()->format('d');
+
         $query = WorkerRecord::select([
                 'viki_worker_records.worker_id',
                 'viki_workers.name',
@@ -180,7 +183,7 @@ class ReportsService
             ->leftJoin('viki_work_place', 'viki_work_place.id', '=', 'viki_worker_records.work_place_id')
             ->whereBetween('viki_worker_records.date', [
                 $filters['year_id'] . '-' . $filters['month_id'] . '-01',
-                $filters['year_id'] . '-' . $filters['month_id'] . '-31'
+                $filters['year_id'] . '-' . $filters['month_id'] . '-' . $lastDayOfMonth
             ]);
 
         // Apply role-based filtering
@@ -234,6 +237,9 @@ class ReportsService
         $salaries = [];
         $datePattern = $filters['year_id'] . '-' . $filters['month_id'];
 
+        // Calculate the correct last day of the month
+        $lastDayOfMonth = Carbon::create($filters['year_id'], $filters['month_id'], 1)->endOfMonth()->format('d');
+
         // Get all unique activity IDs
         $activityIds = $workerRecords->flatMap(function ($record) {
             return explode(',', $record->activities);
@@ -251,7 +257,7 @@ class ReportsService
                 if (!$activity) continue;
 
                 $workingHours = ReportController::getActivityWorkingHoursForDate($activity, $datePattern);
-                $hourPrice = $workingHours > 0 ? 
+                $hourPrice = $workingHours > 0 ?
                     ($activity->neto_salary + $activity->social_plus) / $workingHours : 0;
 
                 // Get hours for this specific activity (still need individual query but optimized)
@@ -260,7 +266,7 @@ class ReportsService
                     ->where('work_place_activity_id', $activityId)
                     ->whereBetween('date', [
                         $filters['year_id'] . '-' . $filters['month_id'] . '-01',
-                        $filters['year_id'] . '-' . $filters['month_id'] . '-31'
+                        $filters['year_id'] . '-' . $filters['month_id'] . '-' . $lastDayOfMonth
                     ])
                     ->sum('hours');
 

@@ -336,4 +336,42 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
             "delete_any",
         ];
     }
+
+    /**
+     * Restrict WorkPlace creation for Supervisor role
+     * Only admin, super_admin, and manager can create workplaces
+     */
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Supervisors cannot create workplaces
+        if ($user->hasRole('supervisor')) {
+            return false;
+        }
+
+        // Allow creation for admin, super_admin, and manager
+        return $user->hasAnyRole(['admin', 'super_admin', 'manager']);
+    }
+
+    /**
+     * Allow WorkPlace editing for all authenticated roles
+     * Supervisors can edit workplaces, but not create or delete them
+     */
+    public static function canEdit($record): bool
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // All authenticated users with proper roles can edit
+        // This includes supervisors, managers, and admins
+        return $user->hasAnyRole(['admin', 'super_admin', 'manager', 'supervisor']);
+    }
 }

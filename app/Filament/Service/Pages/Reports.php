@@ -24,6 +24,7 @@ use viki\Service\Models\Elequent\Vacation;
 use viki\Service\Http\Controllers\ReportController;
 use Filament\Notifications\Notification;
 use Carbon\Carbon;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class Reports extends Page implements HasForms, HasActions
 {
@@ -46,12 +47,56 @@ class Reports extends Page implements HasForms, HasActions
     public ?array $reportData = [];
     public ?array $filters = [];
     public bool $showResults = false;
-    
+
     // Add rate limiting properties
     private const MAX_REQUESTS_PER_MINUTE = 10;
 
+    /**
+     * Hide reports from navigation for Supervisor role
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Supervisors should not see Reports in navigation
+        if ($user->hasRole('supervisor')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Restrict access to Reports page for Supervisor role
+     */
+    public static function canAccess(): bool
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Supervisors cannot access Reports
+        if ($user->hasRole('supervisor')) {
+            return false;
+        }
+
+        // Allow access for admin, super_admin, and manager
+        return $user->hasAnyRole(['admin', 'super_admin', 'manager']);
+    }
+
     public function mount(): void
     {
+        // Additional runtime check for security
+        if (!static::canAccess()) {
+            throw new AccessDeniedHttpException('Нямате достъп до тази страница.');
+        }
+
         $this->filters = [
             'month_id' => now()->format('m'),
             'year_id' => now()->year,

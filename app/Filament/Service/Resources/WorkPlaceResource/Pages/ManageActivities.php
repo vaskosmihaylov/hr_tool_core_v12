@@ -23,6 +23,7 @@ use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use viki\Service\Models\Elequent\WorkPlace;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
 use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
@@ -41,6 +42,12 @@ class ManageActivities extends Page implements HasForms, HasTable
     public function mount(WorkPlace $record): void
     {
         abort_unless(WorkPlaceResource::canEdit($record), 403);
+
+        // Additional check: Supervisors cannot access activities management
+        $user = auth()->user();
+        if ($user && $user->hasRole('supervisor')) {
+            throw new AccessDeniedHttpException('Нямате достъп до управление на дейности.');
+        }
 
         $this->record = $record;
 

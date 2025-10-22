@@ -149,7 +149,40 @@
                                 $activityTotal = 0;
                                 $activityHours = 0;
                             @endphp
-                            
+
+                            {{-- Activity Group Header Row --}}
+                            <tr class="bg-gray-100 dark:bg-gray-700 font-semibold">
+                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" title="{{ $activity['workPlaceActivityName'] ?? '' }}">
+                                    <span class="font-bold text-gray-900 dark:text-gray-100">
+                                        {{ Str::limit($activity['workPlaceActivityName'] ?? '', 8, '') }}
+                                    </span>
+                                </td>
+                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-right">
+                                    <span class="font-bold text-gray-900 dark:text-gray-100">
+                                        {{ number_format($activity['workPlaceActivitySalary'] ?? 0, 0) }}
+                                    </span>
+                                </td>
+                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" colspan="2">
+                                    <span class="font-bold text-gray-500 dark:text-gray-400">-</span>
+                                </td>
+                                @for($day = 1; $day <= $monthDays; $day++)
+                                    @php
+                                        $isWeekend = in_array($day, $weekends);
+                                        $cellBgClass = $isWeekend ? 'bg-gray-200 dark:bg-gray-600' : '';
+                                    @endphp
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $cellBgClass }}">
+                                        <span class="font-bold {{ $isWeekend ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400' }}">-</span>
+                                    </td>
+                                @endfor
+                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-center whitespace-nowrap align-middle" style="min-width: 88px; background-color: palegreen;">
+                                    <span class="font-semibold" style="font-size: 105%;">-</span>
+                                </td>
+                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-center whitespace-nowrap align-middle" style="min-width: 88px; background-color: palegreen;">
+                                    <span class="font-semibold" style="font-size: 105%;">-</span>
+                                </td>
+                            </tr>
+
+                            {{-- Individual Workers in this Activity --}}
                             @foreach($activity['workPlaceActivityWorkers'] as $worker)
                                 @php
                                     $workerRecords = [];
@@ -161,30 +194,34 @@
                                             }
                                         }
                                     }
-                                    
+
                                     $workerTotal = array_sum($workerRecords);
                                     $workerPrice = $workerTotal * ($activity['workPlaceActivityHourPrice'] ?? 0);
                                     $activityTotal += $workerPrice;
                                     $activityHours += $workerTotal;
                                 @endphp
-                                
-                                <tr class="border-b border-gray-100 hover:bg-gray-50 dark:bg-gray-800">
-                                    <td class="border border-gray-200 dark:border-gray-600 p-2 font-medium bg-gray-50 dark:bg-gray-800">
-                                        {{ $activity['workPlaceActivityName'] ?? '' }}
+
+                                <tr class="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800">
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                        <span class="text-gray-700 dark:text-gray-300">-</span>
                                     </td>
-                                    <td class="border border-gray-200 dark:border-gray-600 p-2 text-right font-medium">
-                                        {{ number_format($worker['neto_salary'] ?? 0, 0) }}
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-right">
+                                        <span class="text-gray-700 dark:text-gray-300">-</span>
                                     </td>
-                                    <td class="border border-gray-200 dark:border-gray-600 p-2">{{ $worker['name'] ?? '' }}</td>
-                                    <td class="border border-gray-200 dark:border-gray-600 p-2">{{ $worker['family_name'] ?? '' }}</td>
-                                    
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $worker['name'] ?? '' }}</span>
+                                    </td>
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $worker['family_name'] ?? '' }}</span>
+                                    </td>
+
                                     @for($day = 1; $day <= $monthDays; $day++)
                                         @php
                                             $hours = $workerRecords[$day] ?? 0;
                                             $isWeekend = in_array($day, $weekends);
                                         @endphp
-                                        
-                                        <td class="border border-gray-200 dark:border-gray-600 p-1 text-center text-xs
+
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-center text-xs
                                             @if($hours > 0 && !$isWeekend)
                                                 bg-red-500 text-dark font-bold
                                             @elseif($hours > 0 && $isWeekend)
@@ -200,12 +237,16 @@
                                             @endif
                                         </td>
                                     @endfor
-                                    
-                                    <td class="border border-gray-200 dark:border-gray-600 p-2 text-right font-medium">
-                                        {{ number_format($workerPrice, 0) }}
+
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-right font-medium">
+                                        <span class="font-semibold text-blue-600 dark:text-blue-400">
+                                            {{ number_format($workerPrice, 0) }}
+                                        </span>
                                     </td>
-                                    <td class="border border-gray-200 dark:border-gray-600 p-2 text-right font-bold">
-                                        {{ $workerTotal }}
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-right font-bold">
+                                        <span class="font-semibold text-green-600 dark:text-green-400">
+                                            {{ $workerTotal }}
+                                        </span>
                                     </td>
                                 </tr>
                             @endforeach
