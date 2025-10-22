@@ -372,16 +372,19 @@ class ReportsService
             $details = [];
 
             foreach ($workerVacations as $vacation) {
-                $vacationStart = Carbon::parse($vacation->start_date);
-                $vacationEnd = Carbon::parse($vacation->end_date);
-                
-                $overlapStart = $vacationStart->max($startOfMonth);
-                $overlapEnd = $vacationEnd->min($endOfMonth);
-                
+                // Normalize dates to start of day to avoid float precision issues
+                $vacationStart = Carbon::parse($vacation->start_date)->startOfDay();
+                $vacationEnd = Carbon::parse($vacation->end_date)->startOfDay();
+
+                $overlapStart = $vacationStart->max($startOfMonth->copy()->startOfDay());
+                $overlapEnd = $vacationEnd->min($endOfMonth->copy()->startOfDay());
+
                 if ($overlapStart <= $overlapEnd) {
-                    $daysInMonth = $overlapStart->diffInDays($overlapEnd) + 1;
+                    // Use diffInDays() and add 1 to include both start and end days
+                    // Round to handle any floating-point precision issues
+                    $daysInMonth = (int) round($overlapStart->diffInDays($overlapEnd)) + 1;
                     $totalDays += $daysInMonth;
-                    
+
                     $details[] = [
                         'days' => $daysInMonth,
                         'type' => $this->vacationTypeLabels[$vacation->type] ?? 'Неизвестен',
