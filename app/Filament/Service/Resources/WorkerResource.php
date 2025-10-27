@@ -227,7 +227,8 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     ->searchable()
                     ->sortable()
                     ->weight('medium')
-                    ->wrap(),
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make("family_name")
                     ->label("Фамилия")
@@ -241,7 +242,8 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     ->searchable()
                     ->sortable()
                     ->fontFamily('mono')
-                    ->copyable(),
+                    ->copyable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make("region.name")
                     ->label("Регион")
@@ -265,7 +267,8 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     ->tooltip(function (TextColumn $column): ?string {
                         $state = $column->getState();
                         return strlen($state) > 30 ? $state : null;
-                    }),
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make("neto_salary")
                     ->label("Заплата")
@@ -288,10 +291,11 @@ class WorkerResource extends Resource implements HasShieldPermissions
                     ->alignCenter(),
 
                 TextColumn::make("hours_per_day")
-                    ->label("Раб. време договор(h)")
+                    ->label("Часове/ден")
                     ->suffix(" ч.")
                     ->sortable()
-                    ->alignCenter(),
+                    ->alignCenter()
+                    ->toggleable(),
 
                 BadgeColumn::make("status")
                     ->label("Статус")
@@ -308,7 +312,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                         $state = $column->getState();
                         return strlen($state) > 40 ? $state : null;
                     })
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make("created_at")
                     ->label("Създаден")
