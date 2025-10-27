@@ -209,27 +209,6 @@ class ArchiveResource extends Resource implements HasShieldPermissions
                             ->label('Дата на архива')
                             ->date('d.m.Y'),
 
-                        Infolists\Components\TextEntry::make('data_preview')
-                            ->label('Преглед на данните')
-                            ->state(function (Archive $record): string {
-                                $data = json_decode($record->json_data, true);
-                                if (!$data) {
-                                    return 'Невалидни JSON данни';
-                                }
-                                
-                                $preview = "Архивирани присъствени данни:\n";
-                                $preview .= "• Общо активности: " . count($data) . "\n";
-                                
-                                foreach ($data as $key => $activity) {
-                                    if (isset($activity['workPlaceActivityWorkers'])) {
-                                        $workerCount = count($activity['workPlaceActivityWorkers']);
-                                        $preview .= "• Активност {$key}: {$workerCount} работници\n";
-                                    }
-                                }
-                                
-                                return $preview;
-                            })
-                            ->markdown(),
                     ])
                     ->columns(2),
 

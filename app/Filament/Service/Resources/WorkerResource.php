@@ -24,6 +24,7 @@ use Filament\Forms\Set;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
 use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Model;
 
@@ -328,65 +329,81 @@ class WorkerResource extends Resource implements HasShieldPermissions
                         1 => 'Неактивен',
                     ]),
 
-                SelectFilter::make("region_id")
-                    ->label("Регион")
-                    ->options(fn (): array => Region::query()
-                        ->where("status", Region::REGION_ACTIVE)
-                        ->orderBy("name")
-                        ->pluck("name", "id")
-                        ->toArray()
-                    ),
-
-                SelectFilter::make("work_place_id")
-                    ->label("Обект")
-                    ->options(function (SelectFilter $filter): array {
-                        $livewire = $filter->getLivewire();
-
-                        $regionId = data_get($livewire->tableFilters ?? [], "region_id.value");
-
-                        if ($regionId === null) {
-                            $regionId = data_get($livewire->getTableFilterState("region_id"), "value");
-                        }
-
-                        if ($regionId === null) {
-                            $regionId = data_get(request()->input("serverMemo.data.tableFilters"), "region_id.value");
-                        }
-
-                        if ($regionId === null) {
-                            $regionId = data_get(request()->input("tableFilters"), "region_id.value");
-                        }
-
-                        if ($regionId === null) {
-                            $regionId = data_get(request()->query("tableFilters", []), "region_id.value");
-                        }
-
-                        $query = WorkPlace::query()
-                            ->where("status", WorkPlace::WORK_PLACE_ACTIVE)
-                            ->orderBy("name");
-
-                        if ($regionId !== null && $regionId !== '') {
-                            $query->where("region_id", (int) $regionId);
-                        } else {
-                            $query->whereHas("region", fn (Builder $regionQuery) => $regionQuery
+                Filter::make('location_filters')
+                    ->form([
+                        Select::make('region_id')
+                            ->label('Регион')
+                            ->options(fn (): array => Region::query()
                                 ->where("status", Region::REGION_ACTIVE)
+                                ->orderBy("name")
+                                ->pluck("name", "id")
+                                ->toArray()
+                            )
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('work_place_id', null)),
+
+                        Select::make('work_place_id')
+                            ->label('Обект')
+                            ->options(function (Get $get): array {
+                                $regionId = $get('region_id');
+
+                                $query = WorkPlace::query()
+                                    ->where("status", WorkPlace::WORK_PLACE_ACTIVE)
+                                    ->orderBy("name");
+
+                                // Filter by region if one is selected
+                                if ($regionId !== null && $regionId !== '') {
+                                    $query->where("region_id", (int) $regionId);
+                                } else {
+                                    // Show all workplaces from active regions
+                                    $query->whereHas("region", fn (Builder $regionQuery) => $regionQuery
+                                        ->where("status", Region::REGION_ACTIVE)
+                                    );
+                                }
+
+                                return $query->pluck("name", "id")->toArray();
+                            })
+                            ->searchable()
+                            ->native(false)
+                            ->live(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['region_id'] ?? null,
+                                fn (Builder $query, $regionId): Builder => $query->where('region_id', $regionId)
+                            )
+                            ->when(
+                                $data['work_place_id'] ?? null,
+                                fn (Builder $query, $workPlaceId): Builder => $query
+                                    ->where("work_place_id", $workPlaceId)
+                                    ->whereHas("workplace", function (Builder $workplaceQuery) {
+                                        $workplaceQuery
+                                            ->where("status", WorkPlace::WORK_PLACE_ACTIVE)
+                                            ->whereHas("region", fn (Builder $regionQuery) => $regionQuery
+                                                ->where("status", Region::REGION_ACTIVE)
+                                            );
+                                    })
                             );
-                        }
-
-                        return $query->pluck("name", "id")->toArray();
                     })
-                    ->query(function (Builder $query, array $data): void {
-                        $workPlaceId = $data["value"] ?? null;
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
 
-                        if (filled($workPlaceId)) {
-                            $query->where("work_place_id", $workPlaceId)
-                                ->whereHas("workplace", function (Builder $workplaceQuery) {
-                                    $workplaceQuery
-                                        ->where("status", WorkPlace::WORK_PLACE_ACTIVE)
-                                        ->whereHas("region", fn (Builder $regionQuery) => $regionQuery
-                                            ->where("status", Region::REGION_ACTIVE)
-                                        );
-                                });
+                        if ($data['region_id'] ?? null) {
+                            $region = Region::find($data['region_id']);
+                            if ($region) {
+                                $indicators['region_id'] = 'Регион: ' . $region->name;
+                            }
                         }
+
+                        if ($data['work_place_id'] ?? null) {
+                            $workplace = WorkPlace::find($data['work_place_id']);
+                            if ($workplace) {
+                                $indicators['work_place_id'] = 'Обект: ' . $workplace->name;
+                            }
+                        }
+
+                        return $indicators;
                     }),
 
                 SelectFilter::make("type_working")

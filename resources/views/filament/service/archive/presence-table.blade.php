@@ -146,11 +146,47 @@
                         </thead>
                         <tbody>
                             @php
+                                // Pre-calculate activity totals by looping through all workers
                                 $activityTotal = 0;
                                 $activityHours = 0;
-                            @endphp
 
-                            {{-- Activity Group Header Row --}}
+                                foreach($activity['workPlaceActivityWorkers'] as $worker) {
+                                    $workerRecords = [];
+                                    if (isset($worker['worker_records'])) {
+                                        foreach ($worker['worker_records'] as $record) {
+                                            if (isset($record['date'])) {
+                                                $recordDay = date('j', strtotime($record['date']));
+                                                $workerRecords[$recordDay] = $record['hours'] ?? 0;
+                                            }
+                                        }
+                                    }
+                                    $workerTotal = array_sum($workerRecords);
+                                    $workerPrice = $workerTotal * ($activity['workPlaceActivityHourPrice'] ?? 0);
+                                    $activityTotal += $workerPrice;
+                                    $activityHours += $workerTotal;
+                                }
+
+                                // Now calculate for display
+                                $activityUsedBudget = $activityTotal;
+                                $activityMaxBudget = $activity['workPlaceActivityBudget'] ?? null;
+                                $activityUsedHours = $activityHours;
+                                $activityMaxHours = $activity['workPlaceActivityMaxWorkingHours'] ?? null;
+
+                                $budgetExceeded = $activityMaxBudget !== null && $activityUsedBudget > $activityMaxBudget;
+                                $hoursExceeded = $activityMaxHours !== null && $activityUsedHours > $activityMaxHours;
+
+                                $budgetCellClasses = $activityMaxBudget === null
+                                    ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                                    : ($budgetExceeded
+                                        ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-200'
+                                        : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-200');
+
+                                $hoursCellClasses = $activityMaxHours === null
+                                    ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                                    : ($hoursExceeded
+                                        ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-200'
+                                        : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-200');
+                            @endphp
                             <tr class="bg-gray-100 dark:bg-gray-700 font-semibold">
                                 <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" title="{{ $activity['workPlaceActivityName'] ?? '' }}">
                                     <span class="font-bold text-gray-900 dark:text-gray-100">
@@ -174,11 +210,15 @@
                                         <span class="font-bold {{ $isWeekend ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400' }}">-</span>
                                     </td>
                                 @endfor
-                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-center whitespace-nowrap align-middle" style="min-width: 88px; background-color: palegreen;">
-                                    <span class="font-semibold" style="font-size: 105%;">-</span>
+                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $budgetCellClasses }} whitespace-nowrap align-middle" style="min-width: 88px; background-color: palegreen;">
+                                    <span class="font-semibold" style="font-size: 105%;">
+                                        {{ number_format($activityUsedBudget, 0) }}@if($activityMaxBudget !== null) / {{ number_format($activityMaxBudget, 0) }}@endif
+                                    </span>
                                 </td>
-                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-center whitespace-nowrap align-middle" style="min-width: 88px; background-color: palegreen;">
-                                    <span class="font-semibold" style="font-size: 105%;">-</span>
+                                <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $hoursCellClasses }} whitespace-nowrap align-middle" style="min-width: 88px; background-color: palegreen;">
+                                    <span class="font-semibold" style="font-size: 105%;">
+                                        {{ number_format($activityUsedHours, 0) }}@if($activityMaxHours !== null) / {{ number_format($activityMaxHours, 0) }}@endif
+                                    </span>
                                 </td>
                             </tr>
 
@@ -197,8 +237,6 @@
 
                                     $workerTotal = array_sum($workerRecords);
                                     $workerPrice = $workerTotal * ($activity['workPlaceActivityHourPrice'] ?? 0);
-                                    $activityTotal += $workerPrice;
-                                    $activityHours += $workerTotal;
                                 @endphp
 
                                 <tr class="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800">
