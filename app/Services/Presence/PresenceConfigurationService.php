@@ -296,9 +296,18 @@ class PresenceConfigurationService
             $hoursPerDay = 8;
         }
 
+        // Get special days for this month to exclude holidays
+        $month = $startDate->month;
+        $year = $startDate->year;
+        $specialDayNumbers = self::getSpecialDays($month, $year);
+
         $current = $startDate->copy();
         while ($current->lte($lastDayOfMonth)) {
-            if (!self::isWeekend($current)) {
+            $dayNumber = (int) $current->day;
+            $isSpecialDay = in_array($dayNumber, $specialDayNumbers, true);
+
+            // Only insert records if it's not a weekend AND not a special day/holiday
+            if (!self::isWeekend($current) && !$isSpecialDay) {
                 WorkerRecord::updateOrCreate(
                     [
                         'work_place_activity_id' => $monthlyActivity->id,

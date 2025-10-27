@@ -14,9 +14,6 @@ class WorkerStatsOverview extends BaseWidget
         $activeWorkers = Worker::where('status', Worker::WORKER_ACTIVE)->count();
         $inactiveWorkers = Worker::where('status', Worker::USER_UNACTIVE)->count();
 
-        $totalSalary = Worker::where('status', Worker::WORKER_ACTIVE)
-            ->sum('neto_salary');
-
         return [
             Stat::make('Общо работници', $totalWorkers)
                 ->description('Всички работници в системата')
@@ -32,11 +29,6 @@ class WorkerStatsOverview extends BaseWidget
                 ->description('Работници в неактивен статус')
                 ->descriptionIcon('heroicon-m-x-circle')
                 ->color('danger'),
-
-            Stat::make('Обща заплата', number_format($totalSalary, 2) . ' лв.')
-                ->description('Сума от заплати на активни работници')
-                ->descriptionIcon('heroicon-m-banknotes')
-                ->color('success'),
         ];
     }
 }
