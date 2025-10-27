@@ -174,7 +174,34 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            @php
+                                $currentLetter = null;
+                            @endphp
                             @foreach($reportData['workerRecords'] as $record)
+                                @php
+                                    $firstName = $record->name ?? '';
+                                    $firstLetter = mb_strtoupper(mb_substr($firstName, 0, 1));
+
+                                    // Display alphabet separator when letter changes
+                                    $showSeparator = $currentLetter !== $firstLetter && !empty($firstLetter);
+                                    if ($showSeparator) {
+                                        $currentLetter = $firstLetter;
+                                    }
+                                @endphp
+
+                                @if($showSeparator)
+                                    <tr class="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 border-t-2 border-b-2 border-blue-300 dark:border-blue-600">
+                                        <td colspan="13" class="px-6 py-3">
+                                            <div class="flex items-center space-x-3">
+                                                <div class="flex-shrink-0 w-10 h-10 bg-blue-600 dark:bg-blue-500 rounded-lg flex items-center justify-center">
+                                                    <span class="text-2xl font-bold text-white">{{ $currentLetter }}</span>
+                                                </div>
+                                                <div class="flex-1 h-0.5 bg-gradient-to-r from-blue-400 to-transparent dark:from-blue-500"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endif
+
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                     {{ $record->name ?? '' }}

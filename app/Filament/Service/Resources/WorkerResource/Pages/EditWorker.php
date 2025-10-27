@@ -134,6 +134,7 @@ class EditWorker extends EditRecord
             $monthlyActivity = WorkPlaceActivity::query()
                 ->where('work_place_id', $workplaceId)
                 ->whereDate('date', $currentMonthStart->toDateString())
+                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
                 ->where('activity', $selectedActivity->activity)
                 ->where('type_working', $selectedActivity->type_working)
                 ->where('neto_salary', $selectedActivity->neto_salary)

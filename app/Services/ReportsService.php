@@ -223,7 +223,6 @@ class ReportsService
             'viki_work_place.client_id',
             'viki_work_place.region_id'
         ])
-        ->orderBy('viki_workers.family_name')
         ->orderBy('viki_workers.name');
 
         return $query->get();

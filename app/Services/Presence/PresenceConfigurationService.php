@@ -103,6 +103,7 @@ class PresenceConfigurationService
         $existingTotal = WorkPlaceActivity::where('work_place_id', $workplaceId)
             ->whereYear('date', $year)
             ->whereMonth('date', $month)
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
             ->get()
             ->sum(function (WorkPlaceActivity $activity) {
                 return ($activity->neto_salary + $activity->social_plus) * $activity->worker_count;

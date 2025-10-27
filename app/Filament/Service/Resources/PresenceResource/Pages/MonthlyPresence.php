@@ -37,7 +37,6 @@ class MonthlyPresence extends Page
     public $workplaces;
     public $monthlyData;
     public $workplaceData;
-    public $activities;
     public $vacationData = [];
     
     // State properties
@@ -162,7 +161,32 @@ class MonthlyPresence extends Page
     {
         try {
             DB::beginTransaction();
+            
+            // Delete worker hours records
             $this->deleteWorkerRecords($workerId);
+            
+            // Remove worker from pivot tables for this specific month
+            $monthStart = $this->getMonthStartDate()->toDateString();
+            
+            // Remove from workplace pivot
+            DB::table('viki_work_place_worker')
+                ->where('work_place_id', $this->workplace)
+                ->where('worker_id', $workerId)
+                ->where('date', $monthStart)
+                ->delete();
+            
+            // Remove from activity pivots for this workplace and month
+            $activityIds = WorkPlaceActivity::where('work_place_id', $this->workplace)
+                ->whereDate('date', $monthStart)
+                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+                ->pluck('id');
+            
+            DB::table('viki_work_place_activity_worker')
+                ->where('worker_id', $workerId)
+                ->whereIn('work_place_activity_id', $activityIds)
+                ->where('date', $monthStart)
+                ->delete();
+            
             DB::commit();
             
             $this->reloadData();
@@ -177,12 +201,40 @@ class MonthlyPresence extends Page
     // Month locking
     public function lockMonth(): void
     {
+        DB::table('viki_monthly_presence_locks')->updateOrInsert(
+            [
+                'work_place_id' => $this->workplace,
+                'year' => $this->year,
+                'month' => $this->month,
+            ],
+            [
+                'is_locked' => true,
+                'locked_by' => Auth::id(),
+                'locked_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
         $this->isLocked = true;
         $this->showSuccessNotification('Месецът е заключен успешно.');
     }
 
     public function unlockMonth(): void
     {
+        DB::table('viki_monthly_presence_locks')->updateOrInsert(
+            [
+                'work_place_id' => $this->workplace,
+                'year' => $this->year,
+                'month' => $this->month,
+            ],
+            [
+                'is_locked' => false,
+                'unlocked_by' => Auth::id(),
+                'unlocked_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
         $this->isLocked = false;
         $this->showSuccessNotification('Месецът е отключен успешно.');
     }
@@ -275,14 +327,14 @@ class MonthlyPresence extends Page
         $this->cachedSpecialDays = null;
 
         $this->loadUserWorkplaces();
-        
+
         if (!$this->workplace || !$this->workplaces->has($this->workplace)) {
             if ($this->workplace) abort(403, 'Нямате достъп до този обект');
             return;
         }
 
         $this->workplaceData = WorkPlace::with('region', 'client')->find($this->workplace);
-        $this->loadActivities();
+        $this->loadLockStatus();
         $this->loadVacationData();
         $this->loadMonthlyData();
     }
@@ -304,6 +356,17 @@ class MonthlyPresence extends Page
         };
 
         $this->workplaces = $workplaces->pluck('name', 'id');
+    }
+
+    private function loadLockStatus(): void
+    {
+        $lock = DB::table('viki_monthly_presence_locks')
+            ->where('work_place_id', $this->workplace)
+            ->where('year', $this->year)
+            ->where('month', $this->month)
+            ->first();
+
+        $this->isLocked = $lock ? (bool) $lock->is_locked : false;
     }
 
     private function loadMonthlyData(): void
@@ -408,18 +471,6 @@ class MonthlyPresence extends Page
         }
 
         $this->monthlyData = collect($groupedByActivity);
-    }
-
-
-
-    private function loadActivities(): void
-    {
-        $start = $this->getMonthStartDate();
-
-        $this->activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->whereDate('date', $start->toDateString())
-            ->orderBy('activity')
-            ->get();
     }
 
     private function loadVacationData(): void
@@ -594,8 +645,8 @@ class MonthlyPresence extends Page
     private function getCurrentMonthAction() { return Actions\Action::make('current_month')->label('Текущ месец')->icon('heroicon-o-home')->action(fn () => $this->goToCurrentMonth()); }
     private function getNextMonthAction() { return Actions\Action::make('next_month')->label('Следващ месец')->icon('heroicon-o-chevron-right')->action(fn () => $this->changeMonth(1)); }
     private function getSaveAction() { return Actions\Action::make('save_hours')->label('Запази часовете')->icon('heroicon-o-check')->color('success')->action('saveHours')->visible(fn () => !$this->isLocked && $this->hasUnsavedChanges); }
-    private function getLockAction() { return Actions\Action::make('lock_month')->label('Заключи месеца')->icon('heroicon-o-lock-closed')->color('warning')->action('lockMonth')->visible(fn () => !$this->isLocked && Auth::user()->hasRole(['admin', 'super_admin', 'manager']))->requiresConfirmation()->modalHeading('Заключване на месеца')->modalDescription('Сигурни ли сте, че искате да заключите този месец?'); }
-    private function getUnlockAction() { return Actions\Action::make('unlock_month')->label('Отключи месеца')->icon('heroicon-o-lock-open')->color('danger')->action('unlockMonth')->visible(fn () => $this->isLocked && Auth::user()->hasRole(['admin', 'super_admin']))->requiresConfirmation()->modalHeading('Отключване на месеца')->modalDescription('Сигурни ли сте, че искате да отключите този месец?'); }
+    private function getLockAction() { return Actions\Action::make('lock_month')->label('Заключи месеца')->icon('heroicon-o-lock-closed')->color('warning')->action('lockMonth')->visible(fn () => !$this->isLocked && Auth::user()->hasRole(['admin', 'super_admin', 'manager', 'supervisor']))->requiresConfirmation()->modalHeading('Заключване на месеца')->modalDescription('Сигурни ли сте, че искате да заключите този месец?'); }
+    private function getUnlockAction() { return Actions\Action::make('unlock_month')->label('Отключи месеца')->icon('heroicon-o-lock-open')->color('danger')->action('unlockMonth')->visible(fn () => $this->isLocked && Auth::user()->hasRole(['admin', 'super_admin', 'manager']))->requiresConfirmation()->modalHeading('Отключване на месеца')->modalDescription('Сигурни ли сте, че искате да отключите този месец?'); }
     private function getExportAction() { return Actions\Action::make('export_monthly_excel')->label('Експорт Excel')->icon('heroicon-o-table-cells')->color('info')->action(fn () => $this->exportMonthlyExcel()); }
 
     public function getWorkplaceActivitiesUrl(): string
@@ -715,6 +766,7 @@ class MonthlyPresence extends Page
 
         $activity = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $start->toDateString())
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
             ->whereHas('temporaryWorkers', function ($query) use ($workerId, $start) {
                 $query->where('viki_workers.id', $workerId)
                     ->wherePivot('date', $start->toDateString());
@@ -737,6 +789,7 @@ class MonthlyPresence extends Page
 
         $monthlyMatch = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $start->toDateString())
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
             ->where('activity', $baseActivity->activity)
             ->first();
 
@@ -754,6 +807,7 @@ class MonthlyPresence extends Page
         
         $workPlaceActivities = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
             ->get();
 
         $workPlaceActivityUsedBudget = [];

@@ -154,6 +154,12 @@ class RegionResource extends Resource implements HasShieldPermissions
         return 'success';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        // Hide from Manager role - only visible to Admin and Super Admin
+        return auth()->user()->hasRole(['admin', 'super_admin']);
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['name'];

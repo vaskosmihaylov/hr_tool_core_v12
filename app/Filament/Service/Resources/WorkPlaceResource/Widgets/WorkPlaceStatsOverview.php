@@ -39,4 +39,10 @@ class WorkPlaceStatsOverview extends BaseWidget
                 ->color('info'),
         ];
     }
+
+    public static function canView(): bool
+    {
+        // Hide from Supervisor role - only visible to Admin, Super Admin, and Manager
+        return auth()->user()->hasRole(['admin', 'super_admin', 'manager']);
+    }
 }
