@@ -73,7 +73,7 @@
             <div class="row">
                 <div class="footer__wrap">
                     <div class="footer__left col-lg-6 col-md-6 mb-3">
-                        <span> &copy; Viki Services 2020  </span>
+                        <span> &copy; FMS 2026  </span>
                     </div>
                     <div class="footer__right col-lg-6 col-md-6">
                         <a href="http://code-nest.com/"> 

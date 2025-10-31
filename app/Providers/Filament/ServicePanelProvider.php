@@ -28,7 +28,7 @@ class ServicePanelProvider extends PanelProvider
             ->id('service')
             ->path('/service')
             ->login()
-            ->brandName('Viki Services')
+            ->brandName('FMS Services')
             ->brandLogo(fn () => new HtmlString(''))
             ->brandLogoHeight('2rem')
             ->favicon(asset('images/favicon.ico'))

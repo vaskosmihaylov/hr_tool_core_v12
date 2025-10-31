@@ -95,6 +95,7 @@ secret_*.json
 .c9/
 .rspec
 .rubocop.json
+.claude
 
 # Node.js
 /node_modules

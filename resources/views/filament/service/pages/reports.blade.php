@@ -11,7 +11,7 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100">
-                            Модул за справки на Viki Services
+                            Модул за справки на FMS Services
                         </h3>
                         <p class="text-blue-700 dark:text-blue-300 mt-1">
                             Генерирайте детайлни справки за работно време, заплати и отпуски със съвременен интерфейс
