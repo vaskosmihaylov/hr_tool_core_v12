@@ -114,12 +114,19 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
                             ->multiple()
                             ->searchable()
                             ->preload()
+                            ->live()
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('user_workplaces', []);
+                            })
                             ->helperText('Изберете регионите, до които потребителят ще има достъп.')
                             ->required(fn (Get $get): bool => $get('user_role') === 'manager'),
 
                         Forms\Components\Select::make('user_workplaces')
                             ->label('Обекти')
-                            ->options(fn () => static::getAvailableWorkplaces())
+                            ->options(function (Get $get) {
+                                $selectedRegions = $get('user_regions');
+                                return static::getFilteredWorkplaces($selectedRegions);
+                            })
                             ->multiple()
                             ->searchable()
                             ->preload()
@@ -265,6 +272,7 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
 
     /**
      * Get available workplaces based on current user's role
+     * Note: This method is kept for backward compatibility but no longer used in form
      */
     protected static function getAvailableWorkplaces(): array
     {
@@ -274,29 +282,74 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
             return [];
         }
         
-        // Super Admin/Admin can see all workplaces
+        // Super Admin/Admin can see all workplaces (including inactive)
         if ($currentUser->hasAnyRole(['super_admin', 'admin'])) {
-            return WorkPlace::where('status', 0)->pluck('name', 'id')->toArray();
+            return WorkPlace::orderBy('name')->pluck('name', 'id')->toArray();
         }
         
-        // Manager can assign workplaces from their region
+        // Manager can assign workplaces from their region (including inactive)
         if ($currentUser->hasRole('manager')) {
             $managerRegionIds = $currentUser->regions()->pluck('viki_regions.id');
             return WorkPlace::whereIn('region_id', $managerRegionIds)
-                ->where('status', 0)
+                ->orderBy('name')
                 ->pluck('name', 'id')
                 ->toArray();
         }
         
-        // Supervisor can only assign their own workplaces
+        // Supervisor can only assign their own workplaces (including inactive)
         if ($currentUser->hasRole('supervisor')) {
             return $currentUser->workPlaces()
-                ->where('viki_work_place.status', 0)
+                ->orderBy('name')
                 ->pluck('name', 'id')
                 ->toArray();
         }
         
         return [];
+    }
+
+    /**
+     * Get workplaces filtered by selected regions (used in form)
+     */
+    protected static function getFilteredWorkplaces(?array $selectedRegions = null): array
+    {
+        $currentUser = Auth::user();
+        
+        if (!$currentUser) {
+            return [];
+        }
+        
+        $query = WorkPlace::query();
+        
+        // If regions are selected in the form, filter by those regions
+        if (!empty($selectedRegions)) {
+            $query->whereIn('region_id', $selectedRegions);
+        } else {
+            // No regions selected - apply role-based filtering
+            
+            // Super Admin/Admin can see all workplaces
+            if ($currentUser->hasAnyRole(['super_admin', 'admin'])) {
+                // No additional filtering
+            }
+            // Manager can assign workplaces from their region
+            elseif ($currentUser->hasRole('manager')) {
+                $managerRegionIds = $currentUser->regions()->pluck('viki_regions.id');
+                $query->whereIn('region_id', $managerRegionIds);
+            }
+            // Supervisor can only assign their own workplaces
+            elseif ($currentUser->hasRole('supervisor')) {
+                $supervisorWorkplaceIds = $currentUser->workPlaces()->pluck('viki_work_place.id');
+                $query->whereIn('id', $supervisorWorkplaceIds);
+            } else {
+                // No access
+                return [];
+            }
+        }
+        
+        // Include both active and inactive workplaces
+        // Note: Removed status filter to show all workplaces including archived ones
+        return $query->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 
     /**
