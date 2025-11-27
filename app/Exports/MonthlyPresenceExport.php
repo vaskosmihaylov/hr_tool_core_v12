@@ -44,6 +44,7 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             'Заплата',
             'Име',
             'Фамилия',
+            'ЕГН',
         ];
 
         // Add day columns (1-31)
@@ -67,6 +68,7 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
                 (float) $activityData['activity_salary'], // Заплата (as number, not formatted string)
                 '-', // Име
                 '-', // Фамилия
+                '-', // ЕГН
             ];
 
             // Add empty cells for each day
@@ -94,6 +96,7 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
                     '-', // Заплата (empty for workers)
                     $worker->name ?? '', // Име
                     $worker->family_name ?? '', // Фамилия
+                    $worker->egn ?? '', // ЕГН
                 ];
 
                 // Add daily hours as numbers (not formatted strings)
@@ -144,7 +147,7 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
         ]);
 
         // Apply number format to numeric columns (days + price + total)
-        $firstDayColumn = 'E'; // Column E is day 1
+        $firstDayColumn = 'F'; // Column F is day 1 (after A=Длъжност, B=Заплата, C=Име, D=Фамилия, E=ЕГН)
         $priceColumn = chr(ord($firstDayColumn) + $this->daysInMonth); // After all days
         $totalColumn = chr(ord($priceColumn) + 1); // After price
 
@@ -183,14 +186,15 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             'B' => 10, // Заплата
             'C' => 12, // Име
             'D' => 12, // Фамилия
+            'E' => 15, // ЕГН
             // Days columns get default width
         ];
     }
 
     protected function getLastColumnLetter(): string
     {
-        // Calculate last column: 4 fixed columns + days + 2 summary columns
-        $columnCount = 4 + $this->daysInMonth + 2;
+        // Calculate last column: 5 fixed columns + days + 2 summary columns
+        $columnCount = 5 + $this->daysInMonth + 2;
 
         if ($columnCount <= 26) {
             return chr(64 + $columnCount);

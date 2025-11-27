@@ -663,6 +663,15 @@ class MonthlyPresence extends Page
         );
     }
 
+    public function getConfigureHoursUrl(): string
+    {
+        return sprintf(
+            '/service/presences/monthly/%d/%s/configure-hours',
+            $this->workplace,
+            sprintf('%02d-%d', $this->month, $this->year)
+        );
+    }
+
     // Notification helpers
 
     // TODO: Price & Total calculation methods - need old app logic

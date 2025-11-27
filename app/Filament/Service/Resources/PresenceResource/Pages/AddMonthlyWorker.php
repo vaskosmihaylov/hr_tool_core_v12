@@ -206,7 +206,7 @@ class AddMonthlyWorker extends Page implements HasForms
             ->get();
 
         $this->workerOptions = $workers->mapWithKeys(function (Worker $worker) {
-            $fullName = trim($worker->name . ' ' . $worker->family_name);
+            $fullName = trim($worker->name . ' ' . ($worker->middle_name ? $worker->middle_name . ' ' : '') . $worker->family_name);
             return [$worker->id => $fullName];
         })->toArray();
     }

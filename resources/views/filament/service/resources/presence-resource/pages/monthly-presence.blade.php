@@ -130,6 +130,16 @@
                             >
                                 Управление работници
                             </x-filament::button>
+
+                            <x-filament::button
+                                tag="a"
+                                :href="$this->getConfigureHoursUrl()"
+                                color="info"
+                                icon="heroicon-o-clock"
+                                size="sm"
+                            >
+                                Конфигурация часове
+                            </x-filament::button>
                         </div>
                     </div>
                 </div>
@@ -149,6 +159,9 @@
                                 </th>
                                 <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">
                                     Фамилия
+                                </th>
+                                <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">
+                                    ЕГН
                                 </th>
                                 @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                     @php
@@ -189,7 +202,7 @@
                                             {{ number_format($activityGroup['activity_salary'], 0) }}
                                         </span>
                                     </td>
-                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" colspan="2">
+                                    <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" colspan="3">
                                         <span class="font-bold text-gray-500 dark:text-gray-400">-</span>
                                     </td>
                                     @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
@@ -263,6 +276,9 @@
                                         </td>
                                         <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
                                             <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->family_name }}</span>
+                                        </td>
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                            <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->egn }}</span>
                                         </td>
                                         @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                             @php

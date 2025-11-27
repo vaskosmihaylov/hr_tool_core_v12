@@ -235,6 +235,9 @@ class PresenceConfigurationService
                     'created_by' => Auth::id(),
                 ]
             );
+        } elseif ($baseActivity->type_working === WorkPlaceActivity::WORKING_BY_HOURS) {
+            // For сумарно (hourly) activities, try to copy hours from previous month
+            self::copyHoursFromPreviousMonth($baseActivity, $monthlyActivity, $year, (int) $monthString, $normalizedDate);
         }
 
         return $monthlyActivity;
@@ -371,5 +374,58 @@ class PresenceConfigurationService
     private static function isWeekend(Carbon $date): bool
     {
         return $date->isWeekend();
+    }
+
+    /**
+     * Copy hours configuration from previous month for сумарно activities.
+     * If previous month has configured hours, use those. Otherwise, do nothing (will need manual configuration).
+     */
+    private static function copyHoursFromPreviousMonth(
+        WorkPlaceActivity $baseActivity,
+        WorkPlaceActivity $monthlyActivity,
+        int $year,
+        int $month,
+        string $normalizedDate
+    ): void {
+        // Calculate previous month
+        $previousDate = Carbon::create($year, $month, 1)->subMonth();
+        $previousYear = $previousDate->year;
+        $previousMonth = $previousDate->month;
+        $previousNormalizedDate = sprintf('%d-%02d-01', $previousYear, $previousMonth);
+
+        // Find the activity from previous month with same name
+        $previousMonthActivity = WorkPlaceActivity::where('work_place_id', $baseActivity->work_place_id)
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+            ->whereDate('date', $previousNormalizedDate)
+            ->where('activity', $baseActivity->activity)
+            ->where('type_working', WorkPlaceActivity::WORKING_BY_HOURS)
+            ->first();
+
+        if (!$previousMonthActivity) {
+            // No previous month activity found, skip copying
+            return;
+        }
+
+        // Check if previous month has configured hours
+        $previousHoursConfig = HoursActivityByMonth::where('work_place_activity_id', $previousMonthActivity->id)
+            ->where('date', $previousNormalizedDate)
+            ->first();
+
+        if (!$previousHoursConfig || !$previousHoursConfig->hours_for_person) {
+            // No hours configured in previous month, skip copying
+            return;
+        }
+
+        // Copy the hours configuration to this month
+        HoursActivityByMonth::updateOrCreate(
+            [
+                'work_place_activity_id' => $monthlyActivity->id,
+                'date' => $normalizedDate,
+            ],
+            [
+                'hours_for_person' => $previousHoursConfig->hours_for_person,
+                'created_by' => Auth::id(),
+            ]
+        );
     }
 }
