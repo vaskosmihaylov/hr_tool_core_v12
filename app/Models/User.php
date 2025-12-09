@@ -161,11 +161,15 @@ class User extends Authenticatable implements FilamentUser
             case 'admin':
                 // Admin panel access - requires admin role or explicit admin panel permission
                 return $this->hasAnyRole(['admin', 'manager']) || $this->can('access_admin_panel');
-                
+
             case 'service':
                 // Service panel access - requires service panel permission
                 return $this->can('access_service_panel');
-                
+
+            case 'knowledge-base':
+                // Knowledge Base panel - publicly accessible to everyone
+                return true;
+
             default:
                 // Default fallback for any unknown panels
                 return false;

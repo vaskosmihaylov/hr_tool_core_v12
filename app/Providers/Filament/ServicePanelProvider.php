@@ -19,6 +19,8 @@ use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Illuminate\Support\HtmlString;
+use Filament\Support\Facades\FilamentView;
+use Illuminate\Support\Facades\Blade;
 
 class ServicePanelProvider extends PanelProvider
 {
@@ -28,6 +30,7 @@ class ServicePanelProvider extends PanelProvider
             ->id('service')
             ->path('/service')
             ->login()
+            ->viteTheme('resources/css/filament/service/theme.css')
             ->brandName('FMS Services')
             ->brandLogo(fn () => new HtmlString(''))
             ->brandLogoHeight('2rem')
@@ -68,11 +71,24 @@ class ServicePanelProvider extends PanelProvider
             ->topNavigation()
             ->navigationGroups([
                 '👥 Човешки ресурси',
-                '🏢 Организация', 
+                '🏢 Организация',
                 '⏰ Присъствена форма',
                 '✅ Одобрения',
                 '📊 Отчети',
                 '📂 Архив',
-            ]);
+            ])
+            ->renderHook(
+                'panels::topbar.end',
+                fn (): string => Blade::render('<x-filament::link
+                    href="/documentation"
+                    target="_blank"
+                    icon="heroicon-o-book-open"
+                    icon-size="lg"
+                    class="fi-topbar-item"
+                    style="margin-right: 1rem;"
+                >
+                    Ръководство
+                </x-filament::link>')
+            );
     }
 }

@@ -110,11 +110,6 @@ class RolePermissionSeeder extends Seeder
             ['description' => 'Супервайзор - ограничен достъп до HR функции']
         );
 
-        $hrRole = Role::firstOrCreate(
-            ['name' => 'hr', 'guard_name' => 'web'],
-            ['description' => 'HR специалист - специфични HR разрешения']
-        );
-
         // Assign permissions to roles based on typical HR workflow
         
         // Admin gets all permissions
@@ -137,12 +132,6 @@ class RolePermissionSeeder extends Seeder
             'history', 'approvals', 'presence_form'
         ];
         $supervisorRole->givePermissionTo($supervisorPermissions);
-
-        // HR gets HR-specific permissions
-        $hrPermissions = [
-            'create_workers', 'add_vacation', 'add_holidays', 'history', 'presence_form', 'archive'
-        ];
-        $hrRole->givePermissionTo($hrPermissions);
 
         // Create test users
         
@@ -179,19 +168,8 @@ class RolePermissionSeeder extends Seeder
         );
         $supervisorUser->assignRole('supervisor');
 
-        // HR user
-        $hrUser = User::firstOrCreate(
-            ['email' => 'hr@example.com'],
-            [
-                'name' => 'HR Специалист',
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-            ]
-        );
-        $hrUser->assignRole('hr');
-
         $this->command->info('Created ' . count($permissions) . ' permissions (Bulgarian from old system)');
-        $this->command->info('Created 4 roles: admin, manager, supervisor, hr');
+        $this->command->info('Created 4 roles: admin, manager, supervisor');
         $this->command->info('Created 4 test users with appropriate roles');
         $this->command->info('🇧🇬 All permissions match the old Laravel 7 system exactly');
         $this->command->info('Login credentials: email/password for each user type');

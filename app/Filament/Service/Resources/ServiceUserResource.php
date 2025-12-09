@@ -157,14 +157,12 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
                         'danger' => 'admin',
                         'warning' => 'manager', 
                         'success' => 'supervisor',
-                        'secondary' => 'hr',
                     ])
                     ->formatStateUsing(function ($state) {
                         return match($state) {
                             'admin' => 'Администратор',
                             'manager' => 'Мениджър',
                             'supervisor' => 'Супервайзор',
-                            'hr' => 'HR специалист',
                             'super_admin' => 'Супер админ',
                             default => $state,
                         };

@@ -1,0 +1,10 @@
+@plugin "@tailwindcss/typography";
+
+@theme {
+    /* Tailwind theme configuration */
+}
+
+@source '../../../../app/Providers/Filament/**/*.php';
+@source '../../../../vendor/filament/**/*.blade.php';
+@source '../../../../vendor/guava/filament-knowledge-base/**/*.blade.php';
+@source '../../../../vendor/guava/filament-knowledge-base/**/*.php';
