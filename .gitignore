@@ -31,7 +31,7 @@ backup_*.sh
 restore_*.sh
 *_production_*.sh
 *_production_data.*
-scripts/safe_import_from_old_app.sh
+/scripts/safe_import_from_old_app.sh
 
 # Session & Cookie Files (contain sensitive tokens)
 cookies.txt
