@@ -4,8 +4,8 @@ namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
 use Filament\Resources\Pages\Page;
-use Viki\Service\Models\Elequent\WorkPlace;
-use Viki\Service\Models\Elequent\VikiUser;
+use viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\VikiUser;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 

@@ -6,10 +6,10 @@ use Illuminate\Http\Request;
 use App\Exports\MonthlyPresenceExport;
 use App\Services\Presence\PresenceConfigurationService;
 use Maatwebsite\Excel\Facades\Excel;
-use Viki\Service\Models\Elequent\WorkPlace;
-use Viki\Service\Models\Elequent\Worker;
-use Viki\Service\Models\Elequent\WorkerRecord;
-use Viki\Service\Models\Elequent\WorkPlaceActivity;
+use viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\Worker;
+use viki\Service\Models\Elequent\WorkerRecord;
+use viki\Service\Models\Elequent\WorkPlaceActivity;
 use Carbon\Carbon;
 
 class PresenceExportController extends Controller

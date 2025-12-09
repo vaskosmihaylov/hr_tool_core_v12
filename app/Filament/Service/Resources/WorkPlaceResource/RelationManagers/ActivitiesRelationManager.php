@@ -14,7 +14,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Viki\Service\Models\Elequent\WorkPlaceActivity;
+use viki\Service\Models\Elequent\WorkPlaceActivity;
 
 class ActivitiesRelationManager extends RelationManager
 {

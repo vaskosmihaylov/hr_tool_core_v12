@@ -18,7 +18,7 @@ use RuntimeException;
 use viki\Service\Models\Elequent\WorkPlace;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
 use viki\Service\Models\Elequent\Worker;
-use Viki\Service\Models\Elequent\VikiUser;
+use viki\Service\Models\Elequent\VikiUser;
 
 class AddMonthlyWorker extends Page implements HasForms
 {

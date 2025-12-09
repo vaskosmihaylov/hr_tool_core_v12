@@ -21,9 +21,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Viki\Service\Models\Elequent\WorkPlace;
-use Viki\Service\Models\Elequent\Region;
-use Viki\Service\Models\Elequent\Client;
+use viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\Region;
+use viki\Service\Models\Elequent\Client;
 use viki\Service\Models\Elequent\Worker;
 
 class WorkPlaceResource extends Resource implements HasShieldPermissions

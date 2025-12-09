@@ -7,7 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Components\Tab;
 use Illuminate\Database\Eloquent\Builder;
-use Viki\Service\Models\Elequent\Client;
+use viki\Service\Models\Elequent\Client;
 
 class ListClients extends ListRecords
 {

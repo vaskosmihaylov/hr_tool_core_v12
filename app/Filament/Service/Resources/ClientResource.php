@@ -18,8 +18,8 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Viki\Service\Models\Elequent\Client;
-use Viki\Service\Models\Elequent\Region;
+use viki\Service\Models\Elequent\Client;
+use viki\Service\Models\Elequent\Region;
 use viki\Service\Models\Elequent\Worker;
 
 class ClientResource extends Resource implements HasShieldPermissions

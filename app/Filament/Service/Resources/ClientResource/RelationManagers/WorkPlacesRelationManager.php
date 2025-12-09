@@ -17,8 +17,8 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Viki\Service\Models\Elequent\WorkPlace;
-use Viki\Service\Models\Elequent\Region;
+use viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\Region;
 
 class WorkPlacesRelationManager extends RelationManager
 {

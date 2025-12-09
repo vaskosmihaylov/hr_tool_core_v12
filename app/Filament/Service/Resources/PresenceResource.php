@@ -20,10 +20,10 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Viki\Service\Models\Elequent\WorkerRecord;
-use Viki\Service\Models\Elequent\Worker;
-use Viki\Service\Models\Elequent\WorkPlace;
-use Viki\Service\Models\Elequent\WorkPlaceActivity;
+use viki\Service\Models\Elequent\WorkerRecord;
+use viki\Service\Models\Elequent\Worker;
+use viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\WorkPlaceActivity;
 
 class PresenceResource extends Resource implements HasShieldPermissions
 {

@@ -4,8 +4,8 @@ namespace App\Filament\Service\Resources\PresenceResource\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Viki\Service\Models\Elequent\WorkerRecord;
-use Viki\Service\Models\Elequent\Worker;
+use viki\Service\Models\Elequent\WorkerRecord;
+use viki\Service\Models\Elequent\Worker;
 
 class PresenceStatsOverview extends BaseWidget
 {

@@ -4,7 +4,7 @@ namespace App\Filament\Service\Resources;
 
 use App\Filament\Service\Resources\ApprovementResource\Pages;
 use App\Services\Approvement\ApprovementActionService;
-use Viki\Service\Models\Elequent\Approvement;
+use viki\Service\Models\Elequent\Approvement;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;

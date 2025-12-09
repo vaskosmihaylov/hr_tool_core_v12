@@ -4,8 +4,8 @@ namespace App\Filament\Service\Resources\ClientResource\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Viki\Service\Models\Elequent\Client;
-use Viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\Client;
+use viki\Service\Models\Elequent\WorkPlace;
 
 class ClientStatsOverview extends BaseWidget
 {

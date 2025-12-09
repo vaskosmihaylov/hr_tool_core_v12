@@ -4,9 +4,9 @@ namespace App\Filament\Service\Resources\WorkPlaceResource\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Viki\Service\Models\Elequent\WorkPlace;
-use Viki\Service\Models\Elequent\Worker;
-use Viki\Service\Models\Elequent\Region;
+use viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\Worker;
+use viki\Service\Models\Elequent\Region;
 
 class WorkPlaceStatsOverview extends BaseWidget
 {
