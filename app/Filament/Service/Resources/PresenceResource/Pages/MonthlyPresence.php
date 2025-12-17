@@ -178,7 +178,7 @@ class MonthlyPresence extends Page
             // Remove from activity pivots for this workplace and month
             $activityIds = WorkPlaceActivity::where('work_place_id', $this->workplace)
                 ->whereDate('date', $monthStart)
-                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+                ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
                 ->pluck('id');
             
             DB::table('viki_work_place_activity_worker')
@@ -374,10 +374,10 @@ class MonthlyPresence extends Page
         $start = $this->getMonthStartDate();
         $end = $start->copy()->endOfMonth();
 
-        // Load monthly activity instances (copied = 0 with specific date, NOT snapshots with copied = 1)
+        // Load monthly activity snapshots (copied = 1)
         $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $start->toDateString())
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->orderBy('activity')
             ->get();
 
@@ -775,7 +775,7 @@ class MonthlyPresence extends Page
 
         $activity = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $start->toDateString())
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->whereHas('temporaryWorkers', function ($query) use ($workerId, $start) {
                 $query->where('viki_workers.id', $workerId)
                     ->wherePivot('date', $start->toDateString());
@@ -798,7 +798,7 @@ class MonthlyPresence extends Page
 
         $monthlyMatch = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $start->toDateString())
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->where('activity', $baseActivity->activity)
             ->first();
 
@@ -816,7 +816,7 @@ class MonthlyPresence extends Page
         
         $workPlaceActivities = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->get();
 
         $workPlaceActivityUsedBudget = [];

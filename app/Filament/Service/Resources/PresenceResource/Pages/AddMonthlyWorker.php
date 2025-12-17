@@ -215,7 +215,7 @@ class AddMonthlyWorker extends Page implements HasForms
     {
         $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $this->normalizedDate)
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->orderBy('activity')
             ->get();
 

@@ -169,7 +169,6 @@ class ActivitiesRelationManager extends RelationManager
                         ->label('Изтриване'),
                 ]),
             ])
-            ->modifyQueryUsing(fn (Builder $query) => $query->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY))
             ->defaultSort('created_at', 'desc');
     }
 }

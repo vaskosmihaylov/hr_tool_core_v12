@@ -4,6 +4,7 @@ namespace viki\Service\Models\Elequent;
 use \Carbon\Carbon;
 use \Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
 
 class WorkPlaceActivity extends Model
@@ -29,6 +30,52 @@ class WorkPlaceActivity extends Model
 		'date'
 
 	];
+
+	/**
+	 * Boot the model and set up event listeners
+	 */
+	protected static function booted(): void
+	{
+		// When deleting a permanent activity, cascade delete all monthly copies and related data
+		static::deleting(function (WorkPlaceActivity $activity) {
+			// Only cascade delete if this is a permanent activity (date = NULL, copied = 0)
+			if ($activity->date === null && $activity->copied == self::NOT_COPIED_ACTIVITY) {
+				// Find all monthly copies of this permanent activity
+				$monthlyActivityIds = static::where('work_place_id', $activity->work_place_id)
+					->where('activity', $activity->activity)
+					->where('type_working', $activity->type_working)
+					->where('copied', self::NOT_COPIED_ACTIVITY)
+					->whereNotNull('date')
+					->pluck('id');
+
+				// Clean up related data for monthly activities
+				if ($monthlyActivityIds->isNotEmpty()) {
+					// Delete worker records
+					DB::table('viki_worker_records')
+						->whereIn('work_place_activity_id', $monthlyActivityIds)
+						->delete();
+
+					// Delete hours configuration by month
+					DB::table('viki_hours_activity_by_month')
+						->whereIn('work_place_activity_id', $monthlyActivityIds)
+						->delete();
+
+					// Delete hours per day configuration
+					DB::table('viki_hours_per_day_activity')
+						->whereIn('work_place_activity_id', $monthlyActivityIds)
+						->delete();
+
+					// Delete pivot table entries (worker assignments)
+					DB::table('viki_work_place_activity_worker')
+						->whereIn('work_place_activity_id', $monthlyActivityIds)
+						->delete();
+
+					// Finally, delete the monthly activity copies themselves
+					static::whereIn('id', $monthlyActivityIds)->delete();
+				}
+			}
+		});
+	}
 
 	public static function create(array $attributes  = array(),$id,$date = null)
 	{	

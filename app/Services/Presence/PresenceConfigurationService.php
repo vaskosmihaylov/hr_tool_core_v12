@@ -47,10 +47,10 @@ class PresenceConfigurationService
     ): void {
         $normalizedDate = sprintf('%d-%s-01', $year, $monthString);
 
-        // Look for monthly instance with copied=0 (not copied=1 snapshots)
+        // Look for monthly snapshot with copied=1
         $existingMonthly = WorkPlaceActivity::query()
             ->where('work_place_id', $workplace->id)
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Changed from COPIED_ACTIVITY
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
             ->whereDate('date', $normalizedDate)
             ->where('activity', $baseActivity->activity)
             ->where('type_working', $baseActivity->type_working)
@@ -103,7 +103,7 @@ class PresenceConfigurationService
         $existingTotal = WorkPlaceActivity::where('work_place_id', $workplaceId)
             ->whereYear('date', $year)
             ->whereMonth('date', $month)
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)  // Exclude copied=1 snapshots
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->get()
             ->sum(function (WorkPlaceActivity $activity) {
                 return ($activity->neto_salary + $activity->social_plus) * $activity->worker_count;
@@ -202,7 +202,7 @@ class PresenceConfigurationService
 
         $attributes = [
             'activity' => $baseActivity->activity,
-            'copied' => WorkPlaceActivity::NOT_COPIED_ACTIVITY,  // Changed from COPIED_ACTIVITY to NOT_COPIED_ACTIVITY
+            'copied' => WorkPlaceActivity::COPIED_ACTIVITY,
             'type_working' => $baseActivity->type_working,
             'neto_salary' => $baseActivity->neto_salary,
             'social_plus' => $baseActivity->social_plus,
@@ -212,8 +212,7 @@ class PresenceConfigurationService
             'created_by' => Auth::id(),
         ];
 
-        // Use regular create instead of createCopied since we want copied=0
-        $monthlyActivity = WorkPlaceActivity::create($attributes, $baseActivity->work_place_id, $normalizedDate);
+        $monthlyActivity = WorkPlaceActivity::createCopied($attributes);
 
         if ($baseActivity->type_working === WorkPlaceActivity::WORKING_STANDART) {
             $hoursPerDay = WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity($baseActivity->id);
@@ -395,7 +394,7 @@ class PresenceConfigurationService
 
         // Find the activity from previous month with same name
         $previousMonthActivity = WorkPlaceActivity::where('work_place_id', $baseActivity->work_place_id)
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
             ->whereDate('date', $previousNormalizedDate)
             ->where('activity', $baseActivity->activity)
             ->where('type_working', WorkPlaceActivity::WORKING_BY_HOURS)
