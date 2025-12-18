@@ -9,7 +9,6 @@ use Filament\Resources\Pages\Page;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
-use Livewire\Attributes\On;
 use viki\Service\Models\Elequent\WorkPlace;
 use viki\Service\Models\Elequent\Worker;
 use viki\Service\Models\Elequent\WorkerRecord;
@@ -54,14 +53,6 @@ class MonthlyPresence extends Page
         PresenceConfigurationService::ensureMonthlyActivities($this->workplace, $this->year, $this->month);
         $this->loadData();
         $this->initializeHoursData();
-    }
-
-    #[On('trigger-auto-save')]
-    public function triggerAutoSave(): void
-    {
-        if ($this->hasUnsavedChanges && !$this->isLocked) {
-            $this->saveHours();
-        }
     }
 
     protected function getHeaderActions(): array
@@ -112,9 +103,6 @@ class MonthlyPresence extends Page
     public function updatedHoursData(): void
     {
         $this->hasUnsavedChanges = true;
-        
-        // Auto-save will be triggered by JavaScript debounce on blur
-        // This method just marks that there are changes
     }
 
     public function saveHours(): void

@@ -32,7 +32,7 @@ class VacationsRelationManager extends RelationManager
                 Forms\Components\DatePicker::make('end_date')
                     ->label('Крайна дата')
                     ->required()
-                    ->after('start_date'),
+                    ->afterOrEqual('start_date'),
 
                 Forms\Components\Select::make('type')
                     ->label('Тип отпуска')

@@ -113,12 +113,17 @@ class AddMonthlyWorker extends Page implements HasForms
         }
 
         try {
+            // Add worker to current month
             PresenceConfigurationService::addWorkerToActivity(
                 $this->workplace,
                 (int) $formData['work_place_activity_id'],
                 (int) $formData['worker_id'],
                 $this->monthYear
             );
+
+            // Automatically add worker to next 2 months
+            $this->addWorkerToNextMonths((int) $formData['worker_id'], (int) $formData['work_place_activity_id']);
+
         } catch (RuntimeException $exception) {
             $this->showError($exception->getMessage());
             return;
@@ -128,7 +133,7 @@ class AddMonthlyWorker extends Page implements HasForms
             return;
         }
 
-        $this->showSuccess('Работникът е добавен успешно.');
+        $this->showSuccess('Работникът е добавен успешно за текущия и следващите 2 месеца.');
         $this->redirect($this->getBackUrl());
     }
 
@@ -155,6 +160,63 @@ class AddMonthlyWorker extends Page implements HasForms
     public function getManageActivitiesUrl(): string
     {
         return WorkPlaceResource::getUrl('activities', ['record' => $this->workplace]);
+    }
+
+    /**
+     * Automatically add the worker to the next 2 months after current month
+     */
+    private function addWorkerToNextMonths(int $workerId, int $activityId): void
+    {
+        // Get the base activity to find its properties
+        $baseActivity = WorkPlaceActivity::find($activityId);
+        if (!$baseActivity) {
+            return;
+        }
+
+        // Parse current month and get next 2 months
+        $currentDate = Carbon::createFromFormat('m-Y', $this->monthYear);
+        $nextMonths = [
+            $currentDate->copy()->addMonth(),     // Next month
+            $currentDate->copy()->addMonths(2),   // Month after next
+        ];
+
+        foreach ($nextMonths as $futureMonth) {
+            try {
+                $futureYear = $futureMonth->year;
+                $futureMonthNum = $futureMonth->month;
+                $futureMonthYear = $futureMonth->format('m-Y');
+
+                // Ensure monthly activities exist for the future month
+                PresenceConfigurationService::ensureMonthlyActivities($this->workplace, $futureYear, $futureMonthNum);
+
+                // Find the corresponding monthly activity for the future month
+                $normalizedDate = $futureMonth->copy()->startOfMonth()->toDateString();
+                $futureMonthlyActivity = WorkPlaceActivity::where('work_place_id', $this->workplace)
+                    ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
+                    ->whereDate('date', $normalizedDate)
+                    ->where('activity', $baseActivity->activity)
+                    ->where('type_working', $baseActivity->type_working)
+                    ->first();
+
+                if (!$futureMonthlyActivity) {
+                    // Monthly activity doesn't exist for this future month, skip
+                    continue;
+                }
+
+                // Add worker to the future month's activity
+                PresenceConfigurationService::addWorkerToActivity(
+                    $this->workplace,
+                    $futureMonthlyActivity->id,
+                    $workerId,
+                    $futureMonthYear
+                );
+
+            } catch (\Exception $e) {
+                // Log error but don't stop the process
+                // Worker can be added manually to future months if needed
+                report($e);
+            }
+        }
     }
 
     private function parseMonthYear(string $date): void
