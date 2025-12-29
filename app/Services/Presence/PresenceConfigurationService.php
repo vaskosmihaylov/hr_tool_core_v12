@@ -249,9 +249,15 @@ class PresenceConfigurationService
         int $year,
         int $month
     ): void {
+        // First, try to find workers assigned directly to the base activity
         $workers = Worker::where('status', Worker::USER_ACTIVE)
             ->where('work_place_activity_id', $baseActivity->id)
             ->get();
+
+        // If no workers found on base activity, try to find workers from previous month's activity
+        if ($workers->isEmpty()) {
+            $workers = self::getWorkersFromPreviousMonth($workplace, $baseActivity, $year, $month);
+        }
 
         if ($workers->isEmpty()) {
             return;
@@ -284,6 +290,48 @@ class PresenceConfigurationService
                 self::insertStandardWorkerRecords($worker, $baseActivity, $monthlyActivity, $workplace, $startDate, $lastDayOfMonth);
             }
         }
+    }
+
+
+    /**
+     * Get workers from the previous month's activity with the same name and type.
+     * This handles cases where workers are assigned to monthly snapshots rather than base activities.
+     */
+    private static function getWorkersFromPreviousMonth(
+        WorkPlace $workplace,
+        WorkPlaceActivity $baseActivity,
+        int $year,
+        int $month
+    ): \Illuminate\Support\Collection {
+        // Calculate previous month
+        $previousDate = Carbon::create($year, $month, 1)->subMonth();
+        $previousNormalizedDate = $previousDate->startOfMonth()->toDateString();
+
+        // Find the previous month's activity with the same name and type
+        $previousMonthActivity = WorkPlaceActivity::where('work_place_id', $workplace->id)
+            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
+            ->whereDate('date', $previousNormalizedDate)
+            ->where('activity', $baseActivity->activity)
+            ->where('type_working', $baseActivity->type_working)
+            ->first();
+
+        if (!$previousMonthActivity) {
+            return collect();
+        }
+
+        // Get active workers who were assigned to the previous month's activity via pivot table
+        $workerIds = $previousMonthActivity->temporaryWorkers()
+            ->wherePivot('date', $previousNormalizedDate)
+            ->pluck('viki_workers.id');
+
+        if ($workerIds->isEmpty()) {
+            return collect();
+        }
+
+        // Return only active workers
+        return Worker::whereIn('id', $workerIds)
+            ->where('status', Worker::USER_ACTIVE)
+            ->get();
     }
 
     private static function insertStandardWorkerRecords(

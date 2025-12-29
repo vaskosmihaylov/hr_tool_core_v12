@@ -275,9 +275,9 @@ class AddMonthlyWorker extends Page implements HasForms
 
     private function loadActivityOptions(): void
     {
+        // Load ALL monthly activities (both copied=0 and copied=1)
         $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $this->normalizedDate)
-            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->orderBy('activity')
             ->get();
 

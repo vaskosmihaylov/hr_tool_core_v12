@@ -298,40 +298,60 @@
 
                                                 // Check if current value differs from original (unsaved change)
                                                 $hasUnsavedChange = false;
-                                                if (!$isLocked && !$vacationInfo) {
+                                                if (!$isLocked) {
                                                     // Convert both to strings for comparison to handle null/empty correctly
                                                     $currentStr = $currentValue === null || $currentValue === '' ? '' : (string)$currentValue;
                                                     $originalStr = $originalValue === null ? '' : (string)$originalValue;
                                                     $hasUnsavedChange = $currentStr !== $originalStr;
                                                 }
 
-                                                // Cell coloring: YELLOW for unsaved changes, RED for weekends/holidays
+                                                // Cell coloring: VACATION > YELLOW (unsaved) > RED (weekends/holidays)
                                                 $cellBgClass = '';
-                                                if (!$vacationInfo) {
-                                                    if ($hasUnsavedChange) {
-                                                        // YELLOW background for unsaved changes (highest priority)
-                                                        $cellBgClass = 'unsaved-cell';
-                                                    } elseif ($isNonWorking) {
-                                                        // RED background for weekend/holiday cells
-                                                        $cellBgClass = 'weekend-cell';
-                                                    }
+                                                $vacInfo = null;
+                                                if ($vacationInfo) {
+                                                    // Vacation cells get vacation-specific background
+                                                    $vacInfo = $this->getVacationTypeInfo($vacationInfo['type']);
+                                                    $cellBgClass = 'vacation-cell';
+                                                } elseif ($hasUnsavedChange) {
+                                                    // YELLOW background for unsaved changes
+                                                    $cellBgClass = 'unsaved-cell';
+                                                } elseif ($isNonWorking) {
+                                                    // RED background for weekend/holiday cells
+                                                    $cellBgClass = 'weekend-cell';
+                                                }
+
+                                                // Prepare cell title with vacation info and/or special day
+                                                $fullCellTitle = '';
+                                                if ($vacInfo) {
+                                                    $fullCellTitle = $vacInfo['label'] . ($vacationInfo['comment'] ? ': ' . $vacationInfo['comment'] : '');
+                                                } elseif ($cellTitle) {
+                                                    $fullCellTitle = $cellTitle;
                                                 }
                                             @endphp
-                                            <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $cellBgClass }}" title="{{ $cellTitle }}">
-                                                @if($vacationInfo)
-                                                    @php $vacInfo = $this->getVacationTypeInfo($vacationInfo['type']); @endphp
-                                                    <div class="relative w-full h-6 flex items-center justify-center"
-                                                         style="{{ $vacInfo['style'] }}"
-                                                         title="{{ $vacInfo['label'] }}{{ $vacationInfo['comment'] ? ': ' . $vacationInfo['comment'] : '' }}">
+                                            <td class="border border-gray-400 dark:border-gray-600 p-1 text-center {{ $cellBgClass }}"
+                                                @if($vacInfo) style="{{ $vacInfo['style'] }}" @endif
+                                                title="{{ $fullCellTitle }}">
+                                                @if($isLocked)
+                                                    {{-- Locked month: show read-only value or vacation badge --}}
+                                                    @if($vacInfo && (!$currentValue || $currentValue == ''))
+                                                        {{-- Vacation day with no hours: show only badge --}}
                                                         <span class="text-xs font-bold">{{ $vacInfo['short'] }}</span>
-                                                    </div>
-                                                @elseif($isLocked)
-                                                    <span class="locked-hours">{{ $currentValue ?: '-' }}</span>
+                                                    @else
+                                                        {{-- Regular day or vacation with hours: show value --}}
+                                                        <span class="locked-hours">{{ $currentValue ?: '-' }}</span>
+                                                    @endif
                                                 @else
-                                                    <input type="number"
-                                                           wire:model.live="hoursData.{{ $activityId }}.{{ $workerId }}.{{ $day }}"
-                                                           min="0" max="24" step="0.5"
-                                                           placeholder="-">
+                                                    {{-- Editable: show input field or vacation badge --}}
+                                                    @if($vacInfo && (!$currentValue || $currentValue == ''))
+                                                        {{-- Vacation day with no hours: show only badge --}}
+                                                        <span class="text-xs font-bold">{{ $vacInfo['short'] }}</span>
+                                                    @else
+                                                        {{-- Regular day or vacation with hours: show input --}}
+                                                        <input type="number"
+                                                               wire:model.live="hoursData.{{ $activityId }}.{{ $workerId }}.{{ $day }}"
+                                                               min="0" max="24" step="0.5"
+                                                               placeholder="-">
+                                                    @endif
                                                 @endif
                                             </td>
                                         @endfor

@@ -131,10 +131,10 @@ class EditWorker extends EditRecord
         $monthlyActivity = $selectedActivity;
 
         if ($selectedActivity->date === null || Carbon::parse((string) $selectedActivity->date)->ne($currentMonthStart)) {
+            // Find monthly activity (both copied=0 and copied=1)
             $monthlyActivity = WorkPlaceActivity::query()
                 ->where('work_place_id', $workplaceId)
                 ->whereDate('date', $currentMonthStart->toDateString())
-                ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
                 ->where('activity', $selectedActivity->activity)
                 ->where('type_working', $selectedActivity->type_working)
                 ->where('neto_salary', $selectedActivity->neto_salary)

@@ -362,10 +362,10 @@ class MonthlyPresence extends Page
         $start = $this->getMonthStartDate();
         $end = $start->copy()->endOfMonth();
 
-        // Load monthly activity snapshots (copied = 1)
+        // Load ALL monthly activities (both copied=0 and copied=1)
+        // This ensures workers are visible regardless of which activity type they're assigned to
         $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $start->toDateString())
-            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->orderBy('activity')
             ->get();
 
@@ -466,11 +466,34 @@ class MonthlyPresence extends Page
         if (!$this->workplace) return;
 
         $dateRange = $this->getMonthDateRange();
+        $start = $this->getMonthStartDate();
         
-        $vacations = Vacation::whereHas('worker', function ($query) {
-                $query->where('work_place_id', $this->workplace)->where('status', Worker::WORKER_ACTIVE);
-            })
-            ->where('status', 1)
+        // Get ALL monthly activities for this workplace and month (both copied=0 and copied=1)
+        $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
+            ->whereDate('date', $start->toDateString())
+            ->get();
+        
+        // Collect all worker IDs assigned to these activities
+        $workerIds = collect();
+        foreach ($activities as $activity) {
+            // Get workers from pivot table for this month
+            $pivotWorkerIds = $activity->temporaryWorkers()
+                ->wherePivot('date', $start->toDateString())
+                ->pluck('viki_workers.id');
+            
+            $workerIds = $workerIds->merge($pivotWorkerIds);
+        }
+        
+        $workerIds = $workerIds->unique();
+        
+        if ($workerIds->isEmpty()) {
+            $this->vacationData = [];
+            return;
+        }
+        
+        // Get vacations for these workers that overlap with the current month
+        $vacations = Vacation::whereIn('worker_id', $workerIds->toArray())
+            ->where('status', 1) // Only active/approved vacations
             ->where(function ($query) use ($dateRange) {
                 [$startDate, $endDate] = $dateRange;
                 $query->where(function ($q) use ($startDate, $endDate) {
@@ -506,8 +529,8 @@ class MonthlyPresence extends Page
                 $this->hoursData[$activityId][$workerId] = [];
                 
                 for ($day = 1; $day <= $this->getDaysInMonth(); $day++) {
-                    if (isset($this->vacationData[$workerId][$day])) continue;
-                    
+                    // Load hours for all days, including vacation days
+                    // This allows workers to work during their vacation if needed
                     $dayRecord = $data['records']->get($day);
                     $this->hoursData[$activityId][$workerId][$day] = $dayRecord ? $dayRecord->hours : null;
                 }
@@ -520,7 +543,8 @@ class MonthlyPresence extends Page
         foreach ($this->hoursData as $activityId => $workers) {
             foreach ($workers as $workerId => $days) {
                 foreach ($days as $day => $hours) {
-                    if (isset($this->vacationData[$workerId][$day])) continue;
+                    // Allow saving hours even on vacation days
+                    // This allows workers to work during their vacation if needed
                     
                     $date = Carbon::create($this->year, $this->month, $day);
                     
@@ -920,7 +944,8 @@ class MonthlyPresence extends Page
         foreach ($this->hoursData as $activityId => $workers) {
             foreach ($workers as $workerId => $days) {
                 foreach ($days as $day => $hours) {
-                    if (isset($this->vacationData[$workerId][$day])) continue;
+                    // Allow saving hours even on vacation days
+                    // This allows workers to work during their vacation if needed
                     
                     $date = Carbon::create($this->year, $this->month, $day);
                     
@@ -1007,16 +1032,26 @@ class MonthlyPresence extends Page
             ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
             ->first();
 
+        // Calculate standard working hours based on working days (fallback value)
+        $calculatedHours = (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * 8;
+
         if ($workPlaceActivityHours) {
-            return $workPlaceActivityHours->hours_for_person;
-        } else if ($workPlaceActivity->type_working == WorkPlaceActivity::WORKING_STANDART) {
-            // Calculate standard working hours based on working days
-            return (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * 8;
+            // Validate hours_for_person: must be at least 8 hours (1 full workday)
+            // If value is unreasonably low (< 8), it's likely a data error, use calculated hours instead
+            if ($workPlaceActivityHours->hours_for_person >= 8) {
+                return $workPlaceActivityHours->hours_for_person;
+            }
+            // Invalid hours_for_person value (< 8), fall back to calculated hours
         }
 
-        // Fallback for WORKING_BY_HOURS (Сумарно) activities without hours record
+        // Use calculated hours for WORKING_STANDART activities or when no valid hours record exists
+        if ($workPlaceActivity->type_working == WorkPlaceActivity::WORKING_STANDART) {
+            return $calculatedHours;
+        }
+
+        // Fallback for WORKING_BY_HOURS (Сумарно) activities without valid hours record
         // Use a default calculation to avoid division by zero
-        return (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * 8;
+        return $calculatedHours;
     }
 
     private function getWorkPlaceActivityWorkersByDate($workPlaceActivity, $date)
