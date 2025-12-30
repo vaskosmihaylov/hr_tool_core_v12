@@ -131,6 +131,7 @@ class PresenceConfigurationService
 
     /**
      * Attach a worker to a workplace activity for a given month, mirroring the legacy behaviour.
+     * A worker CAN be assigned to multiple activities within the same workplace and month.
      */
     public static function addWorkerToActivity(int $workplaceId, int $activityId, int $workerId, string $monthYear): void
     {
@@ -151,16 +152,8 @@ class PresenceConfigurationService
         $normalizedDate = $date->copy()->startOfMonth()->toDateString();
 
         DB::transaction(function () use ($workplace, $activity, $worker, $normalizedDate, $date) {
-            // Prevent duplicate attachments on the workplace-level pivot.
-            $workplacePivotExists = $workplace->temporaryWorkers()
-                ->wherePivot('worker_id', $worker->id)
-                ->wherePivot('date', $normalizedDate)
-                ->exists();
-
-            if ($workplacePivotExists) {
-                throw new RuntimeException('Този работник вече е добавен към обекта за избрания месец.');
-            }
-
+            // Check if worker is already attached to THIS SPECIFIC activity for this month
+            // This is the only check that should fail - we want to prevent duplicate activity assignments
             $activityPivotExists = $activity->temporaryWorkers()
                 ->wherePivot('worker_id', $worker->id)
                 ->wherePivot('date', $normalizedDate)
@@ -170,7 +163,20 @@ class PresenceConfigurationService
                 throw new RuntimeException('Този работник вече е добавен към избраната дейност.');
             }
 
-            $workplace->temporaryWorkers()->attach($worker->id, ['date' => $normalizedDate]);
+            // Check workplace-level pivot - but DON'T fail if exists
+            // A worker CAN be in multiple activities within the same workplace/month
+            // We only need one entry in the workplace pivot per worker/month combination
+            $workplacePivotExists = $workplace->temporaryWorkers()
+                ->wherePivot('worker_id', $worker->id)
+                ->wherePivot('date', $normalizedDate)
+                ->exists();
+
+            // Only add to workplace pivot if not already there
+            if (!$workplacePivotExists) {
+                $workplace->temporaryWorkers()->attach($worker->id, ['date' => $normalizedDate]);
+            }
+
+            // Always add to activity pivot (we already checked for duplicates above)
             $activity->temporaryWorkers()->attach($worker->id, ['date' => $normalizedDate]);
 
             if ($activity->type_working === WorkPlaceActivity::WORKING_STANDART) {
