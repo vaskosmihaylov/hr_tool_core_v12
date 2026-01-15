@@ -62,13 +62,13 @@ class PresenceExportController extends Controller
             $hourRate = $this->getHourCostOnWorkPlaceActivityByDate($activity, $monthKey);
             $monthlyHours = $this->getActivityWorkingHoursForDate($activity, $monthKey);
             $workerCount = (int) ($activity->worker_count ?? 0);
-            $maxBudget = ($activity->neto_salary + $activity->social_plus) * $workerCount;
+            $maxBudget = $activity->neto_salary * $workerCount;
             $maxHours = $monthlyHours * $workerCount;
 
             $activityData = [
                 'activity_id' => $activity->id,
                 'activity_name' => $activity->activity,
-                'activity_salary' => $activity->neto_salary + $activity->social_plus,
+                'activity_salary' => $activity->neto_salary,
                 'hour_rate' => $hourRate,
                 'workers' => [],
                 'group_totals' => [

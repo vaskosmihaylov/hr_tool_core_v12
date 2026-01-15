@@ -389,13 +389,13 @@ class MonthlyPresence extends Page
             $hourRate = $this->getHourCostOnWorkPlaceActivityByDate($activity, $monthKey);
             $monthlyHours = $this->getActivityWorkingHoursForDate($activity, $monthKey);
             $workerCount = (int) ($activity->worker_count ?? 0);
-            $maxBudget = ($activity->neto_salary + $activity->social_plus) * $workerCount;
+            $maxBudget = $activity->neto_salary * $workerCount;
             $maxHours = $monthlyHours * $workerCount;
 
             $groupedByActivity[$activity->id] = [
                 'activity' => $activity,
                 'activity_name' => $activity->activity,
-                'activity_salary' => $activity->neto_salary + $activity->social_plus,
+                'activity_salary' => $activity->neto_salary,
                 'hour_rate' => $hourRate,
                 'workers' => [],
                 'group_totals' => [
@@ -492,17 +492,16 @@ class MonthlyPresence extends Page
         }
         
         // Get vacations for these workers that overlap with the current month
+        [$startDate, $endDate] = $dateRange;
         $vacations = Vacation::whereIn('worker_id', $workerIds->toArray())
             ->where('status', 1) // Only active/approved vacations
-            ->where(function ($query) use ($dateRange) {
-                [$startDate, $endDate] = $dateRange;
-                $query->where(function ($q) use ($startDate, $endDate) {
-                    $q->whereBetween('start_date', [$startDate, $endDate])
-                      ->orWhereBetween('end_date', [$startDate, $endDate])
-                      ->orWhere(function ($q2) use ($startDate, $endDate) {
-                          $q2->where('start_date', '<=', $startDate)->where('end_date', '>=', $endDate);
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('start_date', [$startDate->toDateString(), $endDate->toDateString()])
+                      ->orWhereBetween('end_date', [$startDate->toDateString(), $endDate->toDateString()])
+                      ->orWhere(function ($q) use ($startDate, $endDate) {
+                          $q->where('start_date', '<=', $startDate->toDateString())
+                            ->where('end_date', '>=', $endDate->toDateString());
                       });
-                });
             })
             ->with('worker')
             ->get();
@@ -1022,7 +1021,7 @@ class MonthlyPresence extends Page
             return 0;
         }
 
-        return ($workPlaceActivity->neto_salary + $workPlaceActivity->social_plus) / $workPlaceActivityWorkingHours;
+        return $workPlaceActivity->neto_salary / $workPlaceActivityWorkingHours;
     }
 
     private function getActivityWorkingHoursForDate($workPlaceActivity, $date): float
@@ -1036,12 +1035,19 @@ class MonthlyPresence extends Page
         $calculatedHours = (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * 8;
 
         if ($workPlaceActivityHours) {
-            // Validate hours_for_person: must be at least 8 hours (1 full workday)
+            // For WORKING_BY_HOURS (Сумарно) workers, always use configured hours
+            // These workers may legitimately work very few hours (e.g., 1 hour/month for weekend-only workers)
+            if ($workPlaceActivity->type_working == WorkPlaceActivity::WORKING_BY_HOURS) {
+                return $workPlaceActivityHours->hours_for_person;
+            }
+
+            // For WORKING_STANDART workers, validate hours_for_person
+            // Must be at least 8 hours (1 full workday) to be valid
             // If value is unreasonably low (< 8), it's likely a data error, use calculated hours instead
             if ($workPlaceActivityHours->hours_for_person >= 8) {
                 return $workPlaceActivityHours->hours_for_person;
             }
-            // Invalid hours_for_person value (< 8), fall back to calculated hours
+            // Invalid hours_for_person value (< 8) for STANDARD worker, fall back to calculated hours
         }
 
         // Use calculated hours for WORKING_STANDART activities or when no valid hours record exists

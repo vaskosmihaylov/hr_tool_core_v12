@@ -59,7 +59,6 @@ class PresenceConfigurationService
         if ($existingMonthly) {
             $existingMonthly->update([
                 'neto_salary' => $baseActivity->neto_salary,
-                'social_plus' => $baseActivity->social_plus,
                 'worker_count' => $baseActivity->worker_count,
             ]);
             return;
@@ -106,14 +105,13 @@ class PresenceConfigurationService
             ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
             ->get()
             ->sum(function (WorkPlaceActivity $activity) {
-                return ($activity->neto_salary + $activity->social_plus) * $activity->worker_count;
+                return $activity->neto_salary * $activity->worker_count;
             });
 
-        $social = (float) ($payload['social_plus'] ?? 0);
         $neto = (float) ($payload['neto_salary'] ?? 0);
         $workerCount = max(1, (int) ($payload['worker_count'] ?? 1));
 
-        $candidateTotal = $existingTotal + (($neto + $social) * $workerCount);
+        $candidateTotal = $existingTotal + ($neto * $workerCount);
 
         $workplace = WorkPlace::find($workplaceId);
         if (!$workplace) {
@@ -211,7 +209,6 @@ class PresenceConfigurationService
             'copied' => WorkPlaceActivity::COPIED_ACTIVITY,
             'type_working' => $baseActivity->type_working,
             'neto_salary' => $baseActivity->neto_salary,
-            'social_plus' => $baseActivity->social_plus,
             'worker_count' => $baseActivity->worker_count,
             'date' => $normalizedDate,
             'work_place_id' => $baseActivity->work_place_id,
@@ -284,13 +281,27 @@ class PresenceConfigurationService
                 continue;
             }
 
-            $workplace->temporaryWorkers()->syncWithoutDetaching([
-                $worker->id => ['date' => $normalizedDate],
-            ]);
+            // Check if worker is already in workplace pivot for this specific date
+            $workplacePivotExists = $workplace->temporaryWorkers()
+                ->wherePivot('worker_id', $worker->id)
+                ->wherePivot('date', $normalizedDate)
+                ->exists();
 
-            $monthlyActivity->temporaryWorkers()->syncWithoutDetaching([
-                $worker->id => ['date' => $normalizedDate],
-            ]);
+            // Only attach if not already present for this date
+            if (!$workplacePivotExists) {
+                $workplace->temporaryWorkers()->attach($worker->id, ['date' => $normalizedDate]);
+            }
+
+            // Check if worker is already in activity pivot for this specific date
+            $activityPivotExists = $monthlyActivity->temporaryWorkers()
+                ->wherePivot('worker_id', $worker->id)
+                ->wherePivot('date', $normalizedDate)
+                ->exists();
+
+            // Only attach if not already present for this date
+            if (!$activityPivotExists) {
+                $monthlyActivity->temporaryWorkers()->attach($worker->id, ['date' => $normalizedDate]);
+            }
 
             if ($baseActivity->type_working === WorkPlaceActivity::WORKING_STANDART) {
                 self::insertStandardWorkerRecords($worker, $baseActivity, $monthlyActivity, $workplace, $startDate, $lastDayOfMonth);

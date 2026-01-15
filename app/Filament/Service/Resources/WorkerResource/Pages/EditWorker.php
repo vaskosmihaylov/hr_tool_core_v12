@@ -138,7 +138,6 @@ class EditWorker extends EditRecord
                 ->where('activity', $selectedActivity->activity)
                 ->where('type_working', $selectedActivity->type_working)
                 ->where('neto_salary', $selectedActivity->neto_salary)
-                ->where('social_plus', $selectedActivity->social_plus)
                 ->orderByDesc('id')
                 ->first() ?? $monthlyActivity;
         }

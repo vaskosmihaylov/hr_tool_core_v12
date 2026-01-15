@@ -118,7 +118,7 @@ class ManageActivities extends Page implements HasForms, HasTable
             TextColumn::make('total_cost')
                 ->label('Общо разходи')
                 ->getStateUsing(fn (WorkPlaceActivity $record): float =>
-                    ($record->neto_salary ?? 0) + ($record->social_plus ?? 0)
+                    $record->neto_salary ?? 0
                 )
                 ->money('BGN')
                 ->sortable(),
@@ -181,10 +181,6 @@ class ManageActivities extends Page implements HasForms, HasTable
                 ->action(function (array $data): void {
                     $payload = $this->prepareActivityData($data);
                     $hoursPerDay = Arr::pull($payload, 'hours_per_day');
-
-                    if (!array_key_exists('social_plus', $payload)) {
-                        $payload['social_plus'] = 0;
-                    }
 
                     $activity = WorkPlaceActivity::query()->create(array_merge(
                         $payload,
@@ -342,10 +338,6 @@ class ManageActivities extends Page implements HasForms, HasTable
             'neto_salary' => (float) Arr::get($data, 'neto_salary', 0),
             'hours_per_day' => Arr::has($data, 'hours_per_day') ? (int) Arr::get($data, 'hours_per_day') : null,
         ];
-
-        if (Arr::has($data, 'social_plus')) {
-            $prepared['social_plus'] = (float) Arr::get($data, 'social_plus', 0);
-        }
 
         return $prepared;
     }

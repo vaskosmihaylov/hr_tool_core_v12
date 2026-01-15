@@ -107,15 +107,10 @@ class ActivitiesRelationManager extends RelationManager
                     ->money('BGN')
                     ->sortable(),
 
-                TextColumn::make('social_plus')
-                    ->label('Социални')
-                    ->money('BGN')
-                    ->sortable(),
-
                 TextColumn::make('total_cost')
                     ->label('Общо разходи')
-                    ->getStateUsing(fn (WorkPlaceActivity $record): float => 
-                        $record->neto_salary + $record->social_plus
+                    ->getStateUsing(fn (WorkPlaceActivity $record): float =>
+                        $record->neto_salary
                     )
                     ->money('BGN')
                     ->sortable(),
@@ -150,9 +145,6 @@ class ActivitiesRelationManager extends RelationManager
                     ->label('Създай дейност')
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['created_by'] = auth()->id();
-                        if (!array_key_exists('social_plus', $data)) {
-                            $data['social_plus'] = 0;
-                        }
                         return $data;
                     }),
             ])

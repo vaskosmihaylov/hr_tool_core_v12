@@ -79,7 +79,7 @@ class ConfigureMonthlyHours extends Page implements HasForms
                             ->content(function () use ($activity) {
                                 $hours = $this->data['hours'][$activity->id] ?? 0;
                                 if ($hours > 0) {
-                                    $salary = $activity->neto_salary + $activity->social_plus;
+                                    $salary = $activity->neto_salary;
                                     $rate = $salary / $hours;
                                     return number_format($rate, 2) . ' лв/час';
                                 }
@@ -90,7 +90,7 @@ class ConfigureMonthlyHours extends Page implements HasForms
                         Forms\Components\Placeholder::make("salary_{$activity->id}")
                             ->label('Месечна заплата')
                             ->content(function () use ($activity) {
-                                return number_format($activity->neto_salary + $activity->social_plus, 2) . ' лв';
+                                return number_format($activity->neto_salary, 2) . ' лв';
                             })
                             ->columnSpan(1),
                     ]),
@@ -211,9 +211,9 @@ class ConfigureMonthlyHours extends Page implements HasForms
     private function loadActivities(): void
     {
         // Load only "сумарно" (WORKING_BY_HOURS) activities for this month
+        // Note: Load ALL monthly activities regardless of 'copied' flag to avoid "invisible activity" bugs
         $this->activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
             ->whereDate('date', $this->normalizedDate)
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->where('type_working', WorkPlaceActivity::WORKING_BY_HOURS)
             ->orderBy('activity')
             ->get();

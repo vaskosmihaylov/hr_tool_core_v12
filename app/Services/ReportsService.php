@@ -257,7 +257,7 @@ class ReportsService
 
                 $workingHours = ReportController::getActivityWorkingHoursForDate($activity, $datePattern);
                 $hourPrice = $workingHours > 0 ?
-                    ($activity->neto_salary + $activity->social_plus) / $workingHours : 0;
+                    $activity->neto_salary / $workingHours : 0;
 
                 // Get hours for this specific activity (still need individual query but optimized)
                 $activityHours = WorkerRecord::where('worker_id', $record->worker_id)

@@ -155,6 +155,8 @@ Thumbs.db
 *.tar.gz
 !public/downloads/
 
+database/scripts
+
 # ============================================================================
 # SECURITY: If accidentally committed, use git filter-branch to remove
 # from history: git filter-branch --force --index-filter 'git rm --cached 
