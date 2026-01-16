@@ -71,26 +71,31 @@ class ConfigureMonthlyHours extends Page implements HasForms
                             ->step(0.5)
                             ->suffix('часа')
                             ->required()
-                            ->helperText('Колко часа се очаква този работник даработи през ' . $this->getMonthName())
+                            ->helperText('Колко часа се очаква този работник да работи през ' . $this->getMonthName())
+                            ->live() // Make it live to update salary calculation
                             ->columnSpan(1),
 
-                        Forms\Components\Placeholder::make("calculated_rate_{$activity->id}")
+                        Forms\Components\TextInput::make("hourly_rate.{$activity->id}")
                             ->label('Цена на час')
-                            ->content(function () use ($activity) {
-                                $hours = $this->data['hours'][$activity->id] ?? 0;
-                                if ($hours > 0) {
-                                    $salary = $activity->neto_salary;
-                                    $rate = $salary / $hours;
-                                    return number_format($rate, 2) . ' лв/час';
-                                }
-                                return '-';
-                            })
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.0001) // Allow 4 decimal places to match database
+                            ->suffix('лв/час')
+                            ->required()
+                            ->helperText('Нето цена за един час работа')
+                            ->live() // Make it live to update salary calculation
                             ->columnSpan(1),
 
                         Forms\Components\Placeholder::make("salary_{$activity->id}")
                             ->label('Месечна заплата')
-                            ->content(function () use ($activity) {
-                                return number_format($activity->neto_salary, 2) . ' лв';
+                            ->content(function ($get) use ($activity) {
+                                $hours = (float) ($get("hours.{$activity->id}") ?? 0);
+                                $rate = (float) ($get("hourly_rate.{$activity->id}") ?? 0);
+                                if ($hours > 0 && $rate > 0) {
+                                    $calculatedSalary = $hours * $rate;
+                                    return number_format($calculatedSalary, 4) . ' лв';
+                                }
+                                return number_format($activity->neto_salary, 4) . ' лв';
                             })
                             ->columnSpan(1),
                     ]),
@@ -128,6 +133,19 @@ class ConfigureMonthlyHours extends Page implements HasForms
                     continue;
                 }
 
+                // Get the hourly rate from the form
+                $hourlyRate = $formData['hourly_rate'][$activityId] ?? null;
+                
+                if (!is_numeric($hourlyRate) || $hourlyRate < 0) {
+                    \Log::error("ConfigureMonthlyHours: Invalid hourly rate", [
+                        'activity_id' => $activityId,
+                        'hourly_rate' => $hourlyRate,
+                        'form_data' => $formData
+                    ]);
+                    continue;
+                }
+
+                // Update or create hours configuration
                 HoursActivityByMonth::updateOrCreate(
                     [
                         'work_place_activity_id' => $activityId,
@@ -138,13 +156,56 @@ class ConfigureMonthlyHours extends Page implements HasForms
                         'created_by' => Auth::id(),
                     ]
                 );
+
+                // Back-calculate and update activity's neto_salary
+                // neto_salary = hourly_rate × hours_for_person
+                $newNetoSalary = (float) $hourlyRate * (float) $hours;
+                
+                // Get the monthly activity to find its permanent parent
+                $monthlyActivity = WorkPlaceActivity::findOrFail($activityId);
+                
+                // Find the permanent activity (date=NULL, copied=0) with same name and type
+                $permanentActivity = WorkPlaceActivity::where('work_place_id', $monthlyActivity->work_place_id)
+                    ->whereNull('date')
+                    ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+                    ->where('activity', $monthlyActivity->activity)
+                    ->where('type_working', $monthlyActivity->type_working)
+                    ->first();
+                
+                if ($permanentActivity) {
+                    \Log::info("ConfigureMonthlyHours: Updating PERMANENT activity neto_salary", [
+                        'monthly_activity_id' => $activityId,
+                        'permanent_activity_id' => $permanentActivity->id,
+                        'hours' => $hours,
+                        'hourly_rate' => $hourlyRate,
+                        'new_neto_salary' => $newNetoSalary,
+                    ]);
+                    
+                    $permanentActivity->update([
+                        'neto_salary' => $newNetoSalary,
+                    ]);
+                } else {
+                    // If no permanent activity found, update the monthly activity directly
+                    \Log::warning("ConfigureMonthlyHours: No permanent activity found, updating monthly activity", [
+                        'monthly_activity_id' => $activityId,
+                        'new_neto_salary' => $newNetoSalary,
+                    ]);
+                    
+                    $monthlyActivity->update([
+                        'neto_salary' => $newNetoSalary,
+                    ]);
+                }
             }
 
             DB::commit();
-            $this->showSuccess('Часовете са запазени успешно.');
+            $this->showSuccess('Часовете и цените са запазени успешно.');
             $this->redirect($this->getBackUrl());
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error("ConfigureMonthlyHours: Save failed", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->showError('Грешка при запазване: ' . $e->getMessage());
         }
     }
@@ -222,6 +283,7 @@ class ConfigureMonthlyHours extends Page implements HasForms
     private function initializeFormData(): void
     {
         $this->data['hours'] = [];
+        $this->data['hourly_rate'] = [];
 
         foreach ($this->activities as $activity) {
             // Check if hours are already configured for this activity
@@ -229,7 +291,18 @@ class ConfigureMonthlyHours extends Page implements HasForms
                 ->where('date', $this->normalizedDate)
                 ->first();
 
-            $this->data['hours'][$activity->id] = $hoursConfig ? $hoursConfig->hours_for_person : null;
+            // Set hours (from config or null)
+            $hours = $hoursConfig ? $hoursConfig->hours_for_person : null;
+            $this->data['hours'][$activity->id] = $hours;
+
+            // Calculate hourly rate from activity's neto_salary and configured hours
+            if ($hours && $hours > 0) {
+                $hourlyRate = $activity->neto_salary / $hours;
+                $this->data['hourly_rate'][$activity->id] = round($hourlyRate, 4);
+            } else {
+                // If no hours configured, default to showing current neto_salary as hourly rate
+                $this->data['hourly_rate'][$activity->id] = round($activity->neto_salary, 4);
+            }
         }
 
         $this->form->fill($this->data);

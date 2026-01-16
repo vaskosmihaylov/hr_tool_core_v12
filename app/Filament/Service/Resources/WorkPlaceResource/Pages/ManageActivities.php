@@ -308,7 +308,7 @@ class ManageActivities extends Page implements HasForms, HasTable
                         ->required()
                         ->numeric()
                         ->minValue(0)
-                        ->step(0.01)
+                        ->step(0.0001)
                         ->prefix('лв.')
                         ->columnSpan(1),
 
