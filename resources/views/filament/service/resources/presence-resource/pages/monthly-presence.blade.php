@@ -332,26 +332,14 @@
                                                 @if($vacInfo) style="{{ $vacInfo['style'] }}" @endif
                                                 title="{{ $fullCellTitle }}">
                                                 @if($isLocked)
-                                                    {{-- Locked month: show read-only value or vacation badge --}}
-                                                    @if($vacInfo && (!$currentValue || $currentValue == ''))
-                                                        {{-- Vacation day with no hours: show only badge --}}
-                                                        <span class="text-xs font-bold">{{ $vacInfo['short'] }}</span>
-                                                    @else
-                                                        {{-- Regular day or vacation with hours: show value --}}
-                                                        <span class="locked-hours">{{ $currentValue ?: '-' }}</span>
-                                                    @endif
+                                                    {{-- Locked month: show read-only value (color indicates vacation) --}}
+                                                    <span class="locked-hours">{{ $currentValue ?: '-' }}</span>
                                                 @else
-                                                    {{-- Editable: show input field or vacation badge --}}
-                                                    @if($vacInfo && (!$currentValue || $currentValue == ''))
-                                                        {{-- Vacation day with no hours: show only badge --}}
-                                                        <span class="text-xs font-bold">{{ $vacInfo['short'] }}</span>
-                                                    @else
-                                                        {{-- Regular day or vacation with hours: show input --}}
-                                                        <input type="number"
-                                                               wire:model.live="hoursData.{{ $activityId }}.{{ $workerId }}.{{ $day }}"
-                                                               min="0" max="24" step="0.5"
-                                                               placeholder="-">
-                                                    @endif
+                                                    {{-- Editable: show input field (color indicates vacation) --}}
+                                                    <input type="number"
+                                                           wire:model.live="hoursData.{{ $activityId }}.{{ $workerId }}.{{ $day }}"
+                                                           min="0" max="24" step="0.5"
+                                                           placeholder="-">
                                                 @endif
                                             </td>
                                         @endfor
@@ -385,7 +373,6 @@
                                     <div class="w-3 h-3 border rounded mr-2 flex items-center justify-center" style="{{ $info['style'] }}">
                                         <span class="text-xs font-bold">{{ $info['short'] }}</span>
                                     </div>
-                                    {{ $info['label'] }}
                                 </span>
                             @endforeach
                             @if(!$isLocked)
