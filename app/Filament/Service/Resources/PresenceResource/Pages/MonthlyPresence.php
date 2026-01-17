@@ -204,7 +204,11 @@ class MonthlyPresence extends Page
         );
 
         $this->isLocked = true;
-        $this->showSuccessNotification('Месецът е заключен успешно.');
+
+        // Copy workers to next month when locking
+        $this->copyWorkersToNextMonth();
+
+        $this->showSuccessNotification('Месецът е заключен успешно. Работниците са копирани за следващия месец.');
     }
 
     public function unlockMonth(): void
@@ -225,6 +229,83 @@ class MonthlyPresence extends Page
 
         $this->isLocked = false;
         $this->showSuccessNotification('Месецът е отключен успешно.');
+    }
+
+    /**
+     * Copy all workers from current month to next month
+     */
+    private function copyWorkersToNextMonth(): void
+    {
+        try {
+            // Calculate next month
+            $currentDate = Carbon::create($this->year, $this->month, 1);
+            $nextMonth = $currentDate->copy()->addMonth();
+            $nextYear = $nextMonth->year;
+            $nextMonthNum = $nextMonth->month;
+            $nextMonthYear = $nextMonth->format('m-Y');
+
+            // Ensure monthly activities exist for the next month
+            PresenceConfigurationService::ensureMonthlyActivities($this->workplace, $nextYear, $nextMonthNum);
+
+            // Get all activities for current month
+            $currentMonthStart = $currentDate->copy()->startOfMonth();
+            $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
+                ->whereDate('date', $currentMonthStart->toDateString())
+                ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
+                ->get();
+
+            $copiedWorkers = 0;
+            $nextMonthStart = $nextMonth->copy()->startOfMonth();
+
+            foreach ($activities as $activity) {
+                // Get all workers assigned to this activity in current month
+                $workers = $activity->temporaryWorkers()
+                    ->wherePivot('date', $currentMonthStart->toDateString())
+                    ->get();
+
+                if ($workers->isEmpty()) {
+                    continue;
+                }
+
+                // Find corresponding activity in next month
+                $nextMonthActivity = WorkPlaceActivity::where('work_place_id', $this->workplace)
+                    ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
+                    ->whereDate('date', $nextMonthStart->toDateString())
+                    ->where('activity', $activity->activity)
+                    ->where('type_working', $activity->type_working)
+                    ->first();
+
+                if (!$nextMonthActivity) {
+                    // Activity doesn't exist in next month, skip
+                    continue;
+                }
+
+                // Copy each worker to next month
+                foreach ($workers as $worker) {
+                    try {
+                        PresenceConfigurationService::addWorkerToActivity(
+                            $this->workplace,
+                            $nextMonthActivity->id,
+                            $worker->id,
+                            $nextMonthYear
+                        );
+                        $copiedWorkers++;
+                    } catch (\Exception $e) {
+                        // Worker might already exist in next month, skip
+                        // Log error but continue with other workers
+                        report($e);
+                    }
+                }
+            }
+
+            // Log success for debugging
+            \Log::info("Copied {$copiedWorkers} workers to next month when locking workplace {$this->workplace}, month {$this->month}/{$this->year}");
+
+        } catch (\Exception $e) {
+            // Log error but don't fail the lock operation
+            report($e);
+            \Log::error("Error copying workers to next month: " . $e->getMessage());
+        }
     }
 
     // Export

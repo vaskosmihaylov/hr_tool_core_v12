@@ -39,10 +39,10 @@ class SpecialDay extends Model
         return $model;
     }
 
-	public static function insertHolidays()
+	public static function insertHolidays($year = null)
     {
         $client = new \GuzzleHttp\Client();
-        $year = date('Y');
+        $year = $year ?? date('Y');
         $baseUrl = self::ULRHOLIDAY.'?year='.$year;
         $request = $client->get($baseUrl, ['verify' => false]);
         $response = $request->getBody()->getContents();

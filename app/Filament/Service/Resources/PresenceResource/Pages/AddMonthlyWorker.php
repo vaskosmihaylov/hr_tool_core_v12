@@ -113,16 +113,14 @@ class AddMonthlyWorker extends Page implements HasForms
         }
 
         try {
-            // Add worker to current month
+            // Add worker to current month only
+            // Workers will be copied to next month when the month is locked
             PresenceConfigurationService::addWorkerToActivity(
                 $this->workplace,
                 (int) $formData['work_place_activity_id'],
                 (int) $formData['worker_id'],
                 $this->monthYear
             );
-
-            // Automatically add worker to next 2 months
-            $this->addWorkerToNextMonths((int) $formData['worker_id'], (int) $formData['work_place_activity_id']);
 
         } catch (RuntimeException $exception) {
             $this->showError($exception->getMessage());
@@ -133,7 +131,7 @@ class AddMonthlyWorker extends Page implements HasForms
             return;
         }
 
-        $this->showSuccess('Работникът е добавен успешно за текущия и следващите 2 месеца.');
+        $this->showSuccess('Работникът е добавен успешно.');
         $this->redirect($this->getBackUrl());
     }
 
