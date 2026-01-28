@@ -93,7 +93,7 @@
                     @endif
 
                     <div class="text-sm text-gray-600">
-                        <span>Бюджет на обекта: <strong>{{ number_format($totalUsedBudget, 0) }} / {{ number_format($totalBudget, 0) }} лв</strong></span>
+                        <span>Бюджет на обекта: <strong>{{ number_format($totalUsedBudget, 0) }} / {{ number_format($totalBudget, 0) }} €</strong></span>
                     </div>
 
                     @if($exportLink)
@@ -116,9 +116,9 @@
                             {{ $activity['workPlaceActivityName'] ?? 'Активност ' . $activityId }}
                         </h4>
                         <div class="text-sm text-gray-600">
-                            Заплата: <strong>{{ number_format($activity['workPlaceActivitySalary'] ?? 0, 0) }} лв</strong> |
+                            Заплата: <strong>{{ number_format($activity['workPlaceActivitySalary'] ?? 0, 0) }} €</strong> |
                             Макс. часове: <strong>{{ $activity['workPlaceActivityMaxWorkingHours'] ?? 0 }}</strong> |
-                            Цена на час: <strong>{{ number_format($activity['workPlaceActivityHourPrice'] ?? 0, 2) }} лв</strong>
+                            Цена на час: <strong>{{ number_format($activity['workPlaceActivityHourPrice'] ?? 0, 2) }} €</strong>
                         </div>
                     </div>
                 </div>

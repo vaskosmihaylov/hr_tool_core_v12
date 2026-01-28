@@ -35,7 +35,7 @@
     </tr>
     <tr>
         <td colspan="{{ 6 + $monthDays }}">
-            Бюджет: {{ number_format($totalUsedBudget, 2, ',', ' ') }} / {{ number_format($totalBudget, 2, ',', ' ') }} лв
+            Бюджет: {{ number_format($totalUsedBudget, 2, ',', ' ') }} / {{ number_format($totalBudget, 2, ',', ' ') }} €
         </td>
     </tr>
 </table>

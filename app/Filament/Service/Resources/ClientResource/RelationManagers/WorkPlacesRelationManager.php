@@ -61,12 +61,12 @@ class WorkPlacesRelationManager extends RelationManager
                             ->columnSpan(1),
 
                         TextInput::make('budget')
-                            ->label('Бюджет (лв.)')
+                            ->label('Бюджет (€)')
                             ->required()
                             ->numeric()
                             ->minValue(0)
                             ->step(0.01)
-                            ->prefix('лв.')
+                            ->prefix('€')
                             ->columnSpan(1),
                     ])
                     ->columns(2),
@@ -111,7 +111,7 @@ class WorkPlacesRelationManager extends RelationManager
 
                 TextColumn::make('budget')
                     ->label('Бюджет')
-                    ->money('BGN')
+                    ->money('EUR')
                     ->sortable(),
 
                 TextColumn::make('workers_count')

@@ -35,7 +35,7 @@ class BonusesRelationManager extends RelationManager
                     ->default(0),
 
                 Forms\Components\TextInput::make('sum')
-                    ->label('Сума (лв.)')
+                    ->label('Сума (€)')
                     ->required()
                     ->numeric()
                     ->step(0.01)
@@ -88,7 +88,7 @@ class BonusesRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('sum')
                     ->label('Сума')
-                    ->money('BGN', locale: 'bg')
+                    ->money('EUR', locale: 'bg')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('workplace.name')

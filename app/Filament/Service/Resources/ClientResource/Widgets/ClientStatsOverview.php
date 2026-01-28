@@ -27,7 +27,7 @@ class ClientStatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-o-check-circle')
                 ->color('success'),
 
-            Stat::make('Общ бюджет', number_format($totalBudget, 0) . ' лв.')
+            Stat::make('Общ бюджет', number_format($totalBudget, 0) . ' €')
                 ->description('Сума от всички активни клиенти')
                 ->descriptionIcon('heroicon-o-banknotes')
                 ->color('warning'),

@@ -61,12 +61,12 @@ class ActivitiesRelationManager extends RelationManager
                 Section::make('💰 Финансова информация')
                     ->schema([
                         TextInput::make('neto_salary')
-                            ->label('Нето заплата (лв.)')
+                            ->label('Нето заплата (€)')
                             ->required()
                             ->numeric()
                             ->minValue(0)
                             ->step(0.01)
-                            ->prefix('лв.')
+                            ->prefix('€')
                             ->columnSpan(1),
 
                     ])
@@ -104,7 +104,7 @@ class ActivitiesRelationManager extends RelationManager
 
                 TextColumn::make('neto_salary')
                     ->label('Нето заплата')
-                    ->money('BGN')
+                    ->money('EUR')
                     ->sortable(),
 
                 TextColumn::make('total_cost')
@@ -112,7 +112,7 @@ class ActivitiesRelationManager extends RelationManager
                     ->getStateUsing(fn (WorkPlaceActivity $record): float =>
                         $record->neto_salary
                     )
-                    ->money('BGN')
+                    ->money('EUR')
                     ->sortable(),
 
                 TextColumn::make('date')

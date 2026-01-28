@@ -146,7 +146,7 @@ class MonthlyPresence extends Page
             $this->reloadData();
             
             if ($budgetCheck['inBudget'] === false) {
-                $this->showWarningNotification("Часовете са запазени, но надвишават бюджета с {$budgetCheck['overBudget']} лв. Създадено е искане за одобрение. Можете да го видите в секция 'Одобрения'.");
+                $this->showWarningNotification("Часовете са запазени, но надвишават бюджета с {$budgetCheck['overBudget']} €. Създадено е искане за одобрение. Можете да го видите в секция 'Одобрения'.");
             } else {
                 $this->showSuccessNotification('Часовете са запазени успешно в рамките на бюджета.');
             }

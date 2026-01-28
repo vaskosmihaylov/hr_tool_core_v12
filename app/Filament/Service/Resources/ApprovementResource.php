@@ -52,7 +52,7 @@ class ApprovementResource extends Resource implements HasShieldPermissions
                     ->label('Надвишение бюджет')
                     ->disabled(fn ($record) => $record && $record->exists) // Read-only for auto-generated
                     ->numeric()
-                    ->prefix('BGN'),
+                    ->prefix('€'),
                     
                 Forms\Components\Select::make('type_id')
                     ->label('Клиент надвишен')
@@ -98,7 +98,7 @@ class ApprovementResource extends Resource implements HasShieldPermissions
                     
                 Tables\Columns\TextColumn::make('sum_above_budget')
                     ->label('Надвишение бюджет')
-                    ->money('BGN')
+                    ->money('EUR')
                     ->sortable(),
                     
                 Tables\Columns\BadgeColumn::make('type_id')

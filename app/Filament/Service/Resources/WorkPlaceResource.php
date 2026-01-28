@@ -67,12 +67,12 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
                     ->description('Финансова информация и бюджетни ограничения')
                     ->schema([
                         TextInput::make('budget')
-                            ->label('Основен бюджет (лв.)')
+                            ->label('Основен бюджет (€)')
                             ->required()
                             ->numeric()
                             ->minValue(0)
                             ->step(0.01)
-                            ->prefix('лв.')
+                            ->prefix('€')
                             ->helperText('Основен месечен бюджет за обекта')
                             ->columnSpan(1),
                     ])
@@ -150,7 +150,7 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
 
                 TextColumn::make('budget')
                     ->label('Бюджет')
-                    ->money('BGN')
+                    ->money('EUR')
                     ->sortable(),
 
                 TextColumn::make('workers_count')
@@ -321,7 +321,7 @@ class WorkPlaceResource extends Resource implements HasShieldPermissions
         return [
             'Регион' => $record->region?->name,
             'Клиент' => $record->client?->name,
-            'Бюджет' => number_format($record->budget, 2) . ' лв.',
+            'Бюджет' => number_format($record->budget, 2) . ' €',
         ];
     }
 

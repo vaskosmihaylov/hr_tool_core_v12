@@ -75,12 +75,12 @@ class ClientResource extends Resource implements HasShieldPermissions
                     ->description('Бюджет и финансови ограничения')
                     ->schema([
                         TextInput::make('budget')
-                            ->label('Общ бюджет (лв.)')
+                            ->label('Общ бюджет (€)')
                             ->required()
                             ->numeric()
                             ->minValue(0)
                             ->step(0.01)
-                            ->prefix('лв.')
+                            ->prefix('€')
                             ->helperText('Общ бюджет за всички дейности на клиента')
                             ->columnSpan(1),
                     ])
@@ -261,7 +261,7 @@ class ClientResource extends Resource implements HasShieldPermissions
     public static function getGlobalSearchResultDetails($record): array
     {
         return [
-            'Бюджет' => number_format($record->budget, 2) . ' лв.',
+            'Бюджет' => number_format($record->budget, 2) . ' €',
             'Обекти' => $record->workplaces_count,
             'Статус' => $record->status === Client::CLIENT_ACTIVE ? 'Активен' : 'Неактивен',
         ];

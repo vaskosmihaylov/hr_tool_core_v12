@@ -105,7 +105,7 @@ class ManageActivities extends Page implements HasForms, HasTable
 
             TextColumn::make('neto_salary')
                 ->label('Нето заплата')
-                ->money('BGN')
+                ->money('EUR')
                 ->sortable(),
 
             TextColumn::make('hours_per_day')
@@ -120,7 +120,7 @@ class ManageActivities extends Page implements HasForms, HasTable
                 ->getStateUsing(fn (WorkPlaceActivity $record): float =>
                     $record->neto_salary ?? 0
                 )
-                ->money('BGN')
+                ->money('EUR')
                 ->sortable(),
 
             TextColumn::make('date')
@@ -304,12 +304,12 @@ class ManageActivities extends Page implements HasForms, HasTable
                         ->columnSpan(1),
 
                     TextInput::make('neto_salary')
-                        ->label('Нето заплата (лв.)')
+                        ->label('Нето заплата (€)')
                         ->required()
                         ->numeric()
                         ->minValue(0)
                         ->step(0.0001)
-                        ->prefix('лв.')
+                        ->prefix('€')
                         ->columnSpan(1),
 
                     TextInput::make('hours_per_day')

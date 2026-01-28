@@ -53,7 +53,7 @@ class ViewWorker extends ViewRecord
                             ->placeholder('Безсрочен договор'),
                         TextEntry::make('neto_salary')
                             ->label('Основна заплата')
-                            ->money('BGN'),
+                            ->money('EUR'),
                         TextEntry::make('hours_per_day')
                             ->label('Работно време')
                             ->suffix(' часа'),
@@ -97,7 +97,7 @@ class ViewWorker extends ViewRecord
                             ->label('Дейност'),
                         TextEntry::make('workplaceActivity.hour_rate')
                             ->label('Часова ставка')
-                            ->money('BGN'),
+                            ->money('EUR'),
                     ])
                     ->columns(2),
 
@@ -167,7 +167,7 @@ class ViewWorker extends ViewRecord
                                     $dates = explode('-', $bonus->for_month);
                                     $month = $dates[0] . "-" . $dates[1];
                                     
-                                    $display[] = $typeText . ': ' . number_format($bonus->sum, 2) . ' лв. (' . 
+                                    $display[] = $typeText . ': ' . number_format($bonus->sum, 2) . ' € (' .
                                                $month . ') - ' . $bonus->workplace->name;
                                 }
                                 

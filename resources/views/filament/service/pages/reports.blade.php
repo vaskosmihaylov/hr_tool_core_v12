@@ -128,7 +128,7 @@
                         <div class="text-sm text-gray-500">Часове</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-purple-600">{{ number_format($reportData['summary']['total_salary'] ?? 0, 0) }} лв.</div>
+                        <div class="text-2xl font-bold text-purple-600">{{ number_format($reportData['summary']['total_salary'] ?? 0, 0) }} €</div>
                         <div class="text-sm text-gray-500">Обща сума</div>
                     </div>
                 </div>

@@ -33,12 +33,12 @@ class MonthlyBudgetsRelationManager extends RelationManager
                     ->description('Определяне на специфичен бюджет за даден месец')
                     ->schema([
                         TextInput::make('budget')
-                            ->label('Бюджет (лв.)')
+                            ->label('Бюджет (€)')
                             ->required()
                             ->numeric()
                             ->minValue(0)
                             ->step(0.01)
-                            ->prefix('лв.')
+                            ->prefix('€')
                             ->helperText('Специфичен бюджет за избрания месец')
                             ->columnSpan(1),
 
@@ -69,7 +69,7 @@ class MonthlyBudgetsRelationManager extends RelationManager
 
                 TextColumn::make('budget')
                     ->label('Бюджет')
-                    ->money('BGN')
+                    ->money('EUR')
                     ->sortable()
                     ->weight('medium'),
 
@@ -79,7 +79,7 @@ class MonthlyBudgetsRelationManager extends RelationManager
                         $mainBudget = $record->workplace->budget ?? 0;
                         return $record->budget - $mainBudget;
                     })
-                    ->money('BGN')
+                    ->money('EUR')
                     ->color(fn ($state): string => $state >= 0 ? 'success' : 'danger')
                     ->icon(fn ($state): string => $state >= 0 ? 'heroicon-o-arrow-trending-up' : 'heroicon-o-arrow-trending-down'),
 

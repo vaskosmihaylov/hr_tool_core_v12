@@ -101,7 +101,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                         ->columnSpan(1),
 
                     TextInput::make("neto_salary")
-                        ->label("Нето заплата (лв.)")
+                        ->label("Нето заплата (€)")
                         ->required()
                         ->numeric()
                         ->minValue(0)
@@ -272,7 +272,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
 
                 TextColumn::make("neto_salary")
                     ->label("Заплата")
-                    ->money("BGN", locale: 'bg')
+                    ->money("EUR", locale: 'bg')
                     ->sortable()
                     ->alignRight(),
 
