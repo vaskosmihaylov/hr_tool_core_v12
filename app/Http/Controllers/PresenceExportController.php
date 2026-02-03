@@ -35,10 +35,10 @@ class PresenceExportController extends Controller
         $end = $start->copy()->endOfMonth();
         $daysInMonth = $start->daysInMonth;
 
-        // Load monthly activity instances (NOT snapshots)
+        // Load ALL monthly activities (both copied=0 and copied=1)
+        // This ensures workers are visible regardless of which activity type they're assigned to
         $activities = WorkPlaceActivity::where('work_place_id', $workplace)
             ->whereDate('date', $start->toDateString())
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->orderBy('activity')
             ->get();
 
