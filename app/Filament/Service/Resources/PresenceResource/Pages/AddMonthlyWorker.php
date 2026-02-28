@@ -47,9 +47,6 @@ class AddMonthlyWorker extends Page implements HasForms
         $this->parseMonthYear($date);
         $this->authorizeForWorkplace();
 
-        // Ensure monthly activities exist (copies of base activities when needed)
-        PresenceConfigurationService::ensureMonthlyActivities($this->workplace, $this->year, $this->month);
-
         $this->loadWorkerOptions();
         $this->loadActivityOptions();
 
@@ -165,8 +162,13 @@ class AddMonthlyWorker extends Page implements HasForms
      */
     private function addWorkerToNextMonths(int $workerId, int $activityId): void
     {
-        // Get the base activity to find its properties
-        $baseActivity = WorkPlaceActivity::find($activityId);
+        // Always use base activity for future month assignments.
+        $baseActivity = WorkPlaceActivity::query()
+            ->where('id', $activityId)
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+            ->first();
+
         if (!$baseActivity) {
             return;
         }
@@ -180,31 +182,12 @@ class AddMonthlyWorker extends Page implements HasForms
 
         foreach ($nextMonths as $futureMonth) {
             try {
-                $futureYear = $futureMonth->year;
-                $futureMonthNum = $futureMonth->month;
                 $futureMonthYear = $futureMonth->format('m-Y');
-
-                // Ensure monthly activities exist for the future month
-                PresenceConfigurationService::ensureMonthlyActivities($this->workplace, $futureYear, $futureMonthNum);
-
-                // Find the corresponding monthly activity for the future month
-                $normalizedDate = $futureMonth->copy()->startOfMonth()->toDateString();
-                $futureMonthlyActivity = WorkPlaceActivity::where('work_place_id', $this->workplace)
-                    ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
-                    ->whereDate('date', $normalizedDate)
-                    ->where('activity', $baseActivity->activity)
-                    ->where('type_working', $baseActivity->type_working)
-                    ->first();
-
-                if (!$futureMonthlyActivity) {
-                    // Monthly activity doesn't exist for this future month, skip
-                    continue;
-                }
 
                 // Add worker to the future month's activity
                 PresenceConfigurationService::addWorkerToActivity(
                     $this->workplace,
-                    $futureMonthlyActivity->id,
+                    $baseActivity->id,
                     $workerId,
                     $futureMonthYear
                 );
@@ -273,9 +256,10 @@ class AddMonthlyWorker extends Page implements HasForms
 
     private function loadActivityOptions(): void
     {
-        // Load ALL monthly activities (both copied=0 and copied=1)
+        // Use only base activities for worker assignment.
         $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->whereDate('date', $this->normalizedDate)
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->orderBy('activity')
             ->get();
 

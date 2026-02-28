@@ -97,6 +97,7 @@ secret_*.json
 .rspec
 .rubocop.json
 .claude
+AGENTS.MD
 
 # Node.js
 /node_modules

@@ -166,7 +166,8 @@ class WorkerResource extends Resource implements HasShieldPermissions
 
                             $options = WorkPlaceActivity::query()
                                 ->where("work_place_id", $workplaceId)
-                                ->orderByRaw('CASE WHEN date IS NULL THEN 0 ELSE 1 END')
+                                ->whereNull('date')
+                                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
                                 ->orderBy('activity')
                                 ->pluck('activity', 'id');
 

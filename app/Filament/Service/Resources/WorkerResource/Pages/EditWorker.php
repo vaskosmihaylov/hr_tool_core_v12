@@ -69,6 +69,24 @@ class EditWorker extends EditRecord
             throw new \Exception('Изберете дейност!');
         }
 
+        $selectedActivity = WorkPlaceActivity::find((int) $data['work_place_activity_id']);
+        if ($selectedActivity && ($selectedActivity->date !== null || (int) $selectedActivity->copied === WorkPlaceActivity::COPIED_ACTIVITY)) {
+            $baseActivity = WorkPlaceActivity::query()
+                ->where('work_place_id', (int) $data['work_place_id'])
+                ->whereNull('date')
+                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+                ->where('activity', $selectedActivity->activity)
+                ->where('type_working', $selectedActivity->type_working)
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$baseActivity) {
+                throw new \Exception('Избраната дейност няма базов еквивалент.');
+            }
+
+            $data['work_place_activity_id'] = $baseActivity->id;
+        }
+
         // Handle empty note field - keep empty string to satisfy legacy NOT NULL constraint
         if (!isset($data['note']) || trim((string) $data['note']) === '') {
             $data['note'] = '';
@@ -115,43 +133,36 @@ class EditWorker extends EditRecord
 
         $selectedActivity = WorkPlaceActivity::find($activityId);
 
-        if (!$selectedActivity) {
+        if (!$selectedActivity || $selectedActivity->work_place_id !== $workplaceId) {
             return;
         }
 
-        $now = Carbon::now();
-        $currentMonthStart = $now->copy()->startOfMonth();
+        $targetActivity = $selectedActivity;
 
-        PresenceConfigurationService::ensureMonthlyActivities(
-            $workplaceId,
-            (int) $now->format('Y'),
-            (int) $now->format('m')
-        );
-
-        $monthlyActivity = $selectedActivity;
-
-        if ($selectedActivity->date === null || Carbon::parse((string) $selectedActivity->date)->ne($currentMonthStart)) {
-            // Find monthly activity (both copied=0 and copied=1)
-            $monthlyActivity = WorkPlaceActivity::query()
+        // Always attach worker presence to a base activity.
+        if ($selectedActivity->date !== null || (int) $selectedActivity->copied === WorkPlaceActivity::COPIED_ACTIVITY) {
+            $baseActivity = WorkPlaceActivity::query()
                 ->where('work_place_id', $workplaceId)
-                ->whereDate('date', $currentMonthStart->toDateString())
+                ->whereNull('date')
+                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
                 ->where('activity', $selectedActivity->activity)
                 ->where('type_working', $selectedActivity->type_working)
-                ->where('neto_salary', $selectedActivity->neto_salary)
                 ->orderByDesc('id')
-                ->first() ?? $monthlyActivity;
-        }
+                ->first();
 
-        if (!$monthlyActivity || !$monthlyActivity->date) {
-            return;
+            if (!$baseActivity) {
+                return;
+            }
+
+            $targetActivity = $baseActivity;
         }
 
         try {
             PresenceConfigurationService::addWorkerToActivity(
                 $workplaceId,
-                $monthlyActivity->id,
+                $targetActivity->id,
                 $this->record->id,
-                $now->format('m-Y')
+                Carbon::now()->format('m-Y')
             );
         } catch (RuntimeException $exception) {
             if (!str_contains($exception->getMessage(), 'вече е добавен')) {

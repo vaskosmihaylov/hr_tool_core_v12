@@ -4,7 +4,6 @@ namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
 use App\Filament\Service\Resources\WorkPlaceResource;
-use App\Services\Presence\PresenceConfigurationService;
 use Filament\Resources\Pages\Page;
 use Filament\Actions;
 use Filament\Notifications\Notification;
@@ -13,6 +12,7 @@ use viki\Service\Models\Elequent\WorkPlace;
 use viki\Service\Models\Elequent\Worker;
 use viki\Service\Models\Elequent\WorkerRecord;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
+use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
 use viki\Service\Models\Elequent\Vacation;
 use viki\Service\Models\Elequent\VikiUser;
 use Carbon\Carbon;
@@ -50,19 +50,6 @@ class MonthlyPresence extends Page
     {
         $this->workplace = $workplace;
         $this->parseDateParameter($date);
-
-        // Only generate activities from base templates if no copied activities exist
-        // This prevents overwriting activities copied from previous month when locking
-        $monthStart = Carbon::create($this->year, $this->month, 1)->startOfMonth();
-        $existingActivities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->whereDate('date', $monthStart->toDateString())
-            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
-            ->exists();
-
-        if (!$existingActivities) {
-            PresenceConfigurationService::ensureMonthlyActivities($this->workplace, $this->year, $this->month);
-        }
-
         $this->loadData();
         $this->initializeHoursData();
     }
@@ -177,8 +164,8 @@ class MonthlyPresence extends Page
             
             // Remove from activity pivots for this workplace and month
             $activityIds = WorkPlaceActivity::where('work_place_id', $this->workplace)
-                ->whereDate('date', $monthStart)
-                ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
+                ->whereNull('date')
+                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
                 ->pluck('id');
             
             DB::table('viki_work_place_activity_worker')
@@ -217,10 +204,10 @@ class MonthlyPresence extends Page
 
         $this->isLocked = true;
 
-        // Copy activities and workers to next month when locking
+        // Copy worker/activity assignments to next month, but keep next-month hours empty.
         $this->copyWorkersToNextMonth();
 
-        $this->showSuccessNotification('Месецът е заключен успешно. Дейностите и работниците са копирани за следващия месец.');
+        $this->showSuccessNotification('Месецът е заключен успешно. Работниците са копирани за следващия месец.');
     }
 
     public function unlockMonth(): void
@@ -243,152 +230,90 @@ class MonthlyPresence extends Page
         $this->showSuccessNotification('Месецът е отключен успешно.');
     }
 
-    /**
-     * Copy activities and workers from current month to next month
-     * Strategy: Delete & replace - removes next month activities and creates fresh copies
-     * Only copies activities where workers actually worked (had hours)
-     */
     private function copyWorkersToNextMonth(): void
     {
         try {
             DB::beginTransaction();
 
-            // Calculate next month
-            $currentDate = Carbon::create($this->year, $this->month, 1);
-            $nextMonth = $currentDate->copy()->addMonth();
-            $nextYear = $nextMonth->year;
-            $nextMonthNum = $nextMonth->month;
+            $currentMonthStart = Carbon::create($this->year, $this->month, 1)->startOfMonth();
+            $nextMonthStart = $currentMonthStart->copy()->addMonth()->startOfMonth();
+            $nextMonthEnd = $nextMonthStart->copy()->endOfMonth();
 
-            $currentMonthStart = $currentDate->copy()->startOfMonth();
-            $currentMonthEnd = $currentDate->copy()->endOfMonth();
-            $nextMonthStart = $nextMonth->copy()->startOfMonth();
-
-            // Get activities where workers actually worked (have hours > 0)
-            $activitiesWithHours = WorkerRecord::where('work_place_id', $this->workplace)
-                ->whereBetween('date', [$currentMonthStart->toDateString(), $currentMonthEnd->toDateString()])
-                ->where('hours', '>', 0)
-                ->select('work_place_activity_id')
-                ->distinct()
-                ->pluck('work_place_activity_id');
-
-            if ($activitiesWithHours->isEmpty()) {
-                DB::commit();
-                return;
-            }
-
-            // Get full activity details for activities with hours
-            $activities = WorkPlaceActivity::whereIn('id', $activitiesWithHours)
+            $baseActivityIds = WorkPlaceActivity::query()
                 ->where('work_place_id', $this->workplace)
-                ->whereDate('date', $currentMonthStart->toDateString())
-                ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
-                ->get();
-
-            if ($activities->isEmpty()) {
-                DB::commit();
-                return;
-            }
-
-            // STEP 1: Delete ALL existing activities for next month (clean slate)
-            $existingNextMonthActivities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-                ->whereDate('date', $nextMonthStart->toDateString())
-                ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)
+                ->whereNull('date')
+                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
                 ->pluck('id');
 
-            if ($existingNextMonthActivities->isNotEmpty()) {
-                // Delete worker-activity pivot records
-                DB::table('viki_work_place_activity_worker')
-                    ->whereIn('work_place_activity_id', $existingNextMonthActivities)
-                    ->delete();
-
-                // Delete worker records
-                WorkerRecord::whereIn('work_place_activity_id', $existingNextMonthActivities)
-                    ->delete();
-
-                // Delete activity hours configuration
-                DB::table('viki_hours_activity_by_month')
-                    ->whereIn('work_place_activity_id', $existingNextMonthActivities)
-                    ->delete();
-
-                // Delete activities themselves
-                WorkPlaceActivity::whereIn('id', $existingNextMonthActivities)->delete();
+            if ($baseActivityIds->isEmpty()) {
+                DB::commit();
+                return;
             }
 
-            // STEP 2: Copy activities to next month
-            $activityMapping = []; // Maps old activity ID -> new activity ID
-            $copiedActivities = 0;
+            // Replace next-month assignment state so relocking always recreates a clean month.
+            DB::table('viki_work_place_activity_worker')
+                ->whereIn('work_place_activity_id', $baseActivityIds)
+                ->where('date', $nextMonthStart->toDateString())
+                ->delete();
 
-            foreach ($activities as $activity) {
-                // Create new activity for next month
-                $newActivity = new WorkPlaceActivity();
-                $newActivity->work_place_id = $activity->work_place_id;
-                $newActivity->activity = $activity->activity;
-                $newActivity->neto_salary = $activity->neto_salary;
-                $newActivity->type_working = $activity->type_working;
-                $newActivity->worker_count = $activity->worker_count;
-                $newActivity->date = $nextMonthStart->toDateString();
-                $newActivity->copied = WorkPlaceActivity::COPIED_ACTIVITY;
-                $newActivity->created_by = Auth::id();
-                $newActivity->save();
+            DB::table('viki_work_place_worker')
+                ->where('work_place_id', $this->workplace)
+                ->where('date', $nextMonthStart->toDateString())
+                ->delete();
 
-                $activityMapping[$activity->id] = $newActivity->id;
-                $copiedActivities++;
+            // Keep next month empty in the monthly table.
+            WorkerRecord::query()
+                ->where('work_place_id', $this->workplace)
+                ->whereBetween('date', [$nextMonthStart->toDateString(), $nextMonthEnd->toDateString()])
+                ->delete();
 
-                // Copy activity hours configuration if exists
-                $activityHours = DB::table('viki_hours_activity_by_month')
-                    ->where('work_place_activity_id', $activity->id)
+            $copiedWorkersPerActivity = 0;
+            $allCopiedWorkerIds = collect();
+
+            foreach ($baseActivityIds as $activityId) {
+                $workerIds = DB::table('viki_work_place_activity_worker')
+                    ->where('work_place_activity_id', $activityId)
                     ->where('date', $currentMonthStart->toDateString())
-                    ->first();
+                    ->pluck('worker_id');
 
-                if ($activityHours) {
-                    DB::table('viki_hours_activity_by_month')->insert([
-                        'work_place_activity_id' => $newActivity->id,
+                if ($workerIds->isEmpty()) {
+                    continue;
+                }
+
+                foreach ($workerIds as $workerId) {
+                    DB::table('viki_work_place_activity_worker')->insertOrIgnore([
+                        'work_place_activity_id' => $activityId,
+                        'worker_id' => $workerId,
                         'date' => $nextMonthStart->toDateString(),
-                        'hours_for_person' => $activityHours->hours_for_person,
-                        'created_by' => Auth::id(),
                     ]);
+
+                    $allCopiedWorkerIds->push((int) $workerId);
+                    $copiedWorkersPerActivity++;
                 }
             }
 
-            // STEP 3: Copy workers to new activities
-            $copiedWorkers = 0;
-
-            foreach ($activities as $activity) {
-                $newActivityId = $activityMapping[$activity->id];
-
-                // Get all workers assigned to this activity in current month
-                $workers = $activity->temporaryWorkers()
-                    ->wherePivot('date', $currentMonthStart->toDateString())
-                    ->get();
-
-                foreach ($workers as $worker) {
-                    // Add worker to new activity using pivot table
-                    DB::table('viki_work_place_activity_worker')->insert([
-                        'work_place_activity_id' => $newActivityId,
-                        'worker_id' => $worker->id,
-                        'date' => $nextMonthStart->toDateString(),
-                    ]);
-
-                    // Also add to workplace worker pivot
-                    DB::table('viki_work_place_worker')->insertOrIgnore([
-                        'work_place_id' => $this->workplace,
-                        'worker_id' => $worker->id,
-                        'date' => $nextMonthStart->toDateString(),
-                    ]);
-
-                    $copiedWorkers++;
-                }
+            foreach ($allCopiedWorkerIds->unique() as $workerId) {
+                DB::table('viki_work_place_worker')->insertOrIgnore([
+                    'work_place_id' => $this->workplace,
+                    'worker_id' => $workerId,
+                    'date' => $nextMonthStart->toDateString(),
+                ]);
             }
 
             DB::commit();
 
-            // Log success for debugging
-            \Log::info("Successfully copied {$copiedActivities} activities and {$copiedWorkers} workers to next month for workplace {$this->workplace}, month {$this->month}/{$this->year}");
-
+            \Log::info(
+                "Copied {$copiedWorkersPerActivity} activity-worker assignments to next month for workplace {$this->workplace}",
+                [
+                    'current_month' => $currentMonthStart->toDateString(),
+                    'next_month' => $nextMonthStart->toDateString(),
+                    'distinct_workers' => $allCopiedWorkerIds->unique()->count(),
+                ]
+            );
         } catch (\Exception $e) {
             DB::rollBack();
-            // Log error but don't fail the lock operation
             report($e);
-            \Log::error("Error copying activities and workers to next month: " . $e->getMessage());
+            \Log::error("Error copying workers to next month: " . $e->getMessage());
         }
     }
 
@@ -527,10 +452,10 @@ class MonthlyPresence extends Page
         $start = $this->getMonthStartDate();
         $end = $start->copy()->endOfMonth();
 
-        // Load ALL monthly activities (both copied=0 and copied=1)
-        // This ensures workers are visible regardless of which activity type they're assigned to
+        // Use only base activities for monthly presence management.
         $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->whereDate('date', $start->toDateString())
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->orderBy('activity')
             ->get();
 
@@ -633,9 +558,10 @@ class MonthlyPresence extends Page
         $dateRange = $this->getMonthDateRange();
         $start = $this->getMonthStartDate();
         
-        // Get ALL monthly activities for this workplace and month (both copied=0 and copied=1)
+        // Use only base activities for monthly presence management.
         $activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->whereDate('date', $start->toDateString())
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->get();
         
         // Collect all worker IDs assigned to these activities
@@ -950,8 +876,8 @@ class MonthlyPresence extends Page
         }
 
         $activity = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->whereDate('date', $start->toDateString())
-            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->whereHas('temporaryWorkers', function ($query) use ($workerId, $start) {
                 $query->where('viki_workers.id', $workerId)
                     ->wherePivot('date', $start->toDateString());
@@ -972,13 +898,21 @@ class MonthlyPresence extends Page
             return null;
         }
 
-        $monthlyMatch = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->whereDate('date', $start->toDateString())
-            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
+        if ($baseActivity->work_place_id === $this->workplace
+            && $baseActivity->date === null
+            && (int) $baseActivity->copied === WorkPlaceActivity::NOT_COPIED_ACTIVITY) {
+            return $baseActivity->id;
+        }
+
+        $mappedBase = WorkPlaceActivity::query()
+            ->where('work_place_id', $this->workplace)
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->where('activity', $baseActivity->activity)
+            ->where('type_working', $baseActivity->type_working)
             ->first();
 
-        return $monthlyMatch?->id;
+        return $mappedBase?->id;
     }
 
     private function getMonthStartDate(): Carbon
@@ -991,8 +925,8 @@ class MonthlyPresence extends Page
         $dateString = sprintf('%02d-%d', $this->month, $this->year);
         
         $workPlaceActivities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
-            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->get();
 
         $workPlaceActivityUsedBudget = [];
@@ -1196,8 +1130,16 @@ class MonthlyPresence extends Page
             ->where('date', sprintf('%04d-%02d-01', $this->year, $this->month))
             ->first();
 
-        // Calculate standard working hours based on working days (fallback value)
-        $calculatedHours = (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * 8;
+        $hoursPerDay = (int) WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity($workPlaceActivity->id);
+        if ($hoursPerDay <= 0 && preg_match('/(\d+)\s*ч/u', (string) $workPlaceActivity->activity, $matches)) {
+            $hoursPerDay = (int) ($matches[1] ?? 0);
+        }
+        if ($hoursPerDay <= 0) {
+            $hoursPerDay = 8;
+        }
+
+        // Calculate working hours based on working days and activity hours-per-day.
+        $calculatedHours = (cal_days_in_month(CAL_GREGORIAN, $this->month, $this->year) - count($this->getAllNonWorkingDays($this->month, $this->year))) * $hoursPerDay;
 
         if ($workPlaceActivityHours) {
             // For WORKING_BY_HOURS (Сумарно) workers, always use configured hours
@@ -1206,16 +1148,9 @@ class MonthlyPresence extends Page
                 return $workPlaceActivityHours->hours_for_person;
             }
 
-            // For WORKING_STANDART workers, validate hours_for_person
-            // Must be at least 8 hours (1 full workday) to be valid
-            // If value is unreasonably low (< 8), it's likely a data error, use calculated hours instead
-            if ($workPlaceActivityHours->hours_for_person >= 8) {
-                return $workPlaceActivityHours->hours_for_person;
-            }
-            // Invalid hours_for_person value (< 8) for STANDARD worker, fall back to calculated hours
         }
 
-        // Use calculated hours for WORKING_STANDART activities or when no valid hours record exists
+        // WORKING_STANDART always uses calculated monthly hours from activity hours/day.
         if ($workPlaceActivity->type_working == WorkPlaceActivity::WORKING_STANDART) {
             return $calculatedHours;
         }

@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Exports\MonthlyPresenceExport;
-use App\Services\Presence\PresenceConfigurationService;
 use Maatwebsite\Excel\Facades\Excel;
+use viki\Service\Models\Elequent\HoursActivityByMonth;
+use viki\Service\Models\Elequent\SpecialDay;
 use viki\Service\Models\Elequent\WorkPlace;
 use viki\Service\Models\Elequent\Worker;
 use viki\Service\Models\Elequent\WorkerRecord;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
+use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
 use Carbon\Carbon;
 
 class PresenceExportController extends Controller
@@ -28,17 +30,14 @@ class PresenceExportController extends Controller
             abort(404, 'Workplace not found');
         }
 
-        // Ensure monthly activities exist
-        PresenceConfigurationService::ensureMonthlyActivities($workplace, $year, $month);
-
         $start = Carbon::create($year, $month, 1)->startOfMonth();
         $end = $start->copy()->endOfMonth();
         $daysInMonth = $start->daysInMonth;
 
-        // Load ALL monthly activities (both copied=0 and copied=1)
-        // This ensures workers are visible regardless of which activity type they're assigned to
+        // Use only base activities for monthly presence exports.
         $activities = WorkPlaceActivity::where('work_place_id', $workplace)
-            ->whereDate('date', $start->toDateString())
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->orderBy('activity')
             ->get();
 
@@ -138,13 +137,82 @@ class PresenceExportController extends Controller
 
     private function getHourCostOnWorkPlaceActivityByDate($activity, $monthKey)
     {
-        $activityCosts = json_decode($activity->activity_hour_cost_budget, true) ?? [];
-        return isset($activityCosts[$monthKey]['hour_cost']) ? (float) $activityCosts[$monthKey]['hour_cost'] : 0;
+        $workingHours = $this->getActivityWorkingHoursForDate($activity, $monthKey);
+        if ($workingHours <= 0) {
+            return 0;
+        }
+
+        return (float) $activity->neto_salary / $workingHours;
     }
 
     private function getActivityWorkingHoursForDate($activity, $monthKey)
     {
-        $activityCosts = json_decode($activity->activity_hour_cost_budget, true) ?? [];
-        return isset($activityCosts[$monthKey]['working_hours']) ? (float) $activityCosts[$monthKey]['working_hours'] : 0;
+        [$month, $year] = array_map('intval', explode('-', $monthKey));
+        $normalizedDate = sprintf('%04d-%02d-01', $year, $month);
+
+        $hoursConfig = HoursActivityByMonth::query()
+            ->where('work_place_activity_id', $activity->id)
+            ->where('date', $normalizedDate)
+            ->first();
+
+        $hoursPerDay = (int) WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity($activity->id);
+        if ($hoursPerDay <= 0 && preg_match('/(\d+)\s*ч/u', (string) $activity->activity, $matches)) {
+            $hoursPerDay = (int) ($matches[1] ?? 0);
+        }
+        if ($hoursPerDay <= 0) {
+            $hoursPerDay = 8;
+        }
+
+        $calculatedHours = (cal_days_in_month(CAL_GREGORIAN, $month, $year) - count($this->getAllNonWorkingDays($month, $year))) * $hoursPerDay;
+
+        if ($hoursConfig) {
+            if ((int) $activity->type_working === WorkPlaceActivity::WORKING_BY_HOURS) {
+                return (float) $hoursConfig->hours_for_person;
+            }
+        }
+
+        if ((int) $activity->type_working === WorkPlaceActivity::WORKING_STANDART) {
+            return (float) $calculatedHours;
+        }
+
+        return (float) $calculatedHours;
+    }
+
+    private function getAllNonWorkingDays(int $month, int $year): array
+    {
+        $specialDays = $this->getSpecialDays($month, $year);
+        $weekendDays = $this->getWeekendDays($month, $year);
+
+        foreach ($specialDays as $specialDay) {
+            if (!in_array($specialDay, $weekendDays, true)) {
+                $weekendDays[] = $specialDay;
+            }
+        }
+
+        return $weekendDays;
+    }
+
+    private function getSpecialDays(int $month, int $year): array
+    {
+        return SpecialDay::query()
+            ->where('date', 'like', sprintf('%d-%02d-%%', $year, $month))
+            ->get()
+            ->map(function (SpecialDay $day) {
+                return (int) substr($day->date, strrpos($day->date, '-') + 1);
+            })
+            ->all();
+    }
+
+    private function getWeekendDays(int $month, int $year): array
+    {
+        $weekendDays = [];
+
+        foreach (range(1, cal_days_in_month(CAL_GREGORIAN, $month, $year)) as $day) {
+            if (date('N', strtotime(sprintf('%d-%02d-%02d', $year, $month, $day))) >= 6) {
+                $weekendDays[] = $day;
+            }
+        }
+
+        return $weekendDays;
     }
 }

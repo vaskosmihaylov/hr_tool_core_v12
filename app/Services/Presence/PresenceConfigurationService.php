@@ -17,25 +17,12 @@ use viki\Service\Models\Elequent\WorkerRecord;
 class PresenceConfigurationService
 {
     /**
-     * Ensure that monthly activity instances exist for the given month.
-     * Creates monthly activities with copied=0 (not copied=1 snapshots).
+     * Monthly snapshot generation is disabled.
+     * Presence now works directly with base activities (date = null, copied = 0).
      */
     public static function ensureMonthlyActivities(int $workplaceId, int $year, int $month): void
     {
-        $monthString = str_pad((string) $month, 2, '0', STR_PAD_LEFT);
-        $workplace = WorkPlace::findOrFail($workplaceId);
-        $baseActivities = WorkPlaceActivity::where('work_place_id', $workplaceId)
-            ->whereNull('date')
-            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
-            ->get();
-
-        if ($baseActivities->isEmpty()) {
-            return;
-        }
-
-        foreach ($baseActivities as $baseActivity) {
-            self::ensureMonthlyActivityForBase($workplace, $baseActivity, $year, $month, $monthString);
-        }
+        return;
     }
 
     private static function ensureMonthlyActivityForBase(
@@ -100,9 +87,8 @@ class PresenceConfigurationService
         $year = (int) $date->format('Y');
 
         $existingTotal = WorkPlaceActivity::where('work_place_id', $workplaceId)
-            ->whereYear('date', $year)
-            ->whereMonth('date', $month)
-            ->where('copied', WorkPlaceActivity::COPIED_ACTIVITY)  // Use copied=1 monthly snapshots
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->get()
             ->sum(function (WorkPlaceActivity $activity) {
                 return $activity->neto_salary * $activity->worker_count;
@@ -143,6 +129,25 @@ class PresenceConfigurationService
 
         if ($activity->work_place_id !== $workplaceId) {
             throw new RuntimeException('Избраната дейност не принадлежи на този обект.');
+        }
+
+        // Always attach workers to the base activity.
+        // If a monthly snapshot activity id is provided, remap it to its base counterpart.
+        if ($activity->date !== null || (int) $activity->copied === WorkPlaceActivity::COPIED_ACTIVITY) {
+            $baseActivity = WorkPlaceActivity::query()
+                ->where('work_place_id', $workplaceId)
+                ->whereNull('date')
+                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+                ->where('activity', $activity->activity)
+                ->where('type_working', $activity->type_working)
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$baseActivity) {
+                throw new RuntimeException('Не е намерена базова дейност за избраната месечна дейност.');
+            }
+
+            $activity = $baseActivity;
         }
 
         $worker = Worker::findOrFail($workerId);

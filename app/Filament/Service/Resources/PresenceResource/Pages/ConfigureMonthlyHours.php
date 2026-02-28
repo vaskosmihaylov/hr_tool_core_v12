@@ -271,10 +271,10 @@ class ConfigureMonthlyHours extends Page implements HasForms
 
     private function loadActivities(): void
     {
-        // Load only "сумарно" (WORKING_BY_HOURS) activities for this month
-        // Note: Load ALL monthly activities regardless of 'copied' flag to avoid "invisible activity" bugs
+        // Load only base "сумарно" activities.
         $this->activities = WorkPlaceActivity::where('work_place_id', $this->workplace)
-            ->whereDate('date', $this->normalizedDate)
+            ->whereNull('date')
+            ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->where('type_working', WorkPlaceActivity::WORKING_BY_HOURS)
             ->orderBy('activity')
             ->get();

@@ -3,8 +3,6 @@
 namespace App\Filament\Service\Resources\WorkPlaceResource\Pages;
 
 use App\Filament\Service\Resources\WorkPlaceResource;
-use App\Services\Presence\PresenceConfigurationService;
-use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -194,13 +192,6 @@ class ManageActivities extends Page implements HasForms, HasTable
                         WorkPlaceActivityHoursPerDay::create($hoursPerDay, $activity->getKey());
                     }
 
-                    $now = Carbon::now();
-                    PresenceConfigurationService::ensureMonthlyActivities(
-                        $this->record->getKey(),
-                        (int) $now->format('Y'),
-                        (int) $now->format('m')
-                    );
-
                     Notification::make()
                         ->success()
                         ->title('Дейността е създадена')
@@ -237,13 +228,6 @@ class ManageActivities extends Page implements HasForms, HasTable
                     if ($hoursPerDay !== null) {
                         WorkPlaceActivityHoursPerDay::create($hoursPerDay, $record->getKey());
                     }
-
-                    $now = Carbon::now();
-                    PresenceConfigurationService::ensureMonthlyActivities(
-                        $this->record->getKey(),
-                        (int) $now->format('Y'),
-                        (int) $now->format('m')
-                    );
 
                     Notification::make()
                         ->success()
