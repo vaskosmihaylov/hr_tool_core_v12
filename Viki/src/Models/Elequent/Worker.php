@@ -59,27 +59,27 @@ class Worker extends Model
      */
     public static function create(array $attributes  = array())
     {
-        $attributes['start_date'] = Carbon::parse($attributes['start_date'])->format('Y-m-d');
-		
-		if(isset($attributes['unactive_from_date'])) {
-			$attributes['unactive_from_date'] = Carbon::parse($attributes['unactive_from_date'])->format('Y-m-d');
-		}
-		
+        $attributes['start_date'] = Carbon::parse($attributes['start_date'] ?? Carbon::now())->format('Y-m-d');
+			
+			if(isset($attributes['unactive_from_date']) && !empty($attributes['unactive_from_date'])) {
+				$attributes['unactive_from_date'] = Carbon::parse($attributes['unactive_from_date'])->format('Y-m-d');
+			}
+			
         $modelAttributes = array(
 
-            'name'                     => $attributes['name'],
-            'middle_name'              => $attributes['middle_name'],
-            'family_name'              => $attributes['family_name'],
-            'egn'                      => $attributes['egn'],
+            'name'                     => $attributes['name'] ?? null,
+            'middle_name'              => $attributes['middle_name'] ?? null,
+            'family_name'              => $attributes['family_name'] ?? null,
+            'egn'                      => $attributes['egn'] ?? null,
             'status'                   => isset($attributes['status']) ? $attributes['status']:0,
             'start_date'               => $attributes['start_date'],
-            'type_working'             => $attributes['type_working'],
-            'region_id'                => $attributes['region_id'],
-            'work_place_id'            => isset($attributes['work_place_id']) ? $attributes ['work_place_id'] : NULL,
+            'type_working'             => $attributes['type_working'] ?? self::WORKING_BY_HOURS,
+            'region_id'                => isset($attributes['region_id']) && $attributes['region_id'] !== '' ? $attributes['region_id'] : 0,
+            'work_place_id'            => isset($attributes['work_place_id']) && $attributes['work_place_id'] !== '' ? $attributes ['work_place_id'] : 0,
             'work_place_activity_id'   => isset($attributes['work_place_activity_id']) ? $attributes ['work_place_activity_id'] : 0,
-            'hours_per_day'            => $attributes['hours_per_day'],
-            'neto_salary'              => $attributes['neto_salary'],
-			  'income'              => $attributes['income'],
+            'hours_per_day'            => isset($attributes['hours_per_day']) && $attributes['hours_per_day'] !== '' ? $attributes['hours_per_day'] : 8,
+            'neto_salary'              => isset($attributes['neto_salary']) && $attributes['neto_salary'] !== '' ? $attributes['neto_salary'] : 0,
+				  'income'              => isset($attributes['income']) && $attributes['income'] !== '' ? $attributes['income'] : 0,
             'note'                     => isset($attributes['note']) && $attributes['note'] !== '' ? $attributes['note'] : null,
             'unactive_from_date'       => isset($attributes['unactive_from_date'])? $attributes['unactive_from_date'] : null,
         );

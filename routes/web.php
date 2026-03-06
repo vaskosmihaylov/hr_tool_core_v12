@@ -20,6 +20,10 @@ Route::get('/service/presence/export-monthly', [App\Http\Controllers\PresenceExp
     ->middleware(['web', 'auth'])
     ->name('service.presence.export-monthly');
 
+Route::get('/service/presence/print-monthly', [App\Http\Controllers\PresenceExportController::class, 'printMonthlyPresence'])
+    ->middleware(['web', 'auth'])
+    ->name('service.presence.print-monthly');
+
 // Test route for permission system
 Route::get('/test-permissions', function () {
     $supervisor = App\Models\User::where('email', 'supervisor@example.com')->first();

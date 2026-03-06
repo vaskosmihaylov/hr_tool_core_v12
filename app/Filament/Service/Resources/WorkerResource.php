@@ -102,7 +102,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
 
                     TextInput::make("neto_salary")
                         ->label("Нето заплата (€)")
-                        ->required()
+                        ->nullable()
                         ->numeric()
                         ->minValue(0)
                         ->step(0.01)
@@ -110,7 +110,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
 
                     TextInput::make("hours_per_day")
                         ->label("Работно време (часове)")
-                        ->required()
+                        ->nullable()
                         ->numeric()
                         ->minValue(1)
                         ->maxValue(24)
@@ -130,7 +130,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                                 Region::REGION_ACTIVE
                             )->pluck("name", "id")
                         )
-                        ->required()
+                        ->nullable()
                         ->live()
                         ->afterStateUpdated(function (Set $set) {
                             $set("work_place_id", null);
@@ -147,7 +147,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                                 ->orderBy("name")
                                 ->pluck("name", "id")
                         )
-                        ->required()
+                        ->nullable()
                         ->live()
                         ->afterStateUpdated(
                             fn(Set $set) => $set("work_place_activity_id", null)
@@ -156,7 +156,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
 
                     Select::make("work_place_activity_id")
                         ->label("Дейност")
-                        ->required()
+                        ->nullable()
                         ->searchable()
                         ->options(function (Get $get): Collection {
                             $workplaceId = $get("work_place_id");

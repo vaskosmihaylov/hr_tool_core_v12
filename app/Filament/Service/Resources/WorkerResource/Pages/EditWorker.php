@@ -9,6 +9,7 @@ use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use RuntimeException;
+use viki\Service\Models\Elequent\WorkPlace;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
 
 class EditWorker extends EditRecord
@@ -56,35 +57,83 @@ class EditWorker extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Ensure region validation
-        if (empty($data['region_id'])) {
-            throw new \Exception('Изберете регион!');
-        }
+        $workPlaceId = isset($data['work_place_id']) && $data['work_place_id'] !== '' ? (int) $data['work_place_id'] : null;
+        $activityId = isset($data['work_place_activity_id']) && $data['work_place_activity_id'] !== '' ? (int) $data['work_place_activity_id'] : null;
+        $regionId = isset($data['region_id']) && $data['region_id'] !== '' ? (int) $data['region_id'] : null;
 
-        if (empty($data['work_place_id'])) {
-            throw new \Exception('Изберете обект!');
-        }
-
-        if (empty($data['work_place_activity_id'])) {
-            throw new \Exception('Изберете дейност!');
-        }
-
-        $selectedActivity = WorkPlaceActivity::find((int) $data['work_place_activity_id']);
-        if ($selectedActivity && ($selectedActivity->date !== null || (int) $selectedActivity->copied === WorkPlaceActivity::COPIED_ACTIVITY)) {
-            $baseActivity = WorkPlaceActivity::query()
-                ->where('work_place_id', (int) $data['work_place_id'])
-                ->whereNull('date')
-                ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
-                ->where('activity', $selectedActivity->activity)
-                ->where('type_working', $selectedActivity->type_working)
-                ->orderByDesc('id')
-                ->first();
-
-            if (!$baseActivity) {
-                throw new \Exception('Избраната дейност няма базов еквивалент.');
+        $selectedWorkPlace = null;
+        if ($workPlaceId !== null) {
+            $selectedWorkPlace = WorkPlace::find($workPlaceId);
+            if (!$selectedWorkPlace) {
+                throw new \Exception('Избраният обект не съществува.');
             }
 
-            $data['work_place_activity_id'] = $baseActivity->id;
+            if ($regionId === null) {
+                $data['region_id'] = $selectedWorkPlace->region_id;
+                $regionId = (int) $selectedWorkPlace->region_id;
+            } elseif ($regionId !== (int) $selectedWorkPlace->region_id) {
+                throw new \Exception('Избраният обект не принадлежи към избрания регион.');
+            }
+        }
+
+        if ($activityId !== null) {
+            $selectedActivity = WorkPlaceActivity::find($activityId);
+            if (!$selectedActivity) {
+                throw new \Exception('Избраната дейност не съществува.');
+            }
+
+            if ($workPlaceId === null) {
+                $workPlaceId = (int) $selectedActivity->work_place_id;
+                $data['work_place_id'] = $workPlaceId;
+            } elseif ($workPlaceId !== (int) $selectedActivity->work_place_id) {
+                throw new \Exception('Избраната дейност не принадлежи към избрания обект.');
+            }
+
+            if ($selectedActivity->date !== null || (int) $selectedActivity->copied === WorkPlaceActivity::COPIED_ACTIVITY) {
+                $baseActivity = WorkPlaceActivity::query()
+                    ->where('work_place_id', $workPlaceId)
+                    ->whereNull('date')
+                    ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+                    ->where('activity', $selectedActivity->activity)
+                    ->where('type_working', $selectedActivity->type_working)
+                    ->orderByDesc('id')
+                    ->first();
+
+                if (!$baseActivity) {
+                    throw new \Exception('Избраната дейност няма базов еквивалент.');
+                }
+
+                $data['work_place_activity_id'] = $baseActivity->id;
+            }
+
+            if ($regionId === null) {
+                $selectedWorkPlace ??= WorkPlace::find($workPlaceId);
+                if ($selectedWorkPlace) {
+                    $data['region_id'] = $selectedWorkPlace->region_id;
+                }
+            }
+        } else {
+            $data['work_place_activity_id'] = 0;
+        }
+
+        if (!isset($data['hours_per_day']) || $data['hours_per_day'] === '') {
+            $data['hours_per_day'] = 8;
+        }
+
+        if (!isset($data['neto_salary']) || $data['neto_salary'] === '') {
+            $data['neto_salary'] = 0;
+        }
+
+        if (!isset($data['income']) || $data['income'] === '') {
+            $data['income'] = 0;
+        }
+
+        if (!isset($data['region_id']) || $data['region_id'] === '') {
+            $data['region_id'] = 0;
+        }
+
+        if (!isset($data['work_place_id']) || $data['work_place_id'] === '') {
+            $data['work_place_id'] = 0;
         }
 
         // Handle empty note field - keep empty string to satisfy legacy NOT NULL constraint

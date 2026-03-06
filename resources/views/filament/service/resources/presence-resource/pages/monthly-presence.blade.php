@@ -161,7 +161,7 @@
                                     Фамилия
                                 </th>
                                 <th class="border border-gray-600 dark:border-gray-500 p-2 text-left min-w-[100px]">
-                                    ЕГН
+                                    Презиме
                                 </th>
                                 @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                     @php
@@ -261,7 +261,7 @@
                                         <td class="border border-gray-400 dark:border-gray-600 p-1 text-right">
                                             <span class="text-gray-700 dark:text-gray-300">-</span>
                                         </td>
-                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" title="ЕГН: {{ $data['worker']->egn ?? '-' }}">
                                             <div class="flex items-center justify-between">
                                                 <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->name }}</span>
                                                 @if(!$isLocked)
@@ -274,11 +274,11 @@
                                                 @endif
                                             </div>
                                         </td>
-                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" title="ЕГН: {{ $data['worker']->egn ?? '-' }}">
                                             <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->family_name }}</span>
                                         </td>
-                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
-                                            <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->egn }}</span>
+                                        <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" title="ЕГН: {{ $data['worker']->egn ?? '-' }}">
+                                            <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->middle_name }}</span>
                                         </td>
                                         @for($day = 1; $day <= $this->getDaysInMonth(); $day++)
                                             @php

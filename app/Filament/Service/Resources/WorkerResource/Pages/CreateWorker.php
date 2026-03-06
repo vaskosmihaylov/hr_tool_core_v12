@@ -6,6 +6,8 @@ use App\Filament\Service\Resources\WorkerResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
+use viki\Service\Models\Elequent\WorkPlace;
+use viki\Service\Models\Elequent\WorkPlaceActivity;
 
 class CreateWorker extends CreateRecord
 {
@@ -26,17 +28,85 @@ class CreateWorker extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Ensure region validation
-        if (empty($data['region_id'])) {
-            throw new \Exception('Изберете регион!');
+        $workPlaceId = isset($data['work_place_id']) && $data['work_place_id'] !== '' ? (int) $data['work_place_id'] : null;
+        $activityId = isset($data['work_place_activity_id']) && $data['work_place_activity_id'] !== '' ? (int) $data['work_place_activity_id'] : null;
+        $regionId = isset($data['region_id']) && $data['region_id'] !== '' ? (int) $data['region_id'] : null;
+
+        $selectedWorkPlace = null;
+        if ($workPlaceId !== null) {
+            $selectedWorkPlace = WorkPlace::find($workPlaceId);
+            if (!$selectedWorkPlace) {
+                throw new \Exception('Избраният обект не съществува.');
+            }
+
+            if ($regionId === null) {
+                $data['region_id'] = $selectedWorkPlace->region_id;
+                $regionId = (int) $selectedWorkPlace->region_id;
+            } elseif ($regionId !== (int) $selectedWorkPlace->region_id) {
+                throw new \Exception('Избраният обект не принадлежи към избрания регион.');
+            }
         }
 
-        if (empty($data['work_place_id'])) {
-            throw new \Exception('Изберете обект!');
+        if ($activityId !== null) {
+            $selectedActivity = WorkPlaceActivity::find($activityId);
+            if (!$selectedActivity) {
+                throw new \Exception('Избраната дейност не съществува.');
+            }
+
+            if ($workPlaceId === null) {
+                $workPlaceId = (int) $selectedActivity->work_place_id;
+                $data['work_place_id'] = $workPlaceId;
+            } elseif ($workPlaceId !== (int) $selectedActivity->work_place_id) {
+                throw new \Exception('Избраната дейност не принадлежи към избрания обект.');
+            }
+
+            if ($selectedActivity->date !== null || (int) $selectedActivity->copied === WorkPlaceActivity::COPIED_ACTIVITY) {
+                $baseActivity = WorkPlaceActivity::query()
+                    ->where('work_place_id', $workPlaceId)
+                    ->whereNull('date')
+                    ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
+                    ->where('activity', $selectedActivity->activity)
+                    ->where('type_working', $selectedActivity->type_working)
+                    ->orderByDesc('id')
+                    ->first();
+
+                if (!$baseActivity) {
+                    throw new \Exception('Избраната дейност няма базов еквивалент.');
+                }
+
+                $data['work_place_activity_id'] = $baseActivity->id;
+            }
+
+            if ($regionId === null) {
+                $selectedWorkPlace ??= WorkPlace::find($workPlaceId);
+                if ($selectedWorkPlace) {
+                    $data['region_id'] = $selectedWorkPlace->region_id;
+                }
+            }
         }
 
-        if (empty($data['work_place_activity_id'])) {
-            throw new \Exception('Изберете дейност!');
+        if (!isset($data['hours_per_day']) || $data['hours_per_day'] === '') {
+            $data['hours_per_day'] = 8;
+        }
+
+        if (!isset($data['neto_salary']) || $data['neto_salary'] === '') {
+            $data['neto_salary'] = 0;
+        }
+
+        if (!isset($data['income']) || $data['income'] === '') {
+            $data['income'] = 0;
+        }
+
+        if (!isset($data['region_id']) || $data['region_id'] === '') {
+            $data['region_id'] = 0;
+        }
+
+        if (!isset($data['work_place_id']) || $data['work_place_id'] === '') {
+            $data['work_place_id'] = 0;
+        }
+
+        if (!isset($data['work_place_activity_id']) || $data['work_place_activity_id'] === '') {
+            $data['work_place_activity_id'] = 0;
         }
 
         // Ensure note defaults to an empty string for older schemas where the column is non-nullable

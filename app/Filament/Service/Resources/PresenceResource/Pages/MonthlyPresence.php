@@ -65,6 +65,7 @@ class MonthlyPresence extends Page
             $this->getLockAction(),
             $this->getUnlockAction(),
             $this->getExportAction(),
+            $this->getPrintAction(),
         ];
     }
 
@@ -750,6 +751,7 @@ class MonthlyPresence extends Page
     private function getLockAction() { return Actions\Action::make('lock_month')->label('Заключи месеца')->icon('heroicon-o-lock-closed')->color('warning')->action('lockMonth')->visible(fn () => !$this->isLocked && Auth::user()->hasRole(['admin', 'super_admin', 'manager', 'supervisor']))->requiresConfirmation()->modalHeading('Заключване на месеца')->modalDescription('Сигурни ли сте, че искате да заключите този месец?'); }
     private function getUnlockAction() { return Actions\Action::make('unlock_month')->label('Отключи месеца')->icon('heroicon-o-lock-open')->color('danger')->action('unlockMonth')->visible(fn () => $this->isLocked && Auth::user()->hasRole(['admin', 'super_admin', 'manager']))->requiresConfirmation()->modalHeading('Отключване на месеца')->modalDescription('Сигурни ли сте, че искате да отключите този месец?'); }
     private function getExportAction() { return Actions\Action::make('export_monthly_excel')->label('Експорт Excel')->icon('heroicon-o-table-cells')->color('info')->action(fn () => $this->exportMonthlyExcel()); }
+    private function getPrintAction() { return Actions\Action::make('print_monthly')->label('Печат / PDF')->icon('heroicon-o-printer')->color('success')->url(fn () => route('service.presence.print-monthly', ['workplace' => $this->workplace, 'year' => $this->year, 'month' => $this->month]), shouldOpenInNewTab: true)->visible(fn () => $this->isLocked); }
 
     public function getWorkplaceActivitiesUrl(): string
     {

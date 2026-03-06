@@ -13,14 +13,58 @@ use viki\Service\Models\Elequent\WorkerRecord;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
 use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PresenceExportController extends Controller
 {
     public function exportMonthlyPresence(Request $request)
     {
-        $workplace = $request->get('workplace');
-        $year = $request->get('year') ?: Carbon::now()->year;
-        $month = $request->get('month') ?: Carbon::now()->month;
+        [$workplaceData, $year, $month, $daysInMonth, $groupedByActivity] = $this->prepareMonthlyPresenceData($request);
+
+        $workplaceName = str_replace(' ', '_', $workplaceData->name);
+        $filename = "monthly_presence_{$workplaceName}_{$year}_{$month}.xlsx";
+
+        $export = new MonthlyPresenceExport($groupedByActivity, $workplaceData, $year, $month, $daysInMonth);
+
+        return Excel::download($export, $filename);
+    }
+
+    public function printMonthlyPresence(Request $request)
+    {
+        [$workplaceData, $year, $month, $daysInMonth, $groupedByActivity] = $this->prepareMonthlyPresenceData($request);
+
+        $isLocked = DB::table('viki_monthly_presence_locks')
+            ->where('work_place_id', $workplaceData->id)
+            ->where('year', $year)
+            ->where('month', $month)
+            ->where('is_locked', true)
+            ->exists();
+
+        if (!$isLocked) {
+            abort(403, 'Месецът трябва да бъде заключен преди печат.');
+        }
+
+        return view('prints.monthly-presence', [
+            'workplaceData' => $workplaceData,
+            'year' => $year,
+            'month' => $month,
+            'daysInMonth' => $daysInMonth,
+            'groupedByActivity' => $groupedByActivity,
+            'specialDayMap' => $this->getSpecialDayMap($month, $year),
+            'nonWorkingDaysMap' => array_fill_keys($this->getAllNonWorkingDays($month, $year), true),
+            'monthName' => $this->getMonthName($month, $year),
+        ]);
+    }
+
+    private function prepareMonthlyPresenceData(Request $request): array
+    {
+        $workplace = (int) $request->get('workplace');
+        $year = (int) ($request->get('year') ?: Carbon::now()->year);
+        $month = (int) ($request->get('month') ?: Carbon::now()->month);
+
+        if ($month < 1 || $month > 12) {
+            abort(422, 'Невалиден месец.');
+        }
 
         $workplaceData = WorkPlace::where('status', WorkPlace::WORK_PLACE_ACTIVE)
             ->with('region')
@@ -34,7 +78,26 @@ class PresenceExportController extends Controller
         $end = $start->copy()->endOfMonth();
         $daysInMonth = $start->daysInMonth;
 
-        // Use only base activities for monthly presence exports.
+        $groupedByActivity = $this->buildGroupedByActivity(
+            $workplace,
+            $year,
+            $month,
+            $start,
+            $end,
+            $daysInMonth
+        );
+
+        return [$workplaceData, $year, $month, $daysInMonth, $groupedByActivity];
+    }
+
+    private function buildGroupedByActivity(
+        int $workplace,
+        int $year,
+        int $month,
+        Carbon $start,
+        Carbon $end,
+        int $daysInMonth
+    ): array {
         $activities = WorkPlaceActivity::where('work_place_id', $workplace)
             ->whereNull('date')
             ->where('copied', WorkPlaceActivity::NOT_COPIED_ACTIVITY)
@@ -42,6 +105,7 @@ class PresenceExportController extends Controller
             ->get();
 
         $groupedByActivity = [];
+        $monthKey = sprintf('%02d-%d', $month, $year);
 
         foreach ($activities as $activity) {
             $records = WorkerRecord::where('work_place_id', $workplace)
@@ -57,7 +121,6 @@ class PresenceExportController extends Controller
 
             $workerIds = $records->keys()->merge($pivotWorkerIds)->unique();
 
-            $monthKey = sprintf('%02d-%d', $month, $year);
             $hourRate = $this->getHourCostOnWorkPlaceActivityByDate($activity, $monthKey);
             $monthlyHours = $this->getActivityWorkingHoursForDate($activity, $monthKey);
             $workerCount = (int) ($activity->worker_count ?? 0);
@@ -127,12 +190,43 @@ class PresenceExportController extends Controller
             $groupedByActivity[] = $activityData;
         }
 
-        $workplaceName = str_replace(' ', '_', $workplaceData->name);
-        $filename = "monthly_presence_{$workplaceName}_{$year}_{$month}.xlsx";
+        return $groupedByActivity;
+    }
 
-        $export = new MonthlyPresenceExport($groupedByActivity, $workplaceData, $year, $month, $daysInMonth);
+    private function getSpecialDayMap(int $month, int $year): array
+    {
+        $specialDays = SpecialDay::where('date', 'like', sprintf('%04d-%02d-%%', $year, $month))->get();
 
-        return Excel::download($export, $filename);
+        $map = [];
+        foreach ($specialDays as $specialDay) {
+            $day = (int) Carbon::parse($specialDay->date)->day;
+            $map[$day] = [
+                'label' => $specialDay->comment ?? 'Празничен ден',
+                'type' => (int) $specialDay->type,
+            ];
+        }
+
+        return $map;
+    }
+
+    private function getMonthName(int $month, int $year): string
+    {
+        $monthNames = [
+            1 => 'Януари',
+            2 => 'Февруари',
+            3 => 'Март',
+            4 => 'Април',
+            5 => 'Май',
+            6 => 'Юни',
+            7 => 'Юли',
+            8 => 'Август',
+            9 => 'Септември',
+            10 => 'Октомври',
+            11 => 'Ноември',
+            12 => 'Декември',
+        ];
+
+        return ($monthNames[$month] ?? (string) $month) . ' ' . $year;
     }
 
     private function getHourCostOnWorkPlaceActivityByDate($activity, $monthKey)
