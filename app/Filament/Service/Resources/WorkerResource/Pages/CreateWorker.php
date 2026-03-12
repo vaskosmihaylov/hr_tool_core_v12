@@ -32,6 +32,10 @@ class CreateWorker extends CreateRecord
         $activityId = isset($data['work_place_activity_id']) && $data['work_place_activity_id'] !== '' ? (int) $data['work_place_activity_id'] : null;
         $regionId = isset($data['region_id']) && $data['region_id'] !== '' ? (int) $data['region_id'] : null;
 
+        if ($regionId === null) {
+            throw new \Exception('Регионът е задължителен.');
+        }
+
         $selectedWorkPlace = null;
         if ($workPlaceId !== null) {
             $selectedWorkPlace = WorkPlace::find($workPlaceId);
@@ -39,10 +43,7 @@ class CreateWorker extends CreateRecord
                 throw new \Exception('Избраният обект не съществува.');
             }
 
-            if ($regionId === null) {
-                $data['region_id'] = $selectedWorkPlace->region_id;
-                $regionId = (int) $selectedWorkPlace->region_id;
-            } elseif ($regionId !== (int) $selectedWorkPlace->region_id) {
+            if ($regionId !== (int) $selectedWorkPlace->region_id) {
                 throw new \Exception('Избраният обект не принадлежи към избрания регион.');
             }
         }
@@ -77,12 +78,6 @@ class CreateWorker extends CreateRecord
                 $data['work_place_activity_id'] = $baseActivity->id;
             }
 
-            if ($regionId === null) {
-                $selectedWorkPlace ??= WorkPlace::find($workPlaceId);
-                if ($selectedWorkPlace) {
-                    $data['region_id'] = $selectedWorkPlace->region_id;
-                }
-            }
         }
 
         if (!isset($data['hours_per_day']) || $data['hours_per_day'] === '') {
@@ -95,10 +90,6 @@ class CreateWorker extends CreateRecord
 
         if (!isset($data['income']) || $data['income'] === '') {
             $data['income'] = 0;
-        }
-
-        if (!isset($data['region_id']) || $data['region_id'] === '') {
-            $data['region_id'] = 0;
         }
 
         if (!isset($data['work_place_id']) || $data['work_place_id'] === '') {

@@ -24,7 +24,14 @@ class PresenceExportController extends Controller
         $workplaceName = str_replace(' ', '_', $workplaceData->name);
         $filename = "monthly_presence_{$workplaceName}_{$year}_{$month}.xlsx";
 
-        $export = new MonthlyPresenceExport($groupedByActivity, $workplaceData, $year, $month, $daysInMonth);
+        $export = new MonthlyPresenceExport(
+            $groupedByActivity,
+            $workplaceData,
+            $year,
+            $month,
+            $daysInMonth,
+            array_fill_keys($this->getAllNonWorkingDays($month, $year), true)
+        );
 
         return Excel::download($export, $filename);
     }
@@ -67,7 +74,7 @@ class PresenceExportController extends Controller
         }
 
         $workplaceData = WorkPlace::where('status', WorkPlace::WORK_PLACE_ACTIVE)
-            ->with('region')
+            ->with('region', 'client')
             ->find($workplace);
 
         if (!$workplaceData) {

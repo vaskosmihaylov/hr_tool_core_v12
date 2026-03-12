@@ -6,12 +6,12 @@ use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
-use Carbon\Carbon;
 
 class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, WithColumnWidths
 {
@@ -20,15 +20,17 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
     protected $year;
     protected $month;
     protected $daysInMonth;
+    protected $nonWorkingDaysMap;
     protected $rows = [];
 
-    public function __construct($groupedByActivity, $workplaceData, $year, $month, $daysInMonth)
+    public function __construct($groupedByActivity, $workplaceData, $year, $month, $daysInMonth, array $nonWorkingDaysMap = [])
     {
         $this->groupedByActivity = $groupedByActivity;
         $this->workplaceData = $workplaceData;
         $this->year = $year;
         $this->month = $month;
         $this->daysInMonth = $daysInMonth;
+        $this->nonWorkingDaysMap = $nonWorkingDaysMap;
         $this->buildRows();
     }
 
@@ -39,22 +41,30 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
 
     public function headings(): array
     {
-        $headers = [
+        $headers = [[
+            'Присъствена форма',
+        ], [
+            $this->workplaceData->name ?? '—',
+        ], [
+            'Клиент: ' . ($this->workplaceData->client?->name ?? '—'),
+            'Регион: ' . ($this->workplaceData->region?->name ?? '—'),
+            'Месец: ' . sprintf('%02d-%d', $this->month, $this->year),
+        ], [
             'Длъжност',
             'Заплата',
             'Име',
             'Фамилия',
             'ЕГН',
-        ];
+        ]];
 
         // Add day columns (1-31)
         for ($day = 1; $day <= $this->daysInMonth; $day++) {
-            $headers[] = $day;
+            $headers[3][] = $day;
         }
 
         // Add summary columns
-        $headers[] = 'Цена';
-        $headers[] = 'Общо';
+        $headers[3][] = 'Цена';
+        $headers[3][] = 'Общо';
 
         return $headers;
     }
@@ -83,8 +93,8 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             $maxHours = $activityData['group_totals']['max_hours'];
 
             // Store as "used / max" string for display
-            $activityRow[] = round($usedBudget, 0) . ' / ' . round($maxBudget, 0);
-            $activityRow[] = round($usedHours, 0) . ' / ' . round($maxHours, 0);
+            $activityRow[] = $this->formatDisplayNumber($usedBudget) . ' / ' . $this->formatDisplayNumber($maxBudget);
+            $activityRow[] = $this->formatDisplayNumber($usedHours) . ' / ' . $this->formatDisplayNumber($maxHours);
 
             $this->rows[] = $activityRow;
 
@@ -106,8 +116,8 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
                 }
 
                 // Add worker totals as numbers
-                $workerRow[] = round($workerData['calculated_price'], 0);
-                $workerRow[] = round($workerData['total_hours'], 0);
+                $workerRow[] = round($workerData['calculated_price'], 2);
+                $workerRow[] = round($workerData['total_hours'], 2);
 
                 $this->rows[] = $workerRow;
             }
@@ -116,8 +126,19 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
 
     public function styles(Worksheet $sheet)
     {
-        $lastRow = count($this->rows) + 1; // +1 for header row
+        $headerRow = 4;
+        $dataStartRow = 5;
+        $lastRow = count($this->rows) + $headerRow;
         $lastColumn = $this->getLastColumnLetter();
+        $firstDayColumnIndex = 6;
+        $priceColumnIndex = $firstDayColumnIndex + $this->daysInMonth;
+        $totalColumnIndex = $priceColumnIndex + 1;
+        $firstDayColumn = Coordinate::stringFromColumnIndex($firstDayColumnIndex);
+        $priceColumn = Coordinate::stringFromColumnIndex($priceColumnIndex);
+        $totalColumn = Coordinate::stringFromColumnIndex($totalColumnIndex);
+
+        $sheet->mergeCells("A1:{$lastColumn}1");
+        $sheet->mergeCells("A2:{$lastColumn}2");
 
         // Apply borders to all cells
         $sheet->getStyle("A1:{$lastColumn}{$lastRow}")->applyFromArray([
@@ -129,8 +150,48 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             ],
         ]);
 
+        $sheet->getStyle("A1:{$lastColumn}1")->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 14,
+                'color' => ['argb' => 'FF111827'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        $sheet->getStyle("A2:{$lastColumn}2")->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 12,
+                'color' => ['argb' => 'FF111827'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFF3F4F6'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        $sheet->getStyle("A3:C3")->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 10,
+                'color' => ['argb' => 'FF4B5563'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
         // Header row styling
-        $sheet->getStyle('A1:' . $lastColumn . '1')->applyFromArray([
+        $sheet->getStyle("A{$headerRow}:{$lastColumn}{$headerRow}")->applyFromArray([
             'font' => [
                 'bold' => true,
                 'size' => 11,
@@ -138,7 +199,7 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             ],
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['argb' => 'FF4B5563'], // Gray-600
+                'startColor' => ['argb' => 'FF000000'],
             ],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_CENTER,
@@ -146,18 +207,17 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             ],
         ]);
 
-        // Apply number format to numeric columns (days + price + total)
-        $firstDayColumn = 'F'; // Column F is day 1 (after A=Длъжност, B=Заплата, C=Име, D=Фамилия, E=ЕГН)
-        $priceColumn = chr(ord($firstDayColumn) + $this->daysInMonth); // After all days
-        $totalColumn = chr(ord($priceColumn) + 1); // After price
-
         // Format day columns, price, and total as numbers
-        $sheet->getStyle("{$firstDayColumn}2:{$totalColumn}{$lastRow}")
+        $sheet->getStyle("{$firstDayColumn}{$dataStartRow}:{$totalColumn}{$lastRow}")
             ->getNumberFormat()
-            ->setFormatCode(NumberFormat::FORMAT_NUMBER);
+            ->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
+
+        $sheet->getStyle("B{$dataStartRow}:B{$lastRow}")
+            ->getNumberFormat()
+            ->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
 
         // Style activity header rows (they have activity name in column A)
-        $currentRow = 2; // Start after header
+        $currentRow = $dataStartRow;
         foreach ($this->groupedByActivity as $activityData) {
             // Activity header row
             $sheet->getStyle("A{$currentRow}:{$lastColumn}{$currentRow}")->applyFromArray([
@@ -174,6 +234,26 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             ]);
 
             $currentRow += count($activityData['workers']) + 1;
+        }
+
+        foreach (array_keys($this->nonWorkingDaysMap) as $day) {
+            $column = Coordinate::stringFromColumnIndex($firstDayColumnIndex + ((int) $day - 1));
+
+            $sheet->getStyle("{$column}{$headerRow}")->applyFromArray([
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FF9CA3AF'],
+                ],
+            ]);
+
+            if ($lastRow >= $dataStartRow) {
+                $sheet->getStyle("{$column}{$dataStartRow}:{$column}{$lastRow}")->applyFromArray([
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['argb' => 'FFFECACA'],
+                    ],
+                ]);
+            }
         }
 
         return [];
@@ -196,12 +276,13 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
         // Calculate last column: 5 fixed columns + days + 2 summary columns
         $columnCount = 5 + $this->daysInMonth + 2;
 
-        if ($columnCount <= 26) {
-            return chr(64 + $columnCount);
-        } else {
-            $firstLetter = chr(64 + floor(($columnCount - 1) / 26));
-            $secondLetter = chr(64 + (($columnCount - 1) % 26) + 1);
-            return $firstLetter . $secondLetter;
-        }
+        return Coordinate::stringFromColumnIndex($columnCount);
+    }
+
+    protected function formatDisplayNumber(float $value): string
+    {
+        $formatted = number_format($value, 2, '.', '');
+
+        return rtrim(rtrim($formatted, '0'), '.');
     }
 }

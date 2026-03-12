@@ -93,7 +93,31 @@
 
                 return $trimmed === '' ? '0' : $trimmed;
             };
+            $workplaceBudgetSummary = $this->getWorkplaceBudgetSummary();
         @endphp
+
+        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {{ $this->workplaceData?->name ?? '—' }}
+                </h2>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Клиент: <strong>{{ $this->workplaceData?->client?->name ?? '—' }}</strong> · Регион: <strong>{{ $this->workplaceData?->region?->name ?? '—' }}</strong>
+                </p>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex flex-wrap items-center gap-3 text-sm">
+                    <span class="font-medium text-gray-700 dark:text-gray-200">Бюджет на обекта:</span>
+                    <span class="{{ $workplaceBudgetSummary['exceeded'] ? 'text-red-700 dark:text-red-300' : 'text-gray-900 dark:text-gray-100' }} font-semibold">
+                        {{ $formatPresenceNumber($workplaceBudgetSummary['paid']) }} / {{ $formatPresenceNumber($workplaceBudgetSummary['budget']) }} лв
+                    </span>
+                </div>
+            </div>
+        </div>
+
         @if($monthlyData && $monthlyData->count() > 0)
             {{-- Monthly Table --}}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -199,7 +223,7 @@
                                     </td>
                                     <td class="border border-gray-400 dark:border-gray-600 p-1 text-right">
                                         <span class="font-bold text-gray-900 dark:text-gray-100">
-                                            {{ number_format($activityGroup['activity_salary'], 0) }}
+                                            {{ $formatPresenceNumber($activityGroup['activity_salary']) }}
                                         </span>
                                     </td>
                                     <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" colspan="3">

@@ -61,6 +61,10 @@ class EditWorker extends EditRecord
         $activityId = isset($data['work_place_activity_id']) && $data['work_place_activity_id'] !== '' ? (int) $data['work_place_activity_id'] : null;
         $regionId = isset($data['region_id']) && $data['region_id'] !== '' ? (int) $data['region_id'] : null;
 
+        if ($regionId === null) {
+            throw new \Exception('Регионът е задължителен.');
+        }
+
         $selectedWorkPlace = null;
         if ($workPlaceId !== null) {
             $selectedWorkPlace = WorkPlace::find($workPlaceId);
@@ -68,10 +72,7 @@ class EditWorker extends EditRecord
                 throw new \Exception('Избраният обект не съществува.');
             }
 
-            if ($regionId === null) {
-                $data['region_id'] = $selectedWorkPlace->region_id;
-                $regionId = (int) $selectedWorkPlace->region_id;
-            } elseif ($regionId !== (int) $selectedWorkPlace->region_id) {
+            if ($regionId !== (int) $selectedWorkPlace->region_id) {
                 throw new \Exception('Избраният обект не принадлежи към избрания регион.');
             }
         }
@@ -106,12 +107,6 @@ class EditWorker extends EditRecord
                 $data['work_place_activity_id'] = $baseActivity->id;
             }
 
-            if ($regionId === null) {
-                $selectedWorkPlace ??= WorkPlace::find($workPlaceId);
-                if ($selectedWorkPlace) {
-                    $data['region_id'] = $selectedWorkPlace->region_id;
-                }
-            }
         } else {
             $data['work_place_activity_id'] = 0;
         }
@@ -126,10 +121,6 @@ class EditWorker extends EditRecord
 
         if (!isset($data['income']) || $data['income'] === '') {
             $data['income'] = 0;
-        }
-
-        if (!isset($data['region_id']) || $data['region_id'] === '') {
-            $data['region_id'] = 0;
         }
 
         if (!isset($data['work_place_id']) || $data['work_place_id'] === '') {
@@ -214,9 +205,20 @@ class EditWorker extends EditRecord
                 Carbon::now()->format('m-Y')
             );
         } catch (RuntimeException $exception) {
-            if (!str_contains($exception->getMessage(), 'вече е добавен')) {
-                throw $exception;
+            if (str_contains($exception->getMessage(), 'вече е добавен')) {
+                return;
             }
+
+            if (str_contains($exception->getMessage(), 'Месецът е заключен')) {
+                Notification::make()
+                    ->title('Текущият месец е заключен')
+                    ->body('Промяната по служителя е запазена, но не беше приложена в месечното присъствие.')
+                    ->warning()
+                    ->send();
+                return;
+            }
+
+            throw $exception;
         }
     }
 }

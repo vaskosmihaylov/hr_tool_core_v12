@@ -25,6 +25,23 @@ class PresenceConfigurationService
         return;
     }
 
+    public static function isMonthLocked(int $workplaceId, Carbon $date): bool
+    {
+        return DB::table('viki_monthly_presence_locks')
+            ->where('work_place_id', $workplaceId)
+            ->where('year', $date->year)
+            ->where('month', $date->month)
+            ->where('is_locked', true)
+            ->exists();
+    }
+
+    public static function assertMonthUnlocked(int $workplaceId, Carbon $date): void
+    {
+        if (self::isMonthLocked($workplaceId, $date)) {
+            throw new RuntimeException('Месецът е заключен. Отключете месеца, за да правите промени.');
+        }
+    }
+
     private static function ensureMonthlyActivityForBase(
         WorkPlace $workplace,
         WorkPlaceActivity $baseActivity,
@@ -123,6 +140,8 @@ class PresenceConfigurationService
         if (!$date || $date->format('m-Y') !== $monthYear) {
             throw new RuntimeException('Невалиден формат на месеца.');
         }
+
+        self::assertMonthUnlocked($workplaceId, $date);
 
         $workplace = WorkPlace::findOrFail($workplaceId);
         $activity = WorkPlaceActivity::findOrFail($activityId);

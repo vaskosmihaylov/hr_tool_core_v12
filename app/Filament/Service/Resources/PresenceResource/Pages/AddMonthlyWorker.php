@@ -47,6 +47,12 @@ class AddMonthlyWorker extends Page implements HasForms
         $this->parseMonthYear($date);
         $this->authorizeForWorkplace();
 
+        if (PresenceConfigurationService::isMonthLocked($this->workplace, Carbon::parse($this->normalizedDate))) {
+            $this->showError('Месецът е заключен. Отключете месеца, за да добавяте работници.');
+            $this->redirect($this->getBackUrl());
+            return;
+        }
+
         $this->loadWorkerOptions();
         $this->loadActivityOptions();
 
@@ -104,6 +110,12 @@ class AddMonthlyWorker extends Page implements HasForms
     {
         $formData = $this->form->getState();
 
+        if (PresenceConfigurationService::isMonthLocked($this->workplace, Carbon::parse($this->normalizedDate))) {
+            $this->showError('Месецът е заключен. Отключете месеца, за да добавяте работници.');
+            $this->redirect($this->getBackUrl());
+            return;
+        }
+
         if (empty($formData['worker_id']) || empty($formData['work_place_activity_id'])) {
             $this->showError('Моля изберете работник и дейност.');
             return;
@@ -129,7 +141,18 @@ class AddMonthlyWorker extends Page implements HasForms
         }
 
         $this->showSuccess('Работникът е добавен успешно.');
-        $this->redirect($this->getBackUrl());
+        $this->loadWorkerOptions();
+        $this->loadActivityOptions();
+
+        $defaults = [];
+        if (!empty($this->workerOptions)) {
+            $defaults['worker_id'] = array_key_first($this->workerOptions);
+        }
+        if (!empty($this->activityOptions)) {
+            $defaults['work_place_activity_id'] = array_key_first($this->activityOptions);
+        }
+
+        $this->form->fill($defaults);
     }
 
     public function getSubheading(): ?string

@@ -130,7 +130,7 @@ class WorkerResource extends Resource implements HasShieldPermissions
                                 Region::REGION_ACTIVE
                             )->pluck("name", "id")
                         )
-                        ->nullable()
+                        ->required()
                         ->live()
                         ->afterStateUpdated(function (Set $set) {
                             $set("work_place_id", null);

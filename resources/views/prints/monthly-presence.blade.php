@@ -151,8 +151,12 @@
 
 <div class="page">
     <h1>Присъствена форма</h1>
+    <div style="margin-bottom: 6px; font-size: 14px; font-weight: 700;">
+        {{ $workplaceData->name }}
+    </div>
     <div class="meta">
         <div><strong>Обект:</strong> {{ $workplaceData->name }}</div>
+        <div><strong>Клиент:</strong> {{ $workplaceData->client?->name ?? '-' }}</div>
         <div><strong>Регион:</strong> {{ $workplaceData->region?->name ?? '-' }}</div>
         <div><strong>Месец:</strong> {{ $monthName }}</div>
         <div><strong>Генерирано:</strong> {{ now()->format('d.m.Y H:i') }}</div>
@@ -182,7 +186,7 @@
             @forelse ($groupedByActivity as $activity)
                 <tr class="activity-row">
                     <td class="col-activity">{{ $activity['activity_name'] }}</td>
-                    <td class="col-salary">{{ $formatPresenceNumber($activity['activity_salary'], 0) }}</td>
+                    <td class="col-salary">{{ $formatPresenceNumber($activity['activity_salary']) }}</td>
                     <td colspan="3" class="center">-</td>
                     @for ($day = 1; $day <= $daysInMonth; $day++)
                         <td class="col-day {{ isset($nonWorkingDaysMap[$day]) ? 'non-working' : '' }}">-</td>

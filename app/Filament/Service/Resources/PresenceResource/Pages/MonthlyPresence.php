@@ -4,6 +4,7 @@ namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
 use App\Filament\Service\Resources\WorkPlaceResource;
+use App\Services\Presence\PresenceConfigurationService;
 use Filament\Resources\Pages\Page;
 use Filament\Actions;
 use Filament\Notifications\Notification;
@@ -108,6 +109,8 @@ class MonthlyPresence extends Page
     public function saveHours(): void
     {
         try {
+            $this->ensureMonthIsUnlocked();
+
             DB::beginTransaction();
             
             // Process the hours data and prepare for budget checking
@@ -148,6 +151,8 @@ class MonthlyPresence extends Page
     public function removeWorkerFromMonth($workerId): void
     {
         try {
+            $this->ensureMonthIsUnlocked();
+
             DB::beginTransaction();
             
             // Delete worker hours records
@@ -318,6 +323,15 @@ class MonthlyPresence extends Page
         }
     }
 
+    private function ensureMonthIsUnlocked(): void
+    {
+        if (PresenceConfigurationService::isMonthLocked($this->workplace, $this->getMonthStartDate())) {
+            $this->isLocked = true;
+
+            throw new \RuntimeException('Месецът е заключен. Отключете месеца, за да правите промени.');
+        }
+    }
+
     // Export
     public function exportMonthlyExcel(): void
     {
@@ -381,6 +395,32 @@ class MonthlyPresence extends Page
         ];
         
         return $months[$this->month] . ' ' . $this->year;
+    }
+
+    public function getWorkplaceBudgetSummary(): array
+    {
+        $monthKey = sprintf('%02d-%d', $this->month, $this->year);
+        $normalizedDate = sprintf('%04d-%02d-01', $this->year, $this->month);
+
+        $workPlace = WorkPlace::with(['overBudget' => function ($q) use ($normalizedDate) {
+            $q->where('viki_workplace_month_budget.date', $normalizedDate);
+        }])->find($this->workplace);
+
+        $budget = $workPlace ? (float) $workPlace->getBudgetByDate($monthKey) : 0.0;
+
+        if ($workPlace && $workPlace->overBudget->count() > 0) {
+            $budget += (float) $workPlace->overBudget->first()->sum_up;
+        }
+
+        $paid = collect($this->monthlyData ?? [])->sum(function ($activityGroup) {
+            return (float) ($activityGroup['group_totals']['used_budget'] ?? 0);
+        });
+
+        return [
+            'paid' => round($paid, 2),
+            'budget' => round($budget, 2),
+            'exceeded' => $paid > $budget,
+        ];
     }
 
     public function getDaysInMonth(): int
