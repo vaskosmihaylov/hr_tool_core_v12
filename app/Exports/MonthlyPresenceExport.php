@@ -53,8 +53,8 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             'Длъжност',
             'Заплата',
             'Име',
+            'Презиме',
             'Фамилия',
-            'ЕГН',
         ]];
 
         // Add day columns (1-31)
@@ -77,8 +77,8 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
                 $activityData['activity_name'], // Длъжност (Activity name)
                 (float) $activityData['activity_salary'], // Заплата (as number, not formatted string)
                 '-', // Име
+                '-', // Презиме
                 '-', // Фамилия
-                '-', // ЕГН
             ];
 
             // Add empty cells for each day
@@ -105,8 +105,8 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
                     '-', // Длъжност (empty for workers)
                     '-', // Заплата (empty for workers)
                     $worker->name ?? '', // Име
+                    $worker->middle_name ?? '', // Презиме
                     $worker->family_name ?? '', // Фамилия
-                    $worker->egn ?? '', // ЕГН
                 ];
 
                 // Add daily hours as numbers (not formatted strings)
@@ -265,8 +265,8 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             'A' => 15, // Длъжност
             'B' => 10, // Заплата
             'C' => 12, // Име
-            'D' => 12, // Фамилия
-            'E' => 15, // ЕГН
+            'D' => 12, // Презиме
+            'E' => 12, // Фамилия
             // Days columns get default width
         ];
     }
