@@ -215,7 +215,7 @@
                         <tbody>
                             @foreach($monthlyData as $activityId => $activityGroup)
                                 {{-- Activity Group Header Row --}}
-                                <tr class="bg-gray-100 dark:bg-gray-700 font-semibold">
+                                <tr wire:key="activity-header-{{ $activityId }}" class="bg-gray-100 dark:bg-gray-700 font-semibold">
                                     <td class="border border-gray-400 dark:border-gray-600 p-1 text-left" title="{{ $activityGroup['activity_name'] }}">
                                         <span class="font-bold text-gray-900 dark:text-gray-100">
                                             {{ Str::limit($activityGroup['activity_name'], 8, '') }}
@@ -278,7 +278,7 @@
                                 
                                 {{-- Individual Workers in this Activity --}}
                                 @foreach($activityGroup['workers'] as $workerIndex => $data)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <tr wire:key="worker-{{ $activityId }}-{{ $data['worker']->id }}" class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                         <td class="border border-gray-400 dark:border-gray-600 p-1 text-left">
                                             <span class="text-gray-700 dark:text-gray-300">-</span>
                                         </td>
