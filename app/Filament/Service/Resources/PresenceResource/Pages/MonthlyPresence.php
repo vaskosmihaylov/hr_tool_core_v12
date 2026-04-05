@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use viki\Service\Models\Elequent\Approvement;
 use viki\Service\Models\Elequent\SpecialDay;
+use viki\Service\Models\Elequent\WorkPlaceActivityMonthSnapshot;
 
 class MonthlyPresence extends Page
 {
@@ -232,6 +233,14 @@ class MonthlyPresence extends Page
 
         $this->isLocked = true;
 
+        // Snapshot activity data so locked months are not affected by future edits.
+        $normalizedDate = sprintf("%04d-%02d-01", $this->year, $this->month);
+        WorkPlaceActivityMonthSnapshot::snapshotActivities(
+            $this->workplace,
+            $normalizedDate,
+            Auth::id()
+        );
+
         // Copy worker/activity assignments to next month, but keep next-month hours empty.
         $this->copyWorkersToNextMonth();
 
@@ -257,6 +266,15 @@ class MonthlyPresence extends Page
         );
 
         $this->isLocked = false;
+
+        // Remove snapshots so the month uses live activity data again.
+        $normalizedDate = sprintf("%04d-%02d-01", $this->year, $this->month);
+        WorkPlaceActivityMonthSnapshot::where("work_place_id", $this->workplace)
+            ->where("date", $normalizedDate)
+            ->delete();
+
+        $this->reloadData();
+
         $this->showSuccessNotification("Месецът е отключен успешно.");
     }
 
@@ -598,6 +616,7 @@ class MonthlyPresence extends Page
     {
         $start = $this->getMonthStartDate();
         $end = $start->copy()->endOfMonth();
+        $normalizedDate = sprintf("%04d-%02d-01", $this->year, $this->month);
 
         // Use only base activities for monthly presence management.
         $activities = WorkPlaceActivity::where(
@@ -609,9 +628,32 @@ class MonthlyPresence extends Page
             ->orderBy("activity")
             ->get();
 
+        // Load snapshots for this month (only populated for locked months).
+        $snapshots = WorkPlaceActivityMonthSnapshot::getForMonth(
+            $this->workplace,
+            $normalizedDate
+        );
+
         $groupedByActivity = [];
 
         foreach ($activities as $activity) {
+            // If a snapshot exists for this activity, overlay its values so that
+            // salary/name/worker_count changes made after locking are ignored.
+            $snapshot = $snapshots->get($activity->id);
+            $effectiveSalary = $snapshot
+                ? (float) $snapshot->neto_salary
+                : (float) $activity->neto_salary;
+            $effectiveName = $snapshot
+                ? $snapshot->activity
+                : $activity->activity;
+            $effectiveCount = $snapshot
+                ? (int) $snapshot->worker_count
+                : (int) ($activity->worker_count ?? 0);
+            $effectiveType = $snapshot
+                ? (int) $snapshot->type_working
+                : (int) $activity->type_working;
+            $snapshotHoursPerDay = $snapshot ? $snapshot->hours_per_day : null;
+
             $records = WorkerRecord::where("work_place_id", $this->workplace)
                 ->where("work_place_activity_id", $activity->id)
                 ->whereBetween("date", [
@@ -637,20 +679,22 @@ class MonthlyPresence extends Page
             $monthKey = sprintf("%02d-%d", $this->month, $this->year);
             $hourRate = $this->getHourCostOnWorkPlaceActivityByDate(
                 $activity,
-                $monthKey
+                $monthKey,
+                $effectiveSalary,
+                $snapshotHoursPerDay
             );
             $monthlyHours = $this->getActivityWorkingHoursForDate(
                 $activity,
-                $monthKey
+                $monthKey,
+                $snapshotHoursPerDay
             );
-            $workerCount = (int) ($activity->worker_count ?? 0);
-            $maxBudget = $activity->neto_salary * $workerCount;
-            $maxHours = $monthlyHours * $workerCount;
+            $maxBudget = $effectiveSalary * $effectiveCount;
+            $maxHours = $monthlyHours * $effectiveCount;
 
             $groupedByActivity[$activity->id] = [
                 "activity" => $activity,
-                "activity_name" => $activity->activity,
-                "activity_salary" => $activity->neto_salary,
+                "activity_name" => $effectiveName,
+                "activity_salary" => $effectiveSalary,
                 "hour_rate" => $hourRate,
                 "workers" => [],
                 "group_totals" => [
@@ -1569,32 +1613,40 @@ class MonthlyPresence extends Page
     // Helper methods ported from PresenceController
     private function getHourCostOnWorkPlaceActivityByDate(
         $workPlaceActivity,
-        $date
+        $date,
+        ?float $overrideSalary = null,
+        ?float $overrideHoursPerDay = null
     ): float {
         $workPlaceActivityWorkingHours = $this->getActivityWorkingHoursForDate(
             $workPlaceActivity,
-            $date
+            $date,
+            $overrideHoursPerDay
         );
 
         if ($workPlaceActivityWorkingHours === 0) {
             return 0;
         }
 
-        return $workPlaceActivity->neto_salary / $workPlaceActivityWorkingHours;
+        $salary = $overrideSalary ?? $workPlaceActivity->neto_salary;
+
+        return $salary / $workPlaceActivityWorkingHours;
     }
 
     private function getActivityWorkingHoursForDate(
         $workPlaceActivity,
-        $date
+        $date,
+        ?float $overrideHoursPerDay = null
     ): float {
         $workPlaceActivityHours = $workPlaceActivity
             ->hours()
             ->where("date", sprintf("%04d-%02d-01", $this->year, $this->month))
             ->first();
 
-        $hoursPerDay = (int) WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity(
-            $workPlaceActivity->id
-        );
+        $hoursPerDay = $overrideHoursPerDay
+            ? (int) $overrideHoursPerDay
+            : (int) WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity(
+                $workPlaceActivity->id
+            );
         if (
             $hoursPerDay <= 0 &&
             preg_match(

@@ -1,5 +1,32 @@
 <x-filament-panels::page>
     <div class="space-y-6">
+        @if($isLocked)
+            <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 mb-6">
+                <div class="flex items-start">
+                    <x-heroicon-o-lock-closed class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 mr-2 flex-shrink-0" />
+                    <div class="text-sm text-red-700 dark:text-red-200">
+                        <strong>Месецът е заключен.</strong> Не можете да променяте конфигурацията на часовете за заключен месец.
+                        Отключете месеца от месечната таблица, за да правите промени.
+                    </div>
+                </div>
+            </div>
+        @else
+            <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 mb-6">
+                <div class="flex items-start">
+                    <x-heroicon-o-exclamation-triangle class="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 mr-2 flex-shrink-0" />
+                    <div class="text-sm text-amber-700 dark:text-amber-200">
+                        <strong>Внимание:</strong> Промените ще засегнат всички незаключени месеци.
+                        Заключените месеци запазват стойностите си непроменени.
+                        @if($isPastMonth)
+                            <div class="mt-2 font-semibold text-amber-800 dark:text-amber-100">
+                                ⚠ Редактирате незаключен минал месец. Промените ще променят и други незаключени месеци.
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        @endif
+
         @if($activities->count() > 0)
             <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
                 <div class="flex items-start">
@@ -17,7 +44,9 @@
             </div>
 
             <form wire:submit="save">
-                {{ $this->form }}
+                <fieldset @if($isLocked) disabled @endif>
+                    {{ $this->form }}
+                </fieldset>
             </form>
         @else
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">

@@ -1,5 +1,15 @@
 <x-filament-panels::page>
     <div class="space-y-6">
+        <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4">
+            <div class="flex items-start">
+                <x-heroicon-o-exclamation-triangle class="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 mr-2 flex-shrink-0" />
+                <div class="text-sm text-amber-700 dark:text-amber-200">
+                    <strong>Внимание:</strong> Промените по дейностите (заплата, брой работници, име)
+                    ще засегнат всички <strong>незаключени</strong> месеци. Заключените месеци запазват стойностите си непроменени.
+                </div>
+            </div>
+        </div>
+
         <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
