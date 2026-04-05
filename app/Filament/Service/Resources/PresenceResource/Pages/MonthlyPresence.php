@@ -818,8 +818,9 @@ class MonthlyPresence extends Page
             ->where("copied", WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->get();
 
-        // Collect all worker IDs assigned to these activities
+        // Collect all worker IDs assigned to these activities (from pivot and records)
         $workerIds = collect();
+        $end = $start->copy()->endOfMonth();
         foreach ($activities as $activity) {
             // Get workers from pivot table for this month
             $pivotWorkerIds = $activity
@@ -827,7 +828,22 @@ class MonthlyPresence extends Page
                 ->wherePivot("date", $start->toDateString())
                 ->pluck("viki_workers.id");
 
-            $workerIds = $workerIds->merge($pivotWorkerIds);
+            // Also get workers who have records for this activity/month
+            $recordWorkerIds = WorkerRecord::where(
+                "work_place_id",
+                $this->workplace
+            )
+                ->where("work_place_activity_id", $activity->id)
+                ->whereBetween("date", [
+                    $start->toDateString(),
+                    $end->toDateString(),
+                ])
+                ->distinct()
+                ->pluck("worker_id");
+
+            $workerIds = $workerIds
+                ->merge($pivotWorkerIds)
+                ->merge($recordWorkerIds);
         }
 
         $workerIds = $workerIds->unique();
@@ -985,8 +1001,9 @@ class MonthlyPresence extends Page
             $this->vacationData[$workerId] = [];
         }
 
-        $current = max($vacStart, $startDate);
-        $end = min($vacEnd, $endDate);
+        // Use copies to prevent mutating the original dateRange Carbon objects
+        $current = max($vacStart, $startDate)->copy();
+        $end = min($vacEnd, $endDate)->copy();
 
         while ($current <= $end) {
             $this->vacationData[$workerId][$current->day] = [
