@@ -1,6 +1,5 @@
 <?php
 
-
 namespace viki\Service\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -32,107 +31,148 @@ use viki\Service\Traits\PresenceTableTrait;
 
 class PresenceController extends Controller
 {
-    use AuthorizesRequests, ValidatesRequests, ApprovalTrait, PresenceTableTrait;
+    use AuthorizesRequests,
+        ValidatesRequests,
+        ApprovalTrait,
+        PresenceTableTrait;
 
     public function index($workPlaceId = null, $date = null)
     {
         $availableMonths = [
-            date('m-Y', strtotime(date('Y-m')." -1 month")),
-            date('m-Y', strtotime(date('Y-m'))),
-            date('m-Y', strtotime(date('Y-m')." +1 month")),
+            date("m-Y", strtotime(date("Y-m") . " -1 month")),
+            date("m-Y", strtotime(date("Y-m"))),
+            date("m-Y", strtotime(date("Y-m") . " +1 month")),
         ];
 
         $availableMonths = array_combine($availableMonths, $availableMonths);
 
         if ($date) {
-
             if (in_array($date, $availableMonths)) {
-
                 $arr = explode("-", $date, 2);
                 $month = $arr[0];
                 $year = $arr[1];
             } else {
                 abort(404);
             }
-
         } else {
-            $month = date('m');
-            $year = date('Y');
+            $month = date("m");
+            $year = date("Y");
         }
 
-        $selectedDate = $month . '-'. $year;
+        $selectedDate = $month . "-" . $year;
 
         $weekDays = $this->getAllNonWorkingDays($month, $year);
 
         $monthDays = cal_days_in_month(CAL_GREGORIAN, $month, $year);
 
         $user = VikiUser::find(Auth::user()->id);
-		
-        if (Auth::user()->hasRole('manager')) {
-           // $userWorkPlaces = $user->regions()->first()->activeWorkPlaces()->orderBy('name')->get();
-		     $region_id = VikiUser::getCurrentUserRegionId(Auth::user()->id);
-             $userWorkPlaces = WorkPlace::where('status', WorkPlace::WORK_PLACE_ACTIVE)
-                              ->whereIn('viki_work_place.region_id', $region_id)->orderBy('name')->get();
 
-        } else if (Auth::user()->hasRole('supervisor')) {
-            $userWorkPlaces = $user->activeWorkPlaces()->orderBy('name')->get();
-
-        } else if (Auth::user()->hasRole('admin')) {
-            $userWorkPlaces = WorkPlace::where('status', WorkPlace::WORK_PLACE_ACTIVE)->orderBy('name')->get();
+        if (Auth::user()->hasRole("manager")) {
+            // $userWorkPlaces = $user->regions()->first()->activeWorkPlaces()->orderBy('name')->get();
+            $region_id = VikiUser::getCurrentUserRegionId(Auth::user()->id);
+            $userWorkPlaces = WorkPlace::where(
+                "status",
+                WorkPlace::WORK_PLACE_ACTIVE
+            )
+                ->whereIn("viki_work_place.region_id", $region_id)
+                ->orderBy("name")
+                ->get();
+        } elseif (Auth::user()->hasRole("supervisor")) {
+            $userWorkPlaces = $user->activeWorkPlaces()->orderBy("name")->get();
+        } elseif (Auth::user()->hasRole("admin")) {
+            $userWorkPlaces = WorkPlace::where(
+                "status",
+                WorkPlace::WORK_PLACE_ACTIVE
+            )
+                ->orderBy("name")
+                ->get();
         }
 
         if ($workPlaceId) {
             $selectedWorkPlace = WorkPlace::findOrFail($workPlaceId);
-        } else if ($userWorkPlaces->count()) {
-
+        } elseif ($userWorkPlaces->count()) {
             $selectedWorkPlace = $userWorkPlaces->first();
             $workPlaceId = $selectedWorkPlace->id;
         }
 
-        $userWorkPlaces = $userWorkPlaces->pluck('name', 'id');
+        $userWorkPlaces = $userWorkPlaces->pluck("name", "id");
 
         if ($workPlaceId) {
+            $tableNotEditable = "false";
 
-            $tableNotEditable = 'false';
+            $selectedWorkPlaceActivities = WorkPlaceActivity::where(
+                "work_place_id",
+                "=",
+                $selectedWorkPlace->id
+            )
+                ->where("date", "!=", null)
+                ->where(function ($q) use ($selectedDate) {
+                    $date = date_format(
+                        date_create_from_format(
+                            "d-m-Y",
+                            "01" . "-" . $selectedDate
+                        ),
+                        "Y-m-d"
+                    );
 
-            $selectedWorkPlaceActivities = WorkPlaceActivity::where('work_place_id','=',$selectedWorkPlace->id)
-                ->where('date' , '!=', null)
-                ->where(function($q) use ($selectedDate) {
-
-                    $date = date_format(date_create_from_format('d-m-Y', '01' . '-' . $selectedDate), 'Y-m-d');
-
-                    $q->where('date', $date)
-                        ->orWhere('date', null);
+                    $q->where("date", $date)->orWhere("date", null);
                 })
                 ->get();
 
             if ($selectedWorkPlaceActivities->count() > 0) {
+                $tableData = $this->prepareTableData(
+                    $selectedWorkPlaceActivities,
+                    $selectedDate,
+                    $selectedWorkPlace
+                );
 
-                $tableData = $this->prepareTableData($selectedWorkPlaceActivities, $selectedDate, $selectedWorkPlace);
-
-                $waitingApprovalsCount = Approvement::where('status', Approvement::STATUS_NEW)
-                    ->where('work_place_id', $workPlaceId)
-                    ->where('date', 'like', date_format(date_create_from_format('d-m-Y', '01' . '-' . $selectedDate), 'Y-m-') . '%')
+                $waitingApprovalsCount = Approvement::where(
+                    "status",
+                    Approvement::STATUS_NEW
+                )
+                    ->where("work_place_id", $workPlaceId)
+                    ->where(
+                        "date",
+                        "like",
+                        date_format(
+                            date_create_from_format(
+                                "d-m-Y",
+                                "01" . "-" . $selectedDate
+                            ),
+                            "Y-m-"
+                        ) . "%"
+                    )
                     ->count();
 
                 if ($waitingApprovalsCount > 0) {
-                    $tableNotEditable = 'true';
+                    $tableNotEditable = "true";
                 }
             } else {
-
                 $tableData = null;
-                $tableNotEditable = 'true';
+                $tableNotEditable = "true";
             }
-			$checkIfAlreadyCopied = WorkPlaceActivity::checkIfActivitiesAreCopied($workPlaceId, $year, $month);
+            $checkIfAlreadyCopied = WorkPlaceActivity::checkIfActivitiesAreCopied(
+                $workPlaceId,
+                $year,
+                $month
+            );
 
             $tableIsFinished = false;
 
             if ($tableData) {
-
                 foreach ($tableData as $tableDatum) {
-                    foreach ($tableDatum['workPlaceActivityWorkers'] as $workPlaceActivityWorker) {
-                        foreach ($workPlaceActivityWorker->workerRecords as $workerRecord) {
-                            if ((int)$workerRecord->status === WorkerRecord::WORKER_RECORD_FINISHED) {
+                    foreach (
+                        $tableDatum["workPlaceActivityWorkers"]
+                        as $workPlaceActivityWorker
+                    ) {
+                        foreach (
+                            $workPlaceActivityWorker->workerRecords
+                            as $workerRecord
+                        ) {
+                            if (
+                                (int) $workerRecord->status ===
+                                WorkerRecord::WORKER_RECORD_FINISHED
+                            ) {
                                 $tableIsFinished = true;
                             }
                         }
@@ -141,39 +181,79 @@ class PresenceController extends Controller
             }
 
             if ($tableIsFinished) {
-                $tableNotEditable = 'true';
+                $tableNotEditable = "true";
             }
 
-            return view('service::presence.index', compact('weekDays','checkIfAlreadyCopied', 'monthDays', 'tableData','selectedWorkPlace', 'userWorkPlaces', 'workPlaceId', 'availableMonths', 'selectedDate', 'tableNotEditable', 'tableIsFinished'));
+            return view(
+                "service::presence.index",
+                compact(
+                    "weekDays",
+                    "checkIfAlreadyCopied",
+                    "monthDays",
+                    "tableData",
+                    "selectedWorkPlace",
+                    "userWorkPlaces",
+                    "workPlaceId",
+                    "availableMonths",
+                    "selectedDate",
+                    "tableNotEditable",
+                    "tableIsFinished"
+                )
+            );
         } else {
             $tableData = null;
             $selectedWorkPlace = null;
-            $tableNotEditable = 'true';
+            $tableNotEditable = "true";
             $tableIsFinished = false;
 
-			$checkIfAlreadyCopied = WorkPlaceActivity::checkIfActivitiesAreCopied($workPlaceId, $year, $month);
-		
-            return view('service::presence.index', compact('weekDays','checkIfAlreadyCopied' , 'monthDays', 'tableData','selectedWorkPlace', 'userWorkPlaces', 'workPlaceId', 'availableMonths', 'selectedDate', 'tableNotEditable', 'tableIsFinished'));
+            $checkIfAlreadyCopied = WorkPlaceActivity::checkIfActivitiesAreCopied(
+                $workPlaceId,
+                $year,
+                $month
+            );
+
+            return view(
+                "service::presence.index",
+                compact(
+                    "weekDays",
+                    "checkIfAlreadyCopied",
+                    "monthDays",
+                    "tableData",
+                    "selectedWorkPlace",
+                    "userWorkPlaces",
+                    "workPlaceId",
+                    "availableMonths",
+                    "selectedDate",
+                    "tableNotEditable",
+                    "tableIsFinished"
+                )
+            );
         }
     }
-	
+
     public function saveTableData(Request $request)
     {
-        $requestData = json_decode($request->all()['json'], true);
+        $requestData = json_decode($request->all()["json"], true);
 
-        $workPlaceId = $requestData['workPlaceId'];
-        $date = $requestData['date'];
-        $userData = $requestData['userData'];
+        $workPlaceId = $requestData["workPlaceId"];
+        $date = $requestData["date"];
+        $userData = $requestData["userData"];
 
         $extraHours = [];
 
-        foreach ($userData as $key =>  $userDatum) {
-
-            if (is_numeric($userDatum['hours'])) {
-                if (array_key_exists($userDatum['workPlaceActivityId'], $extraHours)) {
-                    $extraHours[$userDatum['workPlaceActivityId']] += $userDatum['hours'];
+        foreach ($userData as $key => $userDatum) {
+            if (is_numeric($userDatum["hours"])) {
+                if (
+                    array_key_exists(
+                        $userDatum["workPlaceActivityId"],
+                        $extraHours
+                    )
+                ) {
+                    $extraHours[$userDatum["workPlaceActivityId"]] +=
+                        $userDatum["hours"];
                 } else {
-                    $extraHours[$userDatum['workPlaceActivityId']] = $userDatum['hours'];
+                    $extraHours[$userDatum["workPlaceActivityId"]] =
+                        $userDatum["hours"];
                 }
             } else {
                 unset($userData[$key]);
@@ -183,55 +263,95 @@ class PresenceController extends Controller
         DB::beginTransaction();
 
         try {
+            $checkOverBudget = $this->checkIfInBudget(
+                $workPlaceId,
+                $date,
+                $userData
+            );
 
-            $checkOverBudget = $this->checkIfInBudget($workPlaceId, $date, $userData);
-
-            if ($checkOverBudget['inBudget'] === true) {
-
+            if ($checkOverBudget["inBudget"] === true) {
                 foreach ($userData as $userDatum) {
-                    $this->saveWorkerRecord($userDatum, $workPlaceId, $date, WorkerRecord::WORKER_RECORD_APPROVED);
+                    $this->saveWorkerRecord(
+                        $userDatum,
+                        $workPlaceId,
+                        $date,
+                        WorkerRecord::WORKER_RECORD_APPROVED
+                    );
                 }
 
                 DB::commit();
-
             } else {
+                $approvalId = $this->createApproveRequest(
+                    $workPlaceId,
+                    $date,
+                    $checkOverBudget["overBudget"]
+                );
 
-                $approvalId = $this->createApproveRequest($workPlaceId, $date, $checkOverBudget['overBudget']);
-
-                if (count($checkOverBudget['dataNegativeValueKeys']) > 0) {
-
-                    foreach ($checkOverBudget['dataNegativeValueKeys'] as $negativeValueKey) {
-                        $this->saveWorkerRecord($userData[$negativeValueKey], $workPlaceId, $date, WorkerRecord::WORKER_RECORD_APPROVED);
+                if (count($checkOverBudget["dataNegativeValueKeys"]) > 0) {
+                    foreach (
+                        $checkOverBudget["dataNegativeValueKeys"]
+                        as $negativeValueKey
+                    ) {
+                        $this->saveWorkerRecord(
+                            $userData[$negativeValueKey],
+                            $workPlaceId,
+                            $date,
+                            WorkerRecord::WORKER_RECORD_APPROVED
+                        );
                         unset($userData[$negativeValueKey]);
                     }
 
-                    $checkOverBudget = $this->checkIfInBudget($workPlaceId, $date, $userData);
+                    $checkOverBudget = $this->checkIfInBudget(
+                        $workPlaceId,
+                        $date,
+                        $userData
+                    );
                 }
 
                 DB::commit();
 
                 foreach ($userData as $userDatum) {
-
-                    if (($checkOverBudget['freeBudgetBeforeChange'] - ($checkOverBudget['workPlaceActivityCostForHour'][$userDatum['workPlaceActivityId']] * $userDatum['hours'])) >= 0) {
-
-                        $checkOverBudget['freeBudgetBeforeChange'] = $checkOverBudget['freeBudgetBeforeChange'] - ($checkOverBudget['workPlaceActivityCostForHour'][$userDatum['workPlaceActivityId']] * $userDatum['hours']);
-                        $this->saveWorkerRecord($userDatum, $workPlaceId, $date, WorkerRecord::WORKER_RECORD_APPROVED);
-
+                    if (
+                        $checkOverBudget["freeBudgetBeforeChange"] -
+                            $checkOverBudget["workPlaceActivityCostForHour"][
+                                $userDatum["workPlaceActivityId"]
+                            ] *
+                                $userDatum["hours"] >=
+                        0
+                    ) {
+                        $checkOverBudget["freeBudgetBeforeChange"] =
+                            $checkOverBudget["freeBudgetBeforeChange"] -
+                            $checkOverBudget["workPlaceActivityCostForHour"][
+                                $userDatum["workPlaceActivityId"]
+                            ] *
+                                $userDatum["hours"];
+                        $this->saveWorkerRecord(
+                            $userDatum,
+                            $workPlaceId,
+                            $date,
+                            WorkerRecord::WORKER_RECORD_APPROVED
+                        );
                     } else {
-
-                        $this->saveWorkerRecord($userDatum, $workPlaceId, $date, WorkerRecord::WORKER_RECORD_WAITING, $approvalId);
+                        $this->saveWorkerRecord(
+                            $userDatum,
+                            $workPlaceId,
+                            $date,
+                            WorkerRecord::WORKER_RECORD_WAITING,
+                            $approvalId
+                        );
                     }
                 }
             }
 
             DB::commit();
-
         } catch (\Exception $e) {
             DB::rollback();
         }
 
-        return redirect()->route('service.presence.show.workplace.date', ['workPlaceId' => $workPlaceId, 'date' => $date]);
-
+        return redirect()->route("service.presence.show.workplace.date", [
+            "workPlaceId" => $workPlaceId,
+            "date" => $date,
+        ]);
     }
 
     public function editActivity($id, $date)
@@ -240,101 +360,147 @@ class PresenceController extends Controller
         $arr = explode("-", $date);
         $month = $arr[0];
         $year = $arr[1];
-        $newDate = $arr[1]."-".$arr[0]."-01";
-        $hours = HoursActivityByMonth::where('work_place_activity_id','=',$workplaceActivity->id)
-            ->where('date','=',$newDate)
-            ->get()->toArray();
+        $newDate = $arr[1] . "-" . $arr[0] . "-01";
+        $hours = HoursActivityByMonth::where(
+            "work_place_activity_id",
+            "=",
+            $workplaceActivity->id
+        )
+            ->where("date", "=", $newDate)
+            ->get()
+            ->toArray();
         $hour = 0;
-        if(count($hours)!= 0){
-            $hour = $hours[0]['hours_for_person'];
+        if (count($hours) != 0) {
+            $hour = $hours[0]["hours_for_person"];
         }
 
-        return view('service::presence.form_workplace_activitiesbymonth_edit',
-            [
-                'workplaceActivity' => $workplaceActivity,
-                'hour'             => $hour,
-                'date'            => $newDate
-            ]);
-
+        return view("service::presence.form_workplace_activitiesbymonth_edit", [
+            "workplaceActivity" => $workplaceActivity,
+            "hour" => $hour,
+            "date" => $newDate,
+        ]);
     }
 
-    public function updateActivity(Request $request, $id , $date)
+    public function updateActivity(Request $request, $id, $date)
     {
-        try{
-
+        try {
             $workplaceActivity = WorkPlaceActivity::findOrFail($id);
 
-            if(!empty($workplaceActivity->date)) {
+            if (!empty($workplaceActivity->date)) {
                 $workplaceActivity->update($request->all());
             }
             $arr = explode("-", $date);
             $month = $arr[1];
             $year = $arr[0];
-            $newDate = $arr[0]."-".$arr[1]."-01";
+            $newDate = $arr[0] . "-" . $arr[1] . "-01";
 
             //история
             activity()
                 ->performedOn($workplaceActivity)
                 ->causedBy(Auth::user())
-                ->withProperties(['customProperty' => 'customValue'])
-                ->log('променена временна дейност: '.$workplaceActivity->activity.' за дата '.$date.'и  обект '.$workplaceActivity->workplace->name);
+                ->withProperties(["customProperty" => "customValue"])
+                ->log(
+                    "променена временна дейност: " .
+                        $workplaceActivity->activity .
+                        " за дата " .
+                        $date .
+                        "и  обект " .
+                        $workplaceActivity->workplace->name
+                );
             //add na chasovete
             $hoursPerson = $request->all();
-            $hoursPerson = $hoursPerson['hours_for_person'];
+            $hoursPerson = $hoursPerson["hours_for_person"];
             HoursActivityByMonth::updateOrCreate(
                 [
-                    'work_place_activity_id' => $workplaceActivity->id,
-                    'date' => $newDate,
+                    "work_place_activity_id" => $workplaceActivity->id,
+                    "date" => $newDate,
                 ],
                 [
-                    'hours_for_person' => $hoursPerson,
-                    'created_by' =>  Auth::id()
+                    "hours_for_person" => $hoursPerson,
+                    "created_by" => Auth::id(),
                 ]
             );
 
-            $dates = explode('-',$date);
+            $dates = explode("-", $date);
 
-            return redirect('service/presence/config/'.$workplaceActivity->work_place_id.'/'.$dates[1].'-'.$dates[0])->with('flash_message', 'Редактирахте дейността!');
-
-        }  catch ( \Illuminate\Database\QueryException $e) {
-
-            return Redirect::back()->withErrors(['Грешка']);
+            return redirect(
+                "service/presence/config/" .
+                    $workplaceActivity->work_place_id .
+                    "/" .
+                    $dates[1] .
+                    "-" .
+                    $dates[0]
+            )->with("flash_message", "Редактирахте дейността!");
+        } catch (\Illuminate\Database\QueryException $e) {
+            return Redirect::back()->withErrors(["Грешка"]);
         }
     }
 
-    public function createWorkPlaceActivityByMonth(WorkPlaceActivityByMonthRequest $request, $id, $date)
-    {
-        try{
+    public function createWorkPlaceActivityByMonth(
+        WorkPlaceActivityByMonthRequest $request,
+        $id,
+        $date
+    ) {
+        try {
             //id is the activity id
             DB::beginTransaction();
-            $dateArr = explode('-',$date);
-            $attributes['date'] = $dateArr[1]."-".$dateArr[0]."-01";
-            $date  = $attributes['date'];
-            $workplaceActivity = WorkPlaceActivity::create($request->all(), $id, $date);
+            $dateArr = explode("-", $date);
+            $attributes["date"] = $dateArr[1] . "-" . $dateArr[0] . "-01";
+            $date = $attributes["date"];
+            $workplaceActivity = WorkPlaceActivity::create(
+                $request->all(),
+                $id,
+                $date
+            );
             $all = $request->all();
 
-            $checkBudget = self::checkTheWorkplaceBudget($request->all(), $workplaceActivity->work_place_id, $date, $id);
+            $checkBudget = self::checkTheWorkplaceBudget(
+                $request->all(),
+                $workplaceActivity->work_place_id,
+                $date,
+                $id
+            );
 
-            if($checkBudget == false) {
+            if ($checkBudget == false) {
                 DB::rollBack();
-                return Redirect::back()->withErrors('Добавяйки тази дейност надвишавате бюджета на обекта!')->withInput();
+                return Redirect::back()
+                    ->withErrors(
+                        "Добавяйки тази дейност надвишавате бюджета на обекта!"
+                    )
+                    ->withInput();
             }
 
-            $insertHours = HoursActivityByMonth::create($all['hours_for_person'], $workplaceActivity->id, $date);
-            $dates = explode('-',$date);
+            $insertHours = HoursActivityByMonth::create(
+                $all["hours_for_person"],
+                $workplaceActivity->id,
+                $date
+            );
+            $dates = explode("-", $date);
             //история
             activity()
                 ->performedOn($workplaceActivity)
                 ->causedBy(Auth::user())
-                ->withProperties(['customProperty' => 'customValue'])
-                ->log('добавена нова временна дейност: '.$workplaceActivity->activity.' за дата '.$date.' и  обект '.$workplaceActivity->workplace->name);
+                ->withProperties(["customProperty" => "customValue"])
+                ->log(
+                    "добавена нова временна дейност: " .
+                        $workplaceActivity->activity .
+                        " за дата " .
+                        $date .
+                        " и  обект " .
+                        $workplaceActivity->workplace->name
+                );
 
             DB::commit();
 
-            return redirect('service/presence/config/'.$workplaceActivity->work_place_id.'/'.$dates[1].'-'.$dates[0])->with('flash_message', 'Добавихте дейността!');
-
+            return redirect(
+                "service/presence/config/" .
+                    $workplaceActivity->work_place_id .
+                    "/" .
+                    $dates[1] .
+                    "-" .
+                    $dates[0]
+            )->with("flash_message", "Добавихте дейността!");
         } catch (Exception $ex) {
-
             DB::rollBack();
             return Redirect::back()->withErrors($ex);
         }
@@ -342,70 +508,94 @@ class PresenceController extends Controller
 
     public function storeAddWorkerRecords(Request $request, $workPlaceId, $date)
     {
-        try{
+        try {
             $workplace = WorkPlace::findOrFail($workPlaceId);
-            $workplaceActivity = WorkPlaceActivity::findOrFail($request->work_place_activity_id);
+            $workplaceActivity = WorkPlaceActivity::findOrFail(
+                $request->work_place_activity_id
+            );
             $dates = explode("-", $date);
-            $date = $dates[1].'-'.$dates[0].'-01';
+            $date = $dates[1] . "-" . $dates[0] . "-01";
             $worker = Worker::findOrFail($request->worker_id);
 
             ///attach worker to activity and place for the chossen month
-            $workplace->temporaryWorkers()->save($worker, ['date'=>$date]);
-            $workplaceActivity->temporaryWorkers()->save($worker, ['date'=>$date]);
-			//add automatic users if worker and workplaceactivity are standart
-			if (($workplaceActivity->type_working == WorkPlaceActivity::WORKING_STANDART))
-			{	
-				
-				
-				$dateCompare = $dates[1].'-'.$dates[0].'-01';
-				$lastDayOfMonth = date("Y-m-t", strtotime($dateCompare));
-				$startDate = $worker->start_date;
-				$startDateMonthYear =  date("Y", strtotime($startDate));
-                $startDateMonth =  date("m", strtotime($startDate));
+            $workplace->temporaryWorkers()->save($worker, ["date" => $date]);
+            $workplaceActivity
+                ->temporaryWorkers()
+                ->save($worker, ["date" => $date]);
+            //add automatic users if worker and workplaceactivity are standart
+            if (
+                $workplaceActivity->type_working ==
+                WorkPlaceActivity::WORKING_STANDART
+            ) {
+                $dateCompare = $dates[1] . "-" . $dates[0] . "-01";
+                $lastDayOfMonth = date("Y-m-t", strtotime($dateCompare));
+                $startDate = $worker->start_date;
+                $startDateMonthYear = date("Y", strtotime($startDate));
+                $startDateMonth = date("m", strtotime($startDate));
                 $lastDayOnlyMonthYear = date("Y", strtotime($dateCompare));
-				
-				if ($startDateMonthYear < $lastDayOnlyMonthYear) {
-                        $startDate = $dates[1].'-'.$dates[0].'-01';
 
-                 }
-				if (($startDateMonthYear == $lastDayOnlyMonthYear)
-					&& ($startDateMonth < $dates[0])){
-					$startDate = $dates[1].'-'.$dates[0].'-01';
-
-				}
+                if ($startDateMonthYear < $lastDayOnlyMonthYear) {
+                    $startDate = $dates[1] . "-" . $dates[0] . "-01";
+                }
+                if (
+                    $startDateMonthYear == $lastDayOnlyMonthYear &&
+                    $startDateMonth < $dates[0]
+                ) {
+                    $startDate = $dates[1] . "-" . $dates[0] . "-01";
+                }
                 if ($startDate <= $lastDayOfMonth) {
-					$this->insertStandartWorkingPeople($worker, $startDate, $lastDayOfMonth, $workplaceActivity, $workplaceActivity);
-				}
-			}
+                    $this->insertStandartWorkingPeople(
+                        $worker,
+                        $startDate,
+                        $lastDayOfMonth,
+                        $workplaceActivity,
+                        $workplaceActivity
+                    );
+                }
+            }
             //история
             activity()
                 ->performedOn($workplaceActivity)
                 ->causedBy(Auth::user())
-                ->withProperties(['customProperty' => 'customValue'])
-                ->log('добавен работник: '.$worker->name.' '.$worker->family_name.' към присъствената форма за дата '.$date.'и за обект '.$workplace->name);
+                ->withProperties(["customProperty" => "customValue"])
+                ->log(
+                    "добавен работник: " .
+                        $worker->name .
+                        " " .
+                        $worker->family_name .
+                        " към присъствената форма за дата " .
+                        $date .
+                        "и за обект " .
+                        $workplace->name
+                );
 
-            return Redirect::back()->with('flash_message', 'Добавихте работника!');
-
+            return Redirect::back()->with(
+                "flash_message",
+                "Добавихте работника!"
+            );
         } catch (\Exception $e) {
-            return Redirect::back()->withErrors('Този работник вече е закачен към тази дейност!');
-		}
+            return Redirect::back()->withErrors(
+                "Този работник вече е закачен към тази дейност!"
+            );
+        }
     }
 
     public function viewFormWorkPlaceActivityAdd($id, $date)
     {
-        $workplaceActivities = WorkPlaceActivity::where('work_place_id','=',$id)->paginate(5);
+        $workplaceActivities = WorkPlaceActivity::where(
+            "work_place_id",
+            "=",
+            $id
+        )->paginate(5);
         $workplace = WorkPlace::find($id);
         $typesWork = WorkPlaceActivity::workerTypeWorking();
 
-
-        return view('service::presence.form_workplace_activities',
-            [
-                'workplaceActivities' => $workplaceActivities,
-                'workplace' => $workplace,
-                'typesWork' => $typesWork,
-                'date' => $date
-
-            ]);
+        return view("service::presence.form_workplace_activities", [
+            "workplaceActivities" => $workplaceActivities,
+            "workplace" => $workplace,
+            "typesWork" => $typesWork,
+            "date" => $date,
+        ]);
     }
 
     public function viewAddWorker($workPlaceId, $date)
@@ -416,168 +606,170 @@ class PresenceController extends Controller
         $workPlace = WorkPlace::find($workPlaceId);
         $region_id = $workPlace->region_id;
         $workplaceName = $workPlace->name;
-        if(!empty($region_id)) {
+        if (!empty($region_id)) {
             //get the workers in the region
-            $dateCompare =$dates[1]."-".$dates[0]."-01";
+            $dateCompare = $dates[1] . "-" . $dates[0] . "-01";
             $lastDayOfMonth = date("Y-m-t", strtotime($dateCompare));
-            $workers = Worker::where('region_id', '=',$region_id)
-                ->where('status','=',WORKER::USER_ACTIVE)
-                ->where('start_date','<=',$lastDayOfMonth)
-				->orderBy('name')
-                ->orderBy('family_name')
+            $workers = Worker::where("region_id", "=", $region_id)
+                ->where("status", "=", WORKER::USER_ACTIVE)
+                ->where("start_date", "<=", $lastDayOfMonth)
+                ->orderBy("name")
+                ->orderBy("family_name")
                 ->get();
 
             // retrieve the month
-            $workPlaceActivityByMonth = WorkPlaceActivity::where('work_place_id','=',$workPlaceId)
-                ->where('date','like','%' . $dates[1]."-".$dates[0]."-" . '%')
+            $workPlaceActivityByMonth = WorkPlaceActivity::where(
+                "work_place_id",
+                "=",
+                $workPlaceId
+            )
+                ->where(
+                    "date",
+                    "like",
+                    "%" . $dates[1] . "-" . $dates[0] . "-" . "%"
+                )
                 ->get();
 
-            return view('service::presence.add_worker',
-                [
-                    'workPlaceActivityByMonth' => $workPlaceActivityByMonth,
-                    'workPlaceId'              => $workPlaceId,
-                    'workplaceName'            => $workplaceName,
-                    'date'                     => $date,
-                    'workers'                  => $workers
-                ]);
-        } else{
-            return redirect('service/presence')->with('flash_message', 'Грешка-Няма такъв регион!');
+            return view("service::presence.add_worker", [
+                "workPlaceActivityByMonth" => $workPlaceActivityByMonth,
+                "workPlaceId" => $workPlaceId,
+                "workplaceName" => $workplaceName,
+                "date" => $date,
+                "workers" => $workers,
+            ]);
+        } else {
+            return redirect("service/presence")->with(
+                "flash_message",
+                "Грешка-Няма такъв регион!"
+            );
         }
-
     }
 
     public function viewConfigForm($workPlaceId, $date)
     {
-        $getHours = array();
+        $getHours = [];
         $arr = explode("-", $date);
         $month = $arr[0];
         $year = $arr[1];
-        $newDate = $arr[1]."-".$arr[0]."-01";
-        $checkIfAlreadyCopied = WorkPlaceActivity::checkIfActivitiesAreCopied($workPlaceId, $year, $month);
+        $newDate = $arr[1] . "-" . $arr[0] . "-01";
+        $checkIfAlreadyCopied = WorkPlaceActivity::checkIfActivitiesAreCopied(
+            $workPlaceId,
+            $year,
+            $month
+        );
         $workplace = WorkPlace::find($workPlaceId);
         $workPlaceName = $workplace->name;
-        if (!WorkPlaceActivity::checkIfActivitiesAreCopied($workPlaceId, $year, $month)) {
+        if (
+            !WorkPlaceActivity::checkIfActivitiesAreCopied(
+                $workPlaceId,
+                $year,
+                $month
+            )
+        ) {
             //get the worrkplace activities which are common and insert them for the month
-            $workPlaceActivityByMonthCommon = WorkPlaceActivity::where('work_place_id','=',$workPlaceId)
-                ->where('date', null)
+            $workPlaceActivityByMonthCommon = WorkPlaceActivity::where(
+                "work_place_id",
+                "=",
+                $workPlaceId
+            )
+                ->where("date", null)
                 ->get();
 
-            foreach($workPlaceActivityByMonthCommon as $commonAct) {
+            foreach ($workPlaceActivityByMonthCommon as $commonAct) {
+                $workers = Worker::where("status", Worker::USER_ACTIVE)
+                    ->where("work_place_activity_id", "=", $commonAct->id)
+                    ->get();
 
-                $workers = Worker::where('status', Worker::USER_ACTIVE)
-                    ->where('work_place_activity_id','=', $commonAct->id)->get();
+                $workplaceActivity = $this->addCopiedActivitiesFromWorkplace(
+                    $commonAct,
+                    $year,
+                    $month
+                );
 
-                $workplaceActivity = $this->addCopiedActivitiesFromWorkplace($commonAct, $year, $month);
-
-                foreach($workers as $workerToAdd) {
-
-                    $dateCompare = $year."-".$month."-01";
+                foreach ($workers as $workerToAdd) {
+                    $dateCompare = $year . "-" . $month . "-01";
                     $lastDayOfMonth = date("Y-m-t", strtotime($dateCompare));
                     $startDate = $workerToAdd->start_date;
-                    $startDateMonthYear =  date("Y", strtotime($startDate));
-                    $startDateMonth =  date("m", strtotime($startDate));
+                    $startDateMonthYear = date("Y", strtotime($startDate));
+                    $startDateMonth = date("m", strtotime($startDate));
                     $lastDayOnlyMonthYear = date("Y", strtotime($dateCompare));
 
                     if ($startDateMonthYear < $lastDayOnlyMonthYear) {
-                        $startDate = $year."-".$month."-01";
-
+                        $startDate = $year . "-" . $month . "-01";
                     }
-                    if (($startDateMonthYear == $lastDayOnlyMonthYear)
-                        && ($startDateMonth < $month)){
-                        $startDate = $year."-".$month."-01";
-
+                    if (
+                        $startDateMonthYear == $lastDayOnlyMonthYear &&
+                        $startDateMonth < $month
+                    ) {
+                        $startDate = $year . "-" . $month . "-01";
                     }
                     if ($startDate <= $lastDayOfMonth) {
                         //hora zapochnali rabota veche
                         ///attach worker to activity and place for the chossen month
-                        $workplace->temporaryWorkers()->save($workerToAdd, ['date'=>$year."-".$month."-01"]);
-                        $workplaceActivity->temporaryWorkers()->save($workerToAdd, ['date'=>$year."-".$month."-01"]);
+                        $workplace
+                            ->temporaryWorkers()
+                            ->save($workerToAdd, [
+                                "date" => $year . "-" . $month . "-01",
+                            ]);
+                        $workplaceActivity
+                            ->temporaryWorkers()
+                            ->save($workerToAdd, [
+                                "date" => $year . "-" . $month . "-01",
+                            ]);
 
-                        $this->insertStandartWorkingPeople($workerToAdd, $startDate, $lastDayOfMonth, $commonAct, $workplaceActivity);
+                        $this->insertStandartWorkingPeople(
+                            $workerToAdd,
+                            $startDate,
+                            $lastDayOfMonth,
+                            $commonAct,
+                            $workplaceActivity
+                        );
                     }
-
                 }
             }
-
         }
         // retrieve the month
-        $workPlaceActivityByMonth = WorkPlaceActivity::where('work_place_id','=',$workPlaceId)
-            ->where('date','like','%' . $year."-".$month."-" . '%')
+        $workPlaceActivityByMonth = WorkPlaceActivity::where(
+            "work_place_id",
+            "=",
+            $workPlaceId
+        )
+            ->where("date", "like", "%" . $year . "-" . $month . "-" . "%")
             ->get();
 
-        foreach($workPlaceActivityByMonth as $workPlaceActivity){
+        foreach ($workPlaceActivityByMonth as $workPlaceActivity) {
+            $hours = HoursActivityByMonth::where(
+                "work_place_activity_id",
+                "=",
+                $workPlaceActivity->id
+            )
+                ->where("date", "=", $newDate)
+                ->get()
+                ->toArray();
 
-            $hours = HoursActivityByMonth::where('work_place_activity_id','=',$workPlaceActivity->id)
-                ->where('date','=',$newDate)
-                ->get()->toArray();
-
-            if (count($hours)!= 0) {
-
-                $getHours[$workPlaceActivity->id] = $hours[0]['hours_for_person'];
+            if (count($hours) != 0) {
+                $getHours[$workPlaceActivity->id] =
+                    $hours[0]["hours_for_person"];
             }
         }
 
-        return view('service::presence.configuration',
-            [
-                'workPlaceActivityByMonth' => $workPlaceActivityByMonth,
-                'workPlaceId'              => $workPlaceId,
-                'date'                     => $date,
-                'getHours'                 => $getHours,
-                'checkIfAlreadyCopied'     => $checkIfAlreadyCopied,
-                'workPlaceName'           => $workPlaceName,
-            ]);
-
+        return view("service::presence.configuration", [
+            "workPlaceActivityByMonth" => $workPlaceActivityByMonth,
+            "workPlaceId" => $workPlaceId,
+            "date" => $date,
+            "getHours" => $getHours,
+            "checkIfAlreadyCopied" => $checkIfAlreadyCopied,
+            "workPlaceName" => $workPlaceName,
+        ]);
     }
 
-    public function finish(Request $request) {
+    public function finish(Request $request)
+    {
+        $requestData = json_decode($request->all()["json"], true);
 
-        $requestData = json_decode($request->all()['json'], true);
+        $workPlaceId = $requestData["workPlaceId"];
 
-        $workPlaceId = $requestData['workPlaceId'];
-
-        $date = $requestData['date'];
-
-        if ($workPlaceId) {
-           $workplace = WorkPlace::findOrFail($workPlaceId);
-        } else {
-            abort(404);
-        }
-
-        $availableMonths = [
-            date('m-Y', strtotime(date('Y-m')." -1 month")),
-            date('m-Y', strtotime(date('Y-m'))),
-            date('m-Y', strtotime(date('Y-m')." +1 month")),
-        ];
-
-        if ($date) {
-            if (!in_array($date, $availableMonths)) {
-                abort(404);
-            }
-        } else {
-            abort(404);
-        }
-
-        WorkerRecord::where('work_place_id', $workPlaceId)
-            ->where('date', 'like', date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-') . '%')
-            ->update([
-                'status' => WorkerRecord::WORKER_RECORD_FINISHED
-            ]);
-		//история
-		activity()
-			->performedOn($workplace)
-			->causedBy(Auth::user())
-			->withProperties(['customProperty' => 'customValue'])
-			->log('приключен месец за дата '.$date.' и обект '.$workplace->name);
-		
-        return redirect()->route('service.presence.show.workplace.date', ['workPlaceId' => $workPlaceId, 'date' => $date]);
-    }
-
-    public function unfinish(Request $request) {
-        $requestData = json_decode($request->all()['json'], true);
-
-        $workPlaceId = $requestData['workPlaceId'];
-
-        $date = $requestData['date'];
+        $date = $requestData["date"];
 
         if ($workPlaceId) {
             $workplace = WorkPlace::findOrFail($workPlaceId);
@@ -586,9 +778,9 @@ class PresenceController extends Controller
         }
 
         $availableMonths = [
-            date('m-Y', strtotime(date('Y-m')." -1 month")),
-            date('m-Y', strtotime(date('Y-m'))),
-            date('m-Y', strtotime(date('Y-m')." +1 month")),
+            date("m-Y", strtotime(date("Y-m") . " -1 month")),
+            date("m-Y", strtotime(date("Y-m"))),
+            date("m-Y", strtotime(date("Y-m") . " +1 month")),
         ];
 
         if ($date) {
@@ -599,30 +791,106 @@ class PresenceController extends Controller
             abort(404);
         }
 
-        WorkerRecord::where('work_place_id', $workPlaceId)
-            ->where('date', 'like', date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-') . '%')
+        WorkerRecord::where("work_place_id", $workPlaceId)
+            ->where(
+                "date",
+                "like",
+                date_format(
+                    date_create_from_format("d-m-Y", "01" . "-" . $date),
+                    "Y-m-"
+                ) . "%"
+            )
             ->update([
-                'status' => WorkerRecord::WORKER_RECORD_APPROVED
+                "status" => WorkerRecord::WORKER_RECORD_FINISHED,
             ]);
-		
-		//история
-		activity()
-			->performedOn($workplace)
-			->causedBy(Auth::user())
-			->withProperties(['customProperty' => 'customValue'])
-			->log('отключен месец за дата '.$date.' и обект '.$workplace->name);
-		
-        return redirect()->route('service.presence.show.workplace.date', ['workPlaceId' => $workPlaceId, 'date' => $date]);
+        //история
+        activity()
+            ->performedOn($workplace)
+            ->causedBy(Auth::user())
+            ->withProperties(["customProperty" => "customValue"])
+            ->log(
+                "приключен месец за дата " .
+                    $date .
+                    " и обект " .
+                    $workplace->name
+            );
+
+        return redirect()->route("service.presence.show.workplace.date", [
+            "workPlaceId" => $workPlaceId,
+            "date" => $date,
+        ]);
+    }
+
+    public function unfinish(Request $request)
+    {
+        $requestData = json_decode($request->all()["json"], true);
+
+        $workPlaceId = $requestData["workPlaceId"];
+
+        $date = $requestData["date"];
+
+        if ($workPlaceId) {
+            $workplace = WorkPlace::findOrFail($workPlaceId);
+        } else {
+            abort(404);
+        }
+
+        $availableMonths = [
+            date("m-Y", strtotime(date("Y-m") . " -1 month")),
+            date("m-Y", strtotime(date("Y-m"))),
+            date("m-Y", strtotime(date("Y-m") . " +1 month")),
+        ];
+
+        if ($date) {
+            if (!in_array($date, $availableMonths)) {
+                abort(404);
+            }
+        } else {
+            abort(404);
+        }
+
+        WorkerRecord::where("work_place_id", $workPlaceId)
+            ->where(
+                "date",
+                "like",
+                date_format(
+                    date_create_from_format("d-m-Y", "01" . "-" . $date),
+                    "Y-m-"
+                ) . "%"
+            )
+            ->update([
+                "status" => WorkerRecord::WORKER_RECORD_APPROVED,
+            ]);
+
+        //история
+        activity()
+            ->performedOn($workplace)
+            ->causedBy(Auth::user())
+            ->withProperties(["customProperty" => "customValue"])
+            ->log(
+                "отключен месец за дата " .
+                    $date .
+                    " и обект " .
+                    $workplace->name
+            );
+
+        return redirect()->route("service.presence.show.workplace.date", [
+            "workPlaceId" => $workPlaceId,
+            "date" => $date,
+        ]);
     }
 
     private function archiveWorkPlaceForMonth($workPlaceId, $date)
     {
         $jsonData = $this->generateJSONForArchive($workPlaceId, $date);
 
-        $archive = new Archive;
+        $archive = new Archive();
 
         $archive->work_place_id = $workPlaceId;
-        $archive->date = date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-d');
+        $archive->date = date_format(
+            date_create_from_format("d-m-Y", "01" . "-" . $date),
+            "Y-m-d"
+        );
         $archive->json_data = $jsonData;
 
         $archive->save();
@@ -630,15 +898,17 @@ class PresenceController extends Controller
 
     public function exportDetailedPdf($workPlaceId, $selectedDate)
     {
-        $selectedDateArr = explode('-',$selectedDate);
+        $selectedDateArr = explode("-", $selectedDate);
         $month = $selectedDateArr[0];
         $year = $selectedDateArr[1];
 
         $weekDays = [];
 
-        foreach (range(1, cal_days_in_month(CAL_GREGORIAN, $month, $year)) as $day) {
-
-            if (date('N', strtotime($day . '-' . $month . '-' . $year)) >= 6) {
+        foreach (
+            range(1, cal_days_in_month(CAL_GREGORIAN, $month, $year))
+            as $day
+        ) {
+            if (date("N", strtotime($day . "-" . $month . "-" . $year)) >= 6) {
                 $weekDays[] = $day;
             }
         }
@@ -646,67 +916,116 @@ class PresenceController extends Controller
         $monthDays = cal_days_in_month(CAL_GREGORIAN, $month, $year);
         $selectedWorkPlace = WorkPlace::findOrFail($workPlaceId);
 
+        $selectedWorkPlaceActivities = WorkPlaceActivity::where(
+            "work_place_id",
+            "=",
+            $selectedWorkPlace->id
+        )
+            ->where(function ($q) use ($selectedDate) {
+                $date = date_format(
+                    date_create_from_format(
+                        "d-m-Y",
+                        "01" . "-" . $selectedDate
+                    ),
+                    "Y-m-d"
+                );
 
-        $selectedWorkPlaceActivities = WorkPlaceActivity::where('work_place_id','=',$selectedWorkPlace->id)
-            ->where(function($q) use ($selectedDate) {
-
-                $date = date_format(date_create_from_format('d-m-Y', '01' . '-' . $selectedDate), 'Y-m-d');
-
-                $q->where('date', $date);
+                $q->where("date", $date);
             })
             ->get();
 
         $tableData = [];
 
-        $tableData = $this->prepareTableData($selectedWorkPlaceActivities, $selectedDate, $selectedWorkPlace);
+        $tableData = $this->prepareTableData(
+            $selectedWorkPlaceActivities,
+            $selectedDate,
+            $selectedWorkPlace
+        );
         $waitingApprovalsCount = 0;
         if ($waitingApprovalsCount > 0) {
-            $tableNotEditable = 'true';
+            $tableNotEditable = "true";
         }
 
-        $pdf = PDF::loadView('service::presence.print_template', ['tableData'	=> $tableData,
-            'monthDays'				=> $monthDays,
-            'weekDays'				=> $weekDays,
-            'selectedDate'			=> $selectedDate],[
-            'format' => 'A4']);
-        return $pdf->download('присъственаФорма-'.$selectedWorkPlace->name.'-'.$selectedDate.'.pdf');
-
+        $pdf = PDF::loadView(
+            "service::presence.print_template",
+            [
+                "tableData" => $tableData,
+                "monthDays" => $monthDays,
+                "weekDays" => $weekDays,
+                "selectedDate" => $selectedDate,
+            ],
+            [
+                "format" => "A4",
+            ]
+        );
+        return $pdf->download(
+            "присъственаФорма-" .
+                $selectedWorkPlace->name .
+                "-" .
+                $selectedDate .
+                ".pdf"
+        );
     }
 
     public function destroyActivity($id)
     {
         $workplaceActivity = WorkPlaceActivity::find($id);
-        $dates = explode('-', $workplaceActivity->date);
+        $dates = explode("-", $workplaceActivity->date);
 
         //история
         activity()
             ->performedOn($workplaceActivity)
             ->causedBy(Auth::user())
-            ->withProperties(['customProperty' => 'customValue'])
-            ->log('изтрита дейност: '.$workplaceActivity->activity.' за обект '.$workplaceActivity->workplace->name);
+            ->withProperties(["customProperty" => "customValue"])
+            ->log(
+                "изтрита дейност: " .
+                    $workplaceActivity->activity .
+                    " за обект " .
+                    $workplaceActivity->workplace->name
+            );
 
         WorkPlaceActivity::destroy($id);
-        return redirect('service/presence/config/'.$workplaceActivity->work_place_id.'/'.$dates[1].'-'.$dates[0])->with('flash_message', 'Изтрихте дейността!');
+        return redirect(
+            "service/presence/config/" .
+                $workplaceActivity->work_place_id .
+                "/" .
+                $dates[1] .
+                "-" .
+                $dates[0]
+        )->with("flash_message", "Изтрихте дейността!");
     }
 
     private function generateJSONForArchive($workPlaceId, $date)
     {
-        $selectedWorkPlaceActivities = WorkPlaceActivity::where('work_place_id','=', $workPlaceId)
-            ->where('date' , '!=', null)
-            ->where(function($q) use ($date) {
+        $selectedWorkPlaceActivities = WorkPlaceActivity::where(
+            "work_place_id",
+            "=",
+            $workPlaceId
+        )
+            ->where(function ($q) use ($date) {
+                $formattedDate = date_format(
+                    date_create_from_format("d-m-Y", "01" . "-" . $date),
+                    "Y-m-d"
+                );
 
-                $formattedDate = date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-d');
-
-                $q->where('date', $formattedDate)
-                    ->orWhere('date', null);
+                $q->where("date", $formattedDate)->orWhereNull("date");
             })
             ->get();
 
         if ($selectedWorkPlaceActivities->count() > 0) {
-
-            $waitingApprovals = Approvement::where('status', Approvement::STATUS_NEW)
-                ->where('work_place_id', $workPlaceId)
-                ->where('date', 'like', date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-') . '%')
+            $waitingApprovals = Approvement::where(
+                "status",
+                Approvement::STATUS_NEW
+            )
+                ->where("work_place_id", $workPlaceId)
+                ->where(
+                    "date",
+                    "like",
+                    date_format(
+                        date_create_from_format("d-m-Y", "01" . "-" . $date),
+                        "Y-m-"
+                    ) . "%"
+                )
                 ->get();
 
             if ($waitingApprovals->count() > 0) {
@@ -717,7 +1036,11 @@ class PresenceController extends Controller
 
             $workPlace = WorkPlace::find($workPlaceId);
 
-            $tableData = $this->prepareTableData($selectedWorkPlaceActivities, $date, $workPlace);
+            $tableData = $this->prepareTableData(
+                $selectedWorkPlaceActivities,
+                $date,
+                $workPlace
+            );
 
             return json_encode($tableData);
         }
@@ -727,7 +1050,10 @@ class PresenceController extends Controller
     {
         $approveRequest = new Approvement();
         $approveRequest->work_place_id = $workPlaceId;
-        $approveRequest->date = date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-d');
+        $approveRequest->date = date_format(
+            date_create_from_format("d-m-Y", "01" . "-" . $date),
+            "Y-m-d"
+        );
         $approveRequest->creator_id = Auth::user()->id;
         $approveRequest->status = Approvement::STATUS_NEW;
         $approveRequest->type_id = Approvement::TYPE_APPR_OBJECT;
@@ -735,55 +1061,65 @@ class PresenceController extends Controller
 
         $approveRequest->save();
 
-
         $workPlace = WorkPlace::find($workPlaceId);
         $regions = $workPlace->region()->get();
 
         foreach ($regions as $region) {
-
             $managers = $region->managers()->get();
 
             foreach ($managers as $manager) {
-
                 $mail = Mail::to($manager->email);
 
-                $mail->send(new VikiRequestAction( [
-                    'reason' => 'повишаване на бюджета',
-                    'workerplace'  => $workPlace->name,
-                    'userWhoTriggerChange' => Auth::user()->name,
-                    'link' => route('service.approvement')
-                ]));
+                $mail->send(
+                    new VikiRequestAction([
+                        "reason" => "повишаване на бюджета",
+                        "workerplace" => $workPlace->name,
+                        "userWhoTriggerChange" => Auth::user()->name,
+                        "link" => route("service.approvement"),
+                    ])
+                );
             }
         }
 
         return $approveRequest->id;
     }
 
-    private function saveWorkerRecord($userData, $workPlaceId, $date, $status, $approvalId = null)
-    {
+    private function saveWorkerRecord(
+        $userData,
+        $workPlaceId,
+        $date,
+        $status,
+        $approvalId = null
+    ) {
         $workerRecordData = [
-            'hours' => $userData['hours'],
-            'day_count' => 0,
-            'status' => $status,
-            'start_date' => date("Y-m-d"),
-            'end_date' => date("Y-m-d"),
-            'creator_id' => auth()->user()->id
+            "hours" => $userData["hours"],
+            "day_count" => 0,
+            "status" => $status,
+            "start_date" => date("Y-m-d"),
+            "end_date" => date("Y-m-d"),
+            "creator_id" => auth()->user()->id,
         ];
 
-        if ((int)$status !== WorkerRecord::WORKER_RECORD_WAITING) {
-            $workerRecordData['old_value'] = $userData['hours'];
+        if ((int) $status !== WorkerRecord::WORKER_RECORD_WAITING) {
+            $workerRecordData["old_value"] = $userData["hours"];
         }
 
         if ($approvalId) {
-            $workerRecordData['approvement_id'] = $approvalId;
+            $workerRecordData["approvement_id"] = $approvalId;
         }
 
         $workerRecord = WorkerRecord::updateOrCreate(
             [
-                'work_place_activity_id' => $userData['workPlaceActivityId'],
-                'worker_id' => $userData['workerId'],
-                'work_place_id' => $workPlaceId,
-                'date' => date_format(date_create_from_format('d-m-Y', $userData['day'] . '-' . $date), 'Y-m-d')
+                "work_place_activity_id" => $userData["workPlaceActivityId"],
+                "worker_id" => $userData["workerId"],
+                "work_place_id" => $workPlaceId,
+                "date" => date_format(
+                    date_create_from_format(
+                        "d-m-Y",
+                        $userData["day"] . "-" . $date
+                    ),
+                    "Y-m-d"
+                ),
             ],
             $workerRecordData
         );
@@ -791,11 +1127,18 @@ class PresenceController extends Controller
 
     private function checkIfInBudget($workPlaceId, $date, $extraData)
     {
-        $workPlaceActivities = WorkPlaceActivity::where('work_place_id','=', $workPlaceId)
-            ->where(function($q) use ($date) {
-                $date = date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-d');
-                $q->where('date', $date);
-                    //->orWhere('date', null);
+        $workPlaceActivities = WorkPlaceActivity::where(
+            "work_place_id",
+            "=",
+            $workPlaceId
+        )
+            ->where(function ($q) use ($date) {
+                $date = date_format(
+                    date_create_from_format("d-m-Y", "01" . "-" . $date),
+                    "Y-m-d"
+                );
+                $q->where("date", $date);
+                //->orWhere('date', null);
             })
             ->get();
 
@@ -805,97 +1148,141 @@ class PresenceController extends Controller
         $extraDataNegativeValueKeys = [];
 
         foreach ($workPlaceActivities as $workPlaceActivity) {
-
-            $workPlaceActivityWorkers = $this->getWorkPlaceActivityWorkersByDate($workPlaceActivity, $date);
+            $workPlaceActivityWorkers = $this->getWorkPlaceActivityWorkersByDate(
+                $workPlaceActivity,
+                $date
+            );
 
             $workPlaceActivityUsedWorkingHours = 0;
             $workPlaceActivityBudgetBeforeChangeHours = 0;
 
             foreach ($workPlaceActivityWorkers as $workPlaceActivityWorker) {
-                foreach ($workPlaceActivityWorker->workerRecords as $workerRecord) {
-
+                foreach (
+                    $workPlaceActivityWorker->workerRecords
+                    as $workerRecord
+                ) {
                     $dataIsCalculated = false;
 
                     foreach ($extraData as $key => $extraDatum) {
-
-                        if ($extraDatum['workPlaceActivityId'] == $workPlaceActivity->id
-                            && $extraDatum['workerId'] == $workerRecord->worker_id
-                            && date_format(date_create_from_format('d-m-Y', $extraDatum['day'] . '-' . $date), 'Y-m-d') == $workerRecord->date
+                        if (
+                            $extraDatum["workPlaceActivityId"] ==
+                                $workPlaceActivity->id &&
+                            $extraDatum["workerId"] ==
+                                $workerRecord->worker_id &&
+                            date_format(
+                                date_create_from_format(
+                                    "d-m-Y",
+                                    $extraDatum["day"] . "-" . $date
+                                ),
+                                "Y-m-d"
+                            ) == $workerRecord->date
                         ) {
-                            $workPlaceActivityUsedWorkingHours += $extraDatum['hours'];
+                            $workPlaceActivityUsedWorkingHours +=
+                                $extraDatum["hours"];
                             $dataIsCalculated = true;
 
-                            if ($extraDatum['hours'] < $workerRecord->hours) {
+                            if ($extraDatum["hours"] < $workerRecord->hours) {
                                 $extraDataNegativeValueKeys[] = $key;
                             }
                             unset($extraData[$key]);
                         }
                     }
-                    $workPlaceActivityBudgetBeforeChangeHours += $workerRecord->hours;
+                    $workPlaceActivityBudgetBeforeChangeHours +=
+                        $workerRecord->hours;
 
                     if (!$dataIsCalculated) {
-                        $workPlaceActivityUsedWorkingHours += $workerRecord->hours;
+                        $workPlaceActivityUsedWorkingHours +=
+                            $workerRecord->hours;
                     }
                 }
             }
 
             foreach ($extraData as $key => $extraDatum) {
-                if ($extraDatum['workPlaceActivityId'] == $workPlaceActivity->id) {
-                    $workPlaceActivityUsedWorkingHours += $extraDatum['hours'];
+                if (
+                    $extraDatum["workPlaceActivityId"] == $workPlaceActivity->id
+                ) {
+                    $workPlaceActivityUsedWorkingHours += $extraDatum["hours"];
                 }
             }
 
-            $hourCost = $this->getHourCostOnWorkPlaceActivityByDate($workPlaceActivity, $date);
+            $hourCost = $this->getHourCostOnWorkPlaceActivityByDate(
+                $workPlaceActivity,
+                $date
+            );
 
             $workPlaceActivityCostForHour[$workPlaceActivity->id] = $hourCost;
 
-            $workPlaceActivityUsedBudget[$workPlaceActivity->id] = $workPlaceActivityUsedWorkingHours * $hourCost;
+            $workPlaceActivityUsedBudget[$workPlaceActivity->id] =
+                $workPlaceActivityUsedWorkingHours * $hourCost;
 
-            $workPlaceActivityBudgetBeforeChange[$workPlaceActivity->id] = $workPlaceActivityBudgetBeforeChangeHours * $hourCost;
+            $workPlaceActivityBudgetBeforeChange[$workPlaceActivity->id] =
+                $workPlaceActivityBudgetBeforeChangeHours * $hourCost;
         }
 
-        $workPlace = WorkPlace::with(['overBudget' => function($q) use($date) {
-            $q->where('viki_workplace_month_budget.date', date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-d'));
-        }])->find($workPlaceId);
+        $workPlace = WorkPlace::with([
+            "overBudget" => function ($q) use ($date) {
+                $q->where(
+                    "viki_workplace_month_budget.date",
+                    date_format(
+                        date_create_from_format("d-m-Y", "01" . "-" . $date),
+                        "Y-m-d"
+                    )
+                );
+            },
+        ])->find($workPlaceId);
 
         $workPlaceBudget = $workPlace->getBudgetByDate($date);
 
         if ($workPlace->overBudget->count() > 0) {
-            $workPlaceBudget = $workPlaceBudget + $workPlace->overBudget->first()->sum_up;
+            $workPlaceBudget =
+                $workPlaceBudget + $workPlace->overBudget->first()->sum_up;
         }
-
 
         if ($workPlaceBudget < array_sum($workPlaceActivityUsedBudget)) {
             return [
-                'inBudget' => false,
-                'overBudget' => $this->round_up(array_sum($workPlaceActivityUsedBudget) - $workPlaceBudget, 2),
-                'budget' => $workPlaceBudget,
-                'workPlaceActivityCostForHour' => $workPlaceActivityCostForHour,
-                'freeBudgetBeforeChange' => $workPlaceBudget - array_sum($workPlaceActivityBudgetBeforeChange),
-                'dataNegativeValueKeys' => $extraDataNegativeValueKeys
+                "inBudget" => false,
+                "overBudget" => $this->round_up(
+                    array_sum($workPlaceActivityUsedBudget) - $workPlaceBudget,
+                    2
+                ),
+                "budget" => $workPlaceBudget,
+                "workPlaceActivityCostForHour" => $workPlaceActivityCostForHour,
+                "freeBudgetBeforeChange" =>
+                    $workPlaceBudget -
+                    array_sum($workPlaceActivityBudgetBeforeChange),
+                "dataNegativeValueKeys" => $extraDataNegativeValueKeys,
             ];
         }
 
         return [
-            'inBudget' => true,
+            "inBudget" => true,
         ];
     }
 
     private function round_up($value, $precision)
     {
-        $pow = pow ( 10, $precision );
-        return ( ceil ( $pow * $value ) + ceil ( $pow * $value - ceil ( $pow * $value ) ) ) / $pow;
+        $pow = pow(10, $precision);
+        return (ceil($pow * $value) +
+            ceil($pow * $value - ceil($pow * $value))) /
+            $pow;
     }
 
-    private function getHourCostOnWorkPlaceActivityByDate($workPlaceActivity, $date)
-    {
-        $workPlaceActivityWorkingHours = $this->getActivityWorkingHoursForDate($workPlaceActivity, $date);
+    private function getHourCostOnWorkPlaceActivityByDate(
+        $workPlaceActivity,
+        $date
+    ) {
+        $workPlaceActivityWorkingHours = $this->getActivityWorkingHoursForDate(
+            $workPlaceActivity,
+            $date
+        );
 
         if ($workPlaceActivityWorkingHours === 0) {
             return 0;
         }
 
-        return ($workPlaceActivity->neto_salary + $workPlaceActivity->social_plus) / $workPlaceActivityWorkingHours;
+        return ($workPlaceActivity->neto_salary +
+            $workPlaceActivity->social_plus) /
+            $workPlaceActivityWorkingHours;
     }
 
     private function getWorkPlaceActivitiesPricePerHour($idArr, $date)
@@ -903,7 +1290,9 @@ class PresenceController extends Controller
         $responseArr = [];
 
         foreach ($idArr as $id) {
-            $responseArr[$id] = $this->getHourCostOnWorkPlaceActivityByIdAndDate($id, $date);
+            $responseArr[
+                $id
+            ] = $this->getHourCostOnWorkPlaceActivityByIdAndDate($id, $date);
         }
 
         return $responseArr;
@@ -913,233 +1302,346 @@ class PresenceController extends Controller
     {
         $workPlaceActivity = WorkPlaceActivity::find($id);
 
-        $workPlaceActivityWorkingHours = $this->getActivityWorkingHoursForDate($workPlaceActivity, $date);
+        $workPlaceActivityWorkingHours = $this->getActivityWorkingHoursForDate(
+            $workPlaceActivity,
+            $date
+        );
 
-        return ($workPlaceActivity->neto_salary + $workPlaceActivity->social_plus) / $workPlaceActivityWorkingHours;
+        return ($workPlaceActivity->neto_salary +
+            $workPlaceActivity->social_plus) /
+            $workPlaceActivityWorkingHours;
     }
-	
 
-	private function addCopiedActivitiesFromWorkplace($commonAct, $year, $month)
-	{
-		$workplaceActivity = WorkPlaceActivity::createCopied(
-								[	
-									'activity' => $commonAct->activity,
-									'copied' => WorkPlaceActivity::COPIED_ACTIVITY,
-									'type_working' => $commonAct->type_working,
-									'neto_salary' => $commonAct->neto_salary,
-									'social_plus' => $commonAct->social_plus,
-									'worker_count' => $commonAct->worker_count,
-									'date' => $year."-".$month."-01" ,
-									'work_place_id' => $commonAct->work_place_id,
-									'created_by' =>  Auth::id()
-								]
-							);
-		//add the hours for month for standart working people
-		if ($commonAct->type_working == WorkPlaceActivity::WORKING_STANDART) {
-			 //used for the autoinsert of standart hours 
-			  $hours_auto_ins = WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity($commonAct->id);
-			  if(empty($hours_auto_ins)) { $hours_auto_ins = 8; }
-			  WorkPlaceActivityHoursPerDay::create($hours_auto_ins, $workplaceActivity->id); 
-			//get the standart hoours for the workplace activity
-			$hoursByMonth = (cal_days_in_month(CAL_GREGORIAN, $month, $year) - count($this->getAllNonWorkingDays($month, $year))) * 8;
-			HoursActivityByMonth::updateOrCreate(
-					[	
-					'work_place_activity_id' => $workplaceActivity->id,
-					'date' => $year."-".$month."-01", 
-					],
-					[
-					'hours_for_person' => $hoursByMonth,
-					'created_by' =>  Auth::id()
-					]
-			);
+    private function addCopiedActivitiesFromWorkplace($commonAct, $year, $month)
+    {
+        $workplaceActivity = WorkPlaceActivity::createCopied([
+            "activity" => $commonAct->activity,
+            "copied" => WorkPlaceActivity::COPIED_ACTIVITY,
+            "type_working" => $commonAct->type_working,
+            "neto_salary" => $commonAct->neto_salary,
+            "social_plus" => $commonAct->social_plus,
+            "worker_count" => $commonAct->worker_count,
+            "date" => $year . "-" . $month . "-01",
+            "work_place_id" => $commonAct->work_place_id,
+            "created_by" => Auth::id(),
+        ]);
+        //add the hours for month for standart working people
+        if ($commonAct->type_working == WorkPlaceActivity::WORKING_STANDART) {
+            //used for the autoinsert of standart hours
+            $hours_auto_ins = WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity(
+                $commonAct->id
+            );
+            if (empty($hours_auto_ins)) {
+                $hours_auto_ins = 8;
+            }
+            WorkPlaceActivityHoursPerDay::create(
+                $hours_auto_ins,
+                $workplaceActivity->id
+            );
+            //get the standart hoours for the workplace activity
+            $hoursByMonth =
+                (cal_days_in_month(CAL_GREGORIAN, $month, $year) -
+                    count($this->getAllNonWorkingDays($month, $year))) *
+                8;
+            HoursActivityByMonth::updateOrCreate(
+                [
+                    "work_place_activity_id" => $workplaceActivity->id,
+                    "date" => $year . "-" . $month . "-01",
+                ],
+                [
+                    "hours_for_person" => $hoursByMonth,
+                    "created_by" => Auth::id(),
+                ]
+            );
+        }
 
-		}
-		
-		return $workplaceActivity;
-	}
-	
-	private function insertStandartWorkingPeople($workerToAdd, $startDate, $lastDayOfMonth, $commonAct, $workplaceActivity) 
-	{
-		//if ($workerToAdd->type_working == WORKER::WORKING_STANDART) {
-			
-			$period =	new DatePeriod(
-					new DateTime($startDate),
-					new DateInterval('P1D'),
-					new DateTime($lastDayOfMonth)
-			);
-			
-			$hours_auto_ins = WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity($workplaceActivity->id);
-			if(empty($hours_auto_ins)) {
-				$hours_auto_ins = 8;
-			}
-			foreach ($period as $key => $value) {
-				if(!$this->isWeekend($value->format('Y-m-d'))) {
-					//print_r($value->format('Y-m-d') );
-					$workerRecord = WorkerRecord::updateOrCreate(
-					   [
-						   'work_place_activity_id' => $workplaceActivity->id,
-						   'worker_id' => $workerToAdd->id,
-						   'work_place_id' => $commonAct->work_place_id,
-						   'date' => $value->format('Y-m-d') 
-					   ],[
-						   'hours' => $hours_auto_ins,
-						   'day_count' => 0,
-						   'status' =>  WorkerRecord::WORKER_RECORD_APPROVED,
-						   'start_date' => date("Y-m-d"),
-						   'end_date' => date("Y-m-d"),
-						   'creator_id' => auth()->user()->id
-						]
-					   );
-				}
-				if(!$this->isWeekend($lastDayOfMonth)) {
-					$workerRecord = WorkerRecord::updateOrCreate(
-						   [
-							   'work_place_activity_id' => $workplaceActivity->id,
-							   'worker_id' => $workerToAdd->id,
-							   'work_place_id' => $commonAct->work_place_id,
-							   'date' => $lastDayOfMonth
-						   ],[
-							   'hours' => $hours_auto_ins,
-							   'day_count' => 0,
-							   'status' =>  WorkerRecord::WORKER_RECORD_APPROVED,
-							   'start_date' => date("Y-m-d"),
-							   'end_date' => date("Y-m-d"),
-							   'creator_id' => auth()->user()->id
-							]
-						   );
-					}
-			}
+        return $workplaceActivity;
+    }
 
-		//}
-		
-		return true;
-		
-	}
-	
-	private function isWeekend($date)
-	{	
-		return (date('N', strtotime($date)) >= 6);
-	}
-	
-	public static function checkTheWorkplaceBudget($request, $workplaceId, $date, $id) 
-	{
-		$dates = explode('-',$date);
-		$commonPrice = ($request['neto_salary'] + $request['social_plus'])*$request['worker_count'];
-		$findAllWorkPlaceActivities =  WorkPlaceActivity::where('work_place_id','=',$id)
-															->where('date','like','%' . $dates[1]."-".$dates[0]."-" . '%')
-															->get();
-		$sum = 0;
-		foreach($findAllWorkPlaceActivities as $addedActivity){
-			$sum = $sum + ($addedActivity['neto_salary']+ $addedActivity['social_plus'])*$addedActivity['worker_count'];
-		}
-		$sumOfWorkplace = WorkPlace::find($id);
-		$sumOfWorkplace = $sumOfWorkplace->getBudgetByDate($dates[1] . '-' . $dates[0]);
-		
-		if	(($sum + $commonPrice) > $sumOfWorkplace) {
-			return false;
-		}
-		
-		return true;
-	}
-	
-	 public function storedeleteWorkerRecords(Request $request) {
-    $request = ($request->all());
+    private function insertStandartWorkingPeople(
+        $workerToAdd,
+        $startDate,
+        $lastDayOfMonth,
+        $commonAct,
+        $workplaceActivity
+    ) {
+        //if ($workerToAdd->type_working == WORKER::WORKING_STANDART) {
 
-    try {
-      $workplace = WorkPlace::findOrFail($request['workPlaceId']);
-      $workplaceActivity = WorkPlaceActivity::findOrFail($request['activityId']);
-  
-      $dates = explode("-", $request['date']);
-      $date = $dates[1] . '-' . $dates[0] . '-01';
-     
-      $worker = Worker::findOrFail($request['workerId']);
-      
-      $workers = WorkerRecord::where('work_place_id', $request['workPlaceId'])
-        ->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%')
-        ->where('work_place_activity_id' , $request['activityId'])
-        ->where('worker_id', $request['workerId'])   
-        ->get();
-      foreach($workers as $worker) {
-        $res = WorkerRecord::where('id',$worker->id)->delete();
-      }
-      $getTemp = DB::table('viki_work_place_worker')
-               ->where('work_place_id', $request['workPlaceId'])
-               ->where('worker_id', $request['workerId']) 
-               ->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%')->delete();
-        
-        $getTempAc = DB::table('viki_work_place_activity_worker')
-               ->where('work_place_activity_id', $request['activityId'])
-               ->where('worker_id', $request['workerId']) 
-               ->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%')->delete();
+        $period = new DatePeriod(
+            new DateTime($startDate),
+            new DateInterval("P1D"),
+            new DateTime($lastDayOfMonth)
+        );
 
-      //история
-      activity()
-        ->performedOn($workplaceActivity)
-        ->causedBy(Auth::user())
-        ->withProperties(['customProperty' => 'customValue'])
-        ->log('изтрит работник: ' . $worker->name . ' ' . $worker->family_name . ' към присъствената форма за дата ' . $date . 'и за обект ' . $workplace->name);
+        $hours_auto_ins = WorkPlaceActivityHoursPerDay::findHoursPerDayPerActivity(
+            $workplaceActivity->id
+        );
+        if (empty($hours_auto_ins)) {
+            $hours_auto_ins = 8;
+        }
+        foreach ($period as $key => $value) {
+            if (!$this->isWeekend($value->format("Y-m-d"))) {
+                //print_r($value->format('Y-m-d') );
+                $workerRecord = WorkerRecord::updateOrCreate(
+                    [
+                        "work_place_activity_id" => $workplaceActivity->id,
+                        "worker_id" => $workerToAdd->id,
+                        "work_place_id" => $commonAct->work_place_id,
+                        "date" => $value->format("Y-m-d"),
+                    ],
+                    [
+                        "hours" => $hours_auto_ins,
+                        "day_count" => 0,
+                        "status" => WorkerRecord::WORKER_RECORD_APPROVED,
+                        "start_date" => date("Y-m-d"),
+                        "end_date" => date("Y-m-d"),
+                        "creator_id" => auth()->user()->id,
+                    ]
+                );
+            }
+            if (!$this->isWeekend($lastDayOfMonth)) {
+                $workerRecord = WorkerRecord::updateOrCreate(
+                    [
+                        "work_place_activity_id" => $workplaceActivity->id,
+                        "worker_id" => $workerToAdd->id,
+                        "work_place_id" => $commonAct->work_place_id,
+                        "date" => $lastDayOfMonth,
+                    ],
+                    [
+                        "hours" => $hours_auto_ins,
+                        "day_count" => 0,
+                        "status" => WorkerRecord::WORKER_RECORD_APPROVED,
+                        "start_date" => date("Y-m-d"),
+                        "end_date" => date("Y-m-d"),
+                        "creator_id" => auth()->user()->id,
+                    ]
+                );
+            }
+        }
 
-     return Redirect::back()->with('flash_message', 'Изтрихте работника!');
-   }
-  catch (\Exception $e) {
-    return Redirect::back()->withErrors('Този работник вече е изтрит!');
-   }
-  }
-  
-  
-    
-  public function viewdeleteWorker($workPlaceId, $date) {
-    $today = Carbon::now();
+        //}
 
-    $dates = explode("-", $date);
-    $workPlace = WorkPlace::find($workPlaceId);
-    $region_id = $workPlace->region_id;
-    $workplaceName = $workPlace->name;
-    if (!empty($region_id)) {
-      //get the workers in the region
-      $dateCompare = $dates[1] . "-" . $dates[0] . "-01";
-      $lastDayOfMonth = date("Y-m-t", strtotime($dateCompare));
+        return true;
+    }
 
-      $selectedWorkPlaceActivities = WorkPlaceActivity::where('work_place_id', '=', $workPlaceId)
-      ->where(function($q) use ($dates){
-       $q->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%');
-      })
-      ->get();
-    
-      foreach($selectedWorkPlaceActivities as $workPlaceActivity) {
-       
-           $temporaryWorkers = $workPlaceActivity
-            ->temporaryWorkers()->with([
-                "workerRecords" => function($q) use($workPlaceActivity, $dates) {
-                    $q->where('viki_worker_records.work_place_activity_id', '=', $workPlaceActivity->id);
-                    $q->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%');
-                }
-            ])
-            ->wherePivot('date', date_format(date_create_from_format('d-m-Y', '01' . '-' . $date), 'Y-m-d'))
+    private function isWeekend($date)
+    {
+        return date("N", strtotime($date)) >= 6;
+    }
+
+    public static function checkTheWorkplaceBudget(
+        $request,
+        $workplaceId,
+        $date,
+        $id
+    ) {
+        $dates = explode("-", $date);
+        $commonPrice =
+            ($request["neto_salary"] + $request["social_plus"]) *
+            $request["worker_count"];
+        $findAllWorkPlaceActivities = WorkPlaceActivity::where(
+            "work_place_id",
+            "=",
+            $id
+        )
+            ->where(
+                "date",
+                "like",
+                "%" . $dates[1] . "-" . $dates[0] . "-" . "%"
+            )
             ->get();
+        $sum = 0;
+        foreach ($findAllWorkPlaceActivities as $addedActivity) {
+            $sum =
+                $sum +
+                ($addedActivity["neto_salary"] +
+                    $addedActivity["social_plus"]) *
+                    $addedActivity["worker_count"];
+        }
+        $sumOfWorkplace = WorkPlace::find($id);
+        $sumOfWorkplace = $sumOfWorkplace->getBudgetByDate(
+            $dates[1] . "-" . $dates[0]
+        );
 
-       $records[$workPlaceActivity->id][] = Worker::whereHas('workPlaceActivity', function ($q) use ($workPlaceActivity) {
-                $q->where('id', '=', $workPlaceActivity->id);
-            })->with([
-                "workerRecords" => function($q) use($workPlaceActivity, $date) {
-                    $q->where('viki_worker_records.work_place_activity_id', '=', $workPlaceActivity->id);
-                    $q->where('date', 'like', '%' . $dates[1] . "-" . $dates[0] . "-" . '%');
-                }
-            ])
-            ->get()
-            ->merge($temporaryWorkers);
-      }
-     
-      return view('service::presence.delete_worker', [
-        'records' => $records,
-        'workPlaceId' => $workPlaceId,
-        'workplaceName' => $workplaceName,
-        'date' => $date,
-      ]);
+        if ($sum + $commonPrice > $sumOfWorkplace) {
+            return false;
+        }
+
+        return true;
     }
-    else {
-      return redirect('service/presence')->with('flash_message', 'Грешка-Няма такъв регион!');
+
+    public function storedeleteWorkerRecords(Request $request)
+    {
+        $request = $request->all();
+
+        try {
+            $workplace = WorkPlace::findOrFail($request["workPlaceId"]);
+            $workplaceActivity = WorkPlaceActivity::findOrFail(
+                $request["activityId"]
+            );
+
+            $dates = explode("-", $request["date"]);
+            $date = $dates[1] . "-" . $dates[0] . "-01";
+
+            $worker = Worker::findOrFail($request["workerId"]);
+
+            $workers = WorkerRecord::where(
+                "work_place_id",
+                $request["workPlaceId"]
+            )
+                ->where(
+                    "date",
+                    "like",
+                    "%" . $dates[1] . "-" . $dates[0] . "-" . "%"
+                )
+                ->where("work_place_activity_id", $request["activityId"])
+                ->where("worker_id", $request["workerId"])
+                ->get();
+            foreach ($workers as $worker) {
+                $res = WorkerRecord::where("id", $worker->id)->delete();
+            }
+            $getTemp = DB::table("viki_work_place_worker")
+                ->where("work_place_id", $request["workPlaceId"])
+                ->where("worker_id", $request["workerId"])
+                ->where(
+                    "date",
+                    "like",
+                    "%" . $dates[1] . "-" . $dates[0] . "-" . "%"
+                )
+                ->delete();
+
+            $getTempAc = DB::table("viki_work_place_activity_worker")
+                ->where("work_place_activity_id", $request["activityId"])
+                ->where("worker_id", $request["workerId"])
+                ->where(
+                    "date",
+                    "like",
+                    "%" . $dates[1] . "-" . $dates[0] . "-" . "%"
+                )
+                ->delete();
+
+            //история
+            activity()
+                ->performedOn($workplaceActivity)
+                ->causedBy(Auth::user())
+                ->withProperties(["customProperty" => "customValue"])
+                ->log(
+                    "изтрит работник: " .
+                        $worker->name .
+                        " " .
+                        $worker->family_name .
+                        " към присъствената форма за дата " .
+                        $date .
+                        "и за обект " .
+                        $workplace->name
+                );
+
+            return Redirect::back()->with(
+                "flash_message",
+                "Изтрихте работника!"
+            );
+        } catch (\Exception $e) {
+            return Redirect::back()->withErrors("Този работник вече е изтрит!");
+        }
     }
-  }
+
+    public function viewdeleteWorker($workPlaceId, $date)
+    {
+        $today = Carbon::now();
+
+        $dates = explode("-", $date);
+        $workPlace = WorkPlace::find($workPlaceId);
+        $region_id = $workPlace->region_id;
+        $workplaceName = $workPlace->name;
+        if (!empty($region_id)) {
+            //get the workers in the region
+            $dateCompare = $dates[1] . "-" . $dates[0] . "-01";
+            $lastDayOfMonth = date("Y-m-t", strtotime($dateCompare));
+
+            $selectedWorkPlaceActivities = WorkPlaceActivity::where(
+                "work_place_id",
+                "=",
+                $workPlaceId
+            )
+                ->where(function ($q) use ($dates) {
+                    $q->where(
+                        "date",
+                        "like",
+                        "%" . $dates[1] . "-" . $dates[0] . "-" . "%"
+                    );
+                })
+                ->get();
+
+            foreach ($selectedWorkPlaceActivities as $workPlaceActivity) {
+                $temporaryWorkers = $workPlaceActivity
+                    ->temporaryWorkers()
+                    ->with([
+                        "workerRecords" => function ($q) use (
+                            $workPlaceActivity,
+                            $dates
+                        ) {
+                            $q->where(
+                                "viki_worker_records.work_place_activity_id",
+                                "=",
+                                $workPlaceActivity->id
+                            );
+                            $q->where(
+                                "date",
+                                "like",
+                                "%" . $dates[1] . "-" . $dates[0] . "-" . "%"
+                            );
+                        },
+                    ])
+                    ->wherePivot(
+                        "date",
+                        date_format(
+                            date_create_from_format(
+                                "d-m-Y",
+                                "01" . "-" . $date
+                            ),
+                            "Y-m-d"
+                        )
+                    )
+                    ->get();
+
+                $records[$workPlaceActivity->id][] = Worker::whereHas(
+                    "workPlaceActivity",
+                    function ($q) use ($workPlaceActivity) {
+                        $q->where("id", "=", $workPlaceActivity->id);
+                    }
+                )
+                    ->with([
+                        "workerRecords" => function ($q) use (
+                            $workPlaceActivity,
+                            $date
+                        ) {
+                            $q->where(
+                                "viki_worker_records.work_place_activity_id",
+                                "=",
+                                $workPlaceActivity->id
+                            );
+                            $q->where(
+                                "date",
+                                "like",
+                                "%" . $dates[1] . "-" . $dates[0] . "-" . "%"
+                            );
+                        },
+                    ])
+                    ->get()
+                    ->merge($temporaryWorkers);
+            }
+
+            return view("service::presence.delete_worker", [
+                "records" => $records,
+                "workPlaceId" => $workPlaceId,
+                "workplaceName" => $workplaceName,
+                "date" => $date,
+            ]);
+        } else {
+            return redirect("service/presence")->with(
+                "flash_message",
+                "Грешка-Няма такъв регион!"
+            );
+        }
+    }
 }
-
