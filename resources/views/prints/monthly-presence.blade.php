@@ -115,6 +115,25 @@
             background: #e5e7eb;
         }
 
+        .leave-cell {
+            font-weight: 700;
+        }
+
+        .leave-paid {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .leave-unpaid {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .leave-hospital {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
         .center {
             text-align: center;
         }
@@ -211,9 +230,34 @@
                         @for ($day = 1; $day <= $daysInMonth; $day++)
                             @php
                                 $dayValue = (float) ($workerData['daily_records'][$day] ?? 0);
+                                $leaveInfo = $workerData['daily_leave_info'][$day] ?? null;
+                                $cellClasses = ['col-day'];
+
+                                if (isset($nonWorkingDaysMap[$day])) {
+                                    $cellClasses[] = 'non-working';
+                                }
+
+                                if ($leaveInfo) {
+                                    $cellClasses[] = 'leave-cell';
+                                    $cellClasses[] = $leaveInfo['class'] ?? '';
+                                }
+
+                                $displayValue = $dayValue > 0
+                                    ? $formatPresenceNumber($dayValue)
+                                    : ($leaveInfo['short'] ?? '-');
+                                $cellTitle = '';
+
+                                if ($leaveInfo) {
+                                    $cellTitle = $leaveInfo['label'] ?? '';
+                                    if (!empty($leaveInfo['comment'])) {
+                                        $cellTitle .= ': ' . $leaveInfo['comment'];
+                                    }
+                                } elseif (isset($specialDayMap[$day])) {
+                                    $cellTitle = $specialDayMap[$day]['label'] ?? '';
+                                }
                             @endphp
-                            <td class="col-day {{ isset($nonWorkingDaysMap[$day]) ? 'non-working' : '' }}">
-                                {{ $dayValue > 0 ? $formatPresenceNumber($dayValue) : '-' }}
+                            <td class="{{ implode(' ', array_filter($cellClasses)) }}" title="{{ $cellTitle }}">
+                                {{ $displayValue }}
                             </td>
                         @endfor
                         <td class="col-total">{{ $formatPresenceNumber($workerData['calculated_price'] ?? 0) }}</td>

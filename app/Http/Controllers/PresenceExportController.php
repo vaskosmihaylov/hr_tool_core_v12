@@ -13,6 +13,7 @@ use viki\Service\Models\Elequent\WorkerRecord;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
 use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
 use viki\Service\Models\Elequent\WorkPlaceActivityMonthSnapshot;
+use viki\Service\Models\Elequent\Vacation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -135,6 +136,12 @@ class PresenceExportController extends Controller
             ->where("copied", WorkPlaceActivity::NOT_COPIED_ACTIVITY)
             ->orderBy("activity")
             ->get();
+        $vacationData = $this->loadVacationDataForActivities(
+            $activities,
+            $workplace,
+            $start,
+            $end
+        );
 
         $groupedByActivity = [];
         $monthKey = sprintf("%02d-%d", $month, $year);
@@ -229,12 +236,15 @@ class PresenceExportController extends Controller
 
                 $totalHours = 0;
                 $dailyRecords = [];
+                $dailyLeaveInfo = [];
 
                 for ($day = 1; $day <= $daysInMonth; $day++) {
                     $dailyRecord = $recordsByDay->get($day);
                     $dailyRecords[$day] = $dailyRecord
                         ? $dailyRecord->hours
                         : 0;
+                    $dailyLeaveInfo[$day] =
+                        $vacationData[$workerId][$day] ?? null;
                     $totalHours += $dailyRecords[$day];
                 }
 
@@ -246,6 +256,7 @@ class PresenceExportController extends Controller
                     "total_hours" => $roundedHours,
                     "calculated_price" => $calculatedPrice,
                     "daily_records" => $dailyRecords,
+                    "daily_leave_info" => $dailyLeaveInfo,
                 ];
 
                 $activityData["group_totals"][
@@ -275,6 +286,121 @@ class PresenceExportController extends Controller
         }
 
         return $groupedByActivity;
+    }
+
+    private function loadVacationDataForActivities(
+        $activities,
+        int $workplace,
+        Carbon $start,
+        Carbon $end
+    ): array {
+        $workerIds = collect();
+
+        foreach ($activities as $activity) {
+            $pivotWorkerIds = $activity
+                ->temporaryWorkers()
+                ->wherePivot("date", $start->toDateString())
+                ->pluck("viki_workers.id");
+
+            $recordWorkerIds = WorkerRecord::where("work_place_id", $workplace)
+                ->where("work_place_activity_id", $activity->id)
+                ->whereBetween("date", [
+                    $start->toDateString(),
+                    $end->toDateString(),
+                ])
+                ->distinct()
+                ->pluck("worker_id");
+
+            $workerIds = $workerIds
+                ->merge($pivotWorkerIds)
+                ->merge($recordWorkerIds);
+        }
+
+        $workerIds = $workerIds->unique()->values();
+
+        if ($workerIds->isEmpty()) {
+            return [];
+        }
+
+        $vacations = Vacation::whereIn("worker_id", $workerIds->all())
+            ->where("status", 1)
+            ->where(function ($query) use ($start, $end) {
+                $query
+                    ->whereBetween("start_date", [
+                        $start->toDateString(),
+                        $end->toDateString(),
+                    ])
+                    ->orWhereBetween("end_date", [
+                        $start->toDateString(),
+                        $end->toDateString(),
+                    ])
+                    ->orWhere(function ($nested) use ($start, $end) {
+                        $nested
+                            ->where("start_date", "<=", $start->toDateString())
+                            ->where("end_date", ">=", $end->toDateString());
+                    });
+            })
+            ->get();
+
+        $vacationData = [];
+
+        foreach ($vacations as $vacation) {
+            $this->processVacationDays($vacation, $start, $end, $vacationData);
+        }
+
+        return $vacationData;
+    }
+
+    private function processVacationDays(
+        Vacation $vacation,
+        Carbon $startDate,
+        Carbon $endDate,
+        array &$vacationData
+    ): void {
+        $workerId = (int) $vacation->worker_id;
+        $vacStart = Carbon::parse($vacation->start_date);
+        $vacEnd = Carbon::parse($vacation->end_date);
+        $typeInfo = $this->getVacationTypeInfo((int) $vacation->type);
+        $current = max($vacStart, $startDate)->copy();
+        $end = min($vacEnd, $endDate)->copy();
+
+        while ($current <= $end) {
+            $vacationData[$workerId][$current->day] = [
+                "type" => (int) $vacation->type,
+                "short" => $typeInfo["short"],
+                "label" => $typeInfo["label"],
+                "class" => $typeInfo["class"],
+                "comment" => $vacation->comment,
+            ];
+            $current->addDay();
+        }
+    }
+
+    private function getVacationTypeInfo(int $type): array
+    {
+        $types = [
+            Vacation::PAYD_VACATION => [
+                "label" => "Платена отпуска",
+                "short" => "ПО",
+                "class" => "leave-paid",
+            ],
+            Vacation::NOT_PAYD_VACATION => [
+                "label" => "Неплатена отпуска",
+                "short" => "НО",
+                "class" => "leave-unpaid",
+            ],
+            Vacation::HOSPITAL_SHEET => [
+                "label" => "Болничен",
+                "short" => "БЛ",
+                "class" => "leave-hospital",
+            ],
+        ];
+
+        return $types[$type] ?? [
+            "label" => "Неизвестен тип",
+            "short" => "?",
+            "class" => "",
+        ];
     }
 
     private function getSpecialDayMap(int $month, int $year): array

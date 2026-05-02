@@ -12,6 +12,7 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use viki\Service\Models\Elequent\Vacation;
 
 class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, WithColumnWidths
 {
@@ -22,6 +23,7 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
     protected $daysInMonth;
     protected $nonWorkingDaysMap;
     protected $rows = [];
+    protected $leaveCells = [];
 
     public function __construct($groupedByActivity, $workplaceData, $year, $month, $daysInMonth, array $nonWorkingDaysMap = [])
     {
@@ -101,6 +103,7 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             // Worker rows for this activity
             foreach ($activityData['workers'] as $workerData) {
                 $worker = $workerData['worker'];
+                $dataRowIndex = count($this->rows) + 1;
                 $workerRow = [
                     '-', // Длъжност (empty for workers)
                     '-', // Заплата (empty for workers)
@@ -112,7 +115,24 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
                 // Add daily hours as numbers (not formatted strings)
                 for ($day = 1; $day <= $this->daysInMonth; $day++) {
                     $hours = $workerData['daily_records'][$day] ?? 0;
-                    $workerRow[] = $hours > 0 ? (float) $hours : ''; // Store as float or empty string
+                    $leaveInfo = $workerData['daily_leave_info'][$day] ?? null;
+
+                    if ($hours > 0) {
+                        $workerRow[] = (float) $hours;
+                        continue;
+                    }
+
+                    if ($leaveInfo) {
+                        $workerRow[] = $leaveInfo['short'] ?? '';
+                        $this->leaveCells[] = [
+                            'data_row' => $dataRowIndex,
+                            'day' => $day,
+                            'type' => (int) ($leaveInfo['type'] ?? 0),
+                        ];
+                        continue;
+                    }
+
+                    $workerRow[] = '';
                 }
 
                 // Add worker totals as numbers
@@ -256,6 +276,17 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
             }
         }
 
+        foreach ($this->leaveCells as $leaveCell) {
+            $row = $dataStartRow + ((int) $leaveCell['data_row']) - 1;
+            $column = Coordinate::stringFromColumnIndex(
+                $firstDayColumnIndex + ((int) $leaveCell['day'] - 1)
+            );
+
+            $sheet->getStyle("{$column}{$row}")->applyFromArray(
+                $this->getLeaveCellStyle((int) $leaveCell['type'])
+            );
+        }
+
         return [];
     }
 
@@ -284,5 +315,60 @@ class MonthlyPresenceExport implements FromArray, WithHeadings, WithStyles, With
         $formatted = number_format($value, 2, '.', '');
 
         return rtrim(rtrim($formatted, '0'), '.');
+    }
+
+    protected function getLeaveCellStyle(int $type): array
+    {
+        $styles = [
+            Vacation::PAYD_VACATION => [
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FFDCFCE7'],
+                ],
+                'font' => [
+                    'bold' => true,
+                    'color' => ['argb' => 'FF166534'],
+                ],
+            ],
+            Vacation::NOT_PAYD_VACATION => [
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FFDBEAFE'],
+                ],
+                'font' => [
+                    'bold' => true,
+                    'color' => ['argb' => 'FF1D4ED8'],
+                ],
+            ],
+            Vacation::HOSPITAL_SHEET => [
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FFFEE2E2'],
+                ],
+                'font' => [
+                    'bold' => true,
+                    'color' => ['argb' => 'FF991B1B'],
+                ],
+            ],
+        ];
+
+        return array_merge(
+            $styles[$type] ?? [
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FFF3F4F6'],
+                ],
+                'font' => [
+                    'bold' => true,
+                    'color' => ['argb' => 'FF374151'],
+                ],
+            ],
+            [
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
+            ]
+        );
     }
 }
