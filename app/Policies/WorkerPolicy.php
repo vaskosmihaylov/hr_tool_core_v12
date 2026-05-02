@@ -23,7 +23,17 @@ class WorkerPolicy
      */
     public function view(User $user, Worker $worker): bool
     {
-        return $user->can('view_worker');
+        if (! $user->can('view_worker')) {
+            return false;
+        }
+
+        if ($user->hasRole('supervisor')) {
+            return $user->workPlaces()
+                ->where('viki_work_place.id', $worker->work_place_id)
+                ->exists();
+        }
+
+        return true;
     }
 
     /**

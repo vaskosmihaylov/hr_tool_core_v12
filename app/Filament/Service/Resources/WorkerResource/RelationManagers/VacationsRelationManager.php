@@ -2,14 +2,15 @@
 
 namespace App\Filament\Service\Resources\WorkerResource\RelationManagers;
 
+use App\Filament\Service\Resources\WorkerResource\Pages\ViewWorker;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Database\Eloquent\Model;
 use viki\Service\Models\Elequent\Vacation;
+use viki\Service\Models\Elequent\Worker;
 
 class VacationsRelationManager extends RelationManager
 {
@@ -20,6 +21,15 @@ class VacationsRelationManager extends RelationManager
     protected static ?string $modelLabel = 'Отпуска';
 
     protected static ?string $pluralModelLabel = 'Отпуски';
+
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    {
+        if (auth()->user()?->hasRole('supervisor') && is_a($pageClass, ViewWorker::class, true)) {
+            return static::canSupervisorManageWorker($ownerRecord);
+        }
+
+        return parent::canViewForRecord($ownerRecord, $pageClass);
+    }
 
     public function form(Form $form): Form
     {
@@ -145,11 +155,17 @@ class VacationsRelationManager extends RelationManager
                 Tables\Actions\CreateAction::make()
                     ->label('Нова отпуска')
                     ->mutateFormDataUsing(function (array $data): array {
+                        $worker = $this->getOwnerRecord();
+
                         // Calculate day count automatically
                         if (isset($data['start_date']) && isset($data['end_date'])) {
                             $start = \Carbon\Carbon::parse($data['start_date']);
                             $end = \Carbon\Carbon::parse($data['end_date']);
                             $data['day_count'] = $start->diffInDays($end) + 1;
+                        }
+
+                        if ($worker) {
+                            $data['worker_id'] = $worker->id;
                         }
 
                         // Set created_by to current user ID
@@ -170,11 +186,17 @@ class VacationsRelationManager extends RelationManager
                 Tables\Actions\EditAction::make()
                     ->label('Редактиране')
                     ->mutateFormDataUsing(function (array $data): array {
+                        $worker = $this->getOwnerRecord();
+
                         // Recalculate day count when editing
                         if (isset($data['start_date']) && isset($data['end_date'])) {
                             $start = \Carbon\Carbon::parse($data['start_date']);
                             $end = \Carbon\Carbon::parse($data['end_date']);
                             $data['day_count'] = $start->diffInDays($end) + 1;
+                        }
+
+                        if ($worker) {
+                            $data['worker_id'] = $worker->id;
                         }
 
                         // Handle nullable comment
@@ -197,5 +219,31 @@ class VacationsRelationManager extends RelationManager
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    public function isReadOnly(): bool
+    {
+        if (is_a($this->getPageClass(), ViewWorker::class, true)) {
+            return ! static::canSupervisorManageWorker($this->getOwnerRecord());
+        }
+
+        return parent::isReadOnly();
+    }
+
+    protected static function canSupervisorManageWorker(?Model $ownerRecord): bool
+    {
+        $user = auth()->user();
+
+        if (! $user?->hasRole('supervisor')) {
+            return false;
+        }
+
+        if (! $ownerRecord instanceof Worker || ! $ownerRecord->work_place_id) {
+            return false;
+        }
+
+        return $user->workPlaces()
+            ->where('viki_work_place.id', $ownerRecord->work_place_id)
+            ->exists();
     }
 }

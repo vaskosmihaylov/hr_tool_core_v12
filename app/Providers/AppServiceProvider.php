@@ -25,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(\viki\Service\Models\Elequent\Client::class, \App\Policies\ClientPolicy::class);
         Gate::policy(\viki\Service\Models\Elequent\WorkPlace::class, \App\Policies\WorkPlacePolicy::class);
         Gate::policy(\viki\Service\Models\Elequent\Worker::class, \App\Policies\WorkerPolicy::class);
+        Gate::policy(\viki\Service\Models\Elequent\Vacation::class, \App\Policies\VacationPolicy::class);
+        Gate::policy(\viki\Service\Models\Elequent\WorkerBonus::class, \App\Policies\WorkerBonusPolicy::class);
         Gate::policy(\viki\Service\Models\Elequent\Approvement::class, \App\Policies\ApprovementPolicy::class);
         Gate::policy(\viki\Service\Models\Elequent\WorkerRecord::class, \App\Policies\WorkerRecordPolicy::class);
         Gate::policy(\viki\Service\Models\Elequent\Archive::class, \App\Policies\ArchivePolicy::class);

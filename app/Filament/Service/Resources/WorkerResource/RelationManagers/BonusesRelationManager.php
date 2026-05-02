@@ -2,14 +2,15 @@
 
 namespace App\Filament\Service\Resources\WorkerResource\RelationManagers;
 
+use App\Filament\Service\Resources\WorkerResource\Pages\ViewWorker;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Database\Eloquent\Model;
 use viki\Service\Models\Elequent\WorkerBonus;
+use viki\Service\Models\Elequent\Worker;
 
 class BonusesRelationManager extends RelationManager
 {
@@ -20,6 +21,15 @@ class BonusesRelationManager extends RelationManager
     protected static ?string $modelLabel = 'Бонус/Глоба';
 
     protected static ?string $pluralModelLabel = 'Бонуси и Глоби';
+
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    {
+        if (auth()->user()?->hasRole('supervisor') && is_a($pageClass, ViewWorker::class, true)) {
+            return static::canSupervisorManageWorker($ownerRecord);
+        }
+
+        return parent::canViewForRecord($ownerRecord, $pageClass);
+    }
 
     public function form(Form $form): Form
     {
@@ -133,7 +143,8 @@ class BonusesRelationManager extends RelationManager
                     ->mutateFormDataUsing(function (array $data): array {
                         $worker = $this->getOwnerRecord();
                         
-                        // Ensure work_place_id stays consistent with worker assignment
+                        // Ensure worker and workplace stay consistent with the owner record
+                        $data['worker_id'] = $worker->id;
                         $data['work_place_id'] = $worker->work_place_id;
                         
                         return $data;
@@ -148,5 +159,31 @@ class BonusesRelationManager extends RelationManager
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    public function isReadOnly(): bool
+    {
+        if (is_a($this->getPageClass(), ViewWorker::class, true)) {
+            return ! static::canSupervisorManageWorker($this->getOwnerRecord());
+        }
+
+        return parent::isReadOnly();
+    }
+
+    protected static function canSupervisorManageWorker(?Model $ownerRecord): bool
+    {
+        $user = auth()->user();
+
+        if (! $user?->hasRole('supervisor')) {
+            return false;
+        }
+
+        if (! $ownerRecord instanceof Worker || ! $ownerRecord->work_place_id) {
+            return false;
+        }
+
+        return $user->workPlaces()
+            ->where('viki_work_place.id', $ownerRecord->work_place_id)
+            ->exists();
     }
 }

@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use viki\Service\Models\Elequent\WorkerRecord;
 use viki\Service\Models\Elequent\VikiUser;
+use viki\Service\Models\Elequent\HoursActivityByMonth;
 use viki\Service\Models\Elequent\WorkPlaceActivity;
+use viki\Service\Models\Elequent\WorkPlaceActivityHoursPerDay;
+use viki\Service\Models\Elequent\WorkPlaceActivityMonthSnapshot;
 use viki\Service\Models\Elequent\WorkerBonus;
 use viki\Service\Models\Elequent\Vacation;
-use viki\Service\Http\Controllers\ReportController;
 use Carbon\Carbon;
 
 /**
@@ -234,42 +236,81 @@ class ReportsService
     private function calculateSalariesBatch($workerRecords, array $filters): array
     {
         $salaries = [];
-        $datePattern = $filters['year_id'] . '-' . $filters['month_id'];
+        $year = (int) $filters['year_id'];
+        $month = (int) $filters['month_id'];
+        $normalizedDate = sprintf('%04d-%02d-01', $year, $month);
+        $workingDaysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year) -
+            count($this->getAllNonWorkingDays($month, $year));
 
         // Calculate the correct last day of the month
-        $lastDayOfMonth = Carbon::create($filters['year_id'], $filters['month_id'], 1)->endOfMonth()->format('d');
+        $lastDayOfMonth = Carbon::create($year, $month, 1)->endOfMonth()->format('d');
 
         // Get all unique activity IDs
         $activityIds = $workerRecords->flatMap(function ($record) {
             return explode(',', $record->activities);
-        })->unique()->filter();
+        })->map(fn ($id) => (int) $id)->unique()->filter()->values();
+
+        $workplaceIds = $workerRecords
+            ->pluck('work_place_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->filter()
+            ->values();
 
         // Batch load all workplace activities
         $activities = WorkPlaceActivity::whereIn('id', $activityIds)->get()->keyBy('id');
+        $hoursByMonth = HoursActivityByMonth::whereIn('work_place_activity_id', $activityIds)
+            ->where('date', $normalizedDate)
+            ->get()
+            ->keyBy('work_place_activity_id');
+        $hoursPerDayByActivity = WorkPlaceActivityHoursPerDay::whereIn('work_place_activity_id', $activityIds)
+            ->get()
+            ->keyBy('work_place_activity_id');
+        $snapshots = WorkPlaceActivityMonthSnapshot::whereIn('work_place_id', $workplaceIds)
+            ->where('date', $normalizedDate)
+            ->get()
+            ->keyBy(fn ($snapshot) => $snapshot->work_place_id . '-' . $snapshot->base_activity_id);
+        $activityHours = WorkerRecord::select([
+                'worker_id',
+                'work_place_id',
+                'work_place_activity_id',
+                DB::raw('SUM(hours) as total_hours'),
+            ])
+            ->whereBetween('date', [
+                $year . '-' . sprintf('%02d', $month) . '-01',
+                $year . '-' . sprintf('%02d', $month) . '-' . $lastDayOfMonth,
+            ])
+            ->whereIn('work_place_activity_id', $activityIds)
+            ->whereIn('work_place_id', $workplaceIds)
+            ->groupBy('worker_id', 'work_place_id', 'work_place_activity_id')
+            ->get()
+            ->keyBy(
+                fn ($row) => $row->worker_id . '-' . $row->work_place_id . '-' . $row->work_place_activity_id
+            );
 
         foreach ($workerRecords as $record) {
             $recordActivities = array_filter(explode(',', $record->activities));
             $totalSalary = 0;
 
             foreach ($recordActivities as $activityId) {
+                $activityId = (int) $activityId;
                 $activity = $activities->get($activityId);
                 if (!$activity) continue;
 
-                $workingHours = ReportController::getActivityWorkingHoursForDate($activity, $datePattern);
-                $hourPrice = $workingHours > 0 ?
-                    $activity->neto_salary / $workingHours : 0;
+                $snapshot = $snapshots->get($record->work_place_id . '-' . $activityId);
+                $workingHours = $this->getActivityWorkingHoursForMonth(
+                    $activity,
+                    $workingDaysInMonth,
+                    $hoursByMonth->get($activityId),
+                    $hoursPerDayByActivity->get($activityId)?->hours_per_day,
+                    $snapshot?->hours_per_day
+                );
+                $salary = $snapshot?->neto_salary ?? (float) $activity->neto_salary;
+                $hourPrice = $workingHours > 0 ? ((float) $salary / $workingHours) : 0;
+                $hoursKey = $record->worker_id . '-' . $record->work_place_id . '-' . $activityId;
+                $workedHours = (float) ($activityHours->get($hoursKey)?->total_hours ?? 0);
 
-                // Get hours for this specific activity (still need individual query but optimized)
-                $activityHours = WorkerRecord::where('worker_id', $record->worker_id)
-                    ->where('work_place_id', $record->work_place_id)
-                    ->where('work_place_activity_id', $activityId)
-                    ->whereBetween('date', [
-                        $filters['year_id'] . '-' . $filters['month_id'] . '-01',
-                        $filters['year_id'] . '-' . $filters['month_id'] . '-' . $lastDayOfMonth
-                    ])
-                    ->sum('hours');
-
-                $totalSalary += $hourPrice * $activityHours;
+                $totalSalary += $hourPrice * $workedHours;
             }
 
             $salaries[$record->unique_id] = $totalSalary;
@@ -307,6 +348,68 @@ class ReportsService
         }
 
         return $result;
+    }
+
+    private function getActivityWorkingHoursForMonth(
+        WorkPlaceActivity $activity,
+        int $workingDaysInMonth,
+        ?HoursActivityByMonth $hoursConfig = null,
+        $configuredHoursPerDay = null,
+        $snapshotHoursPerDay = null
+    ): float {
+        $hoursPerDay = $snapshotHoursPerDay !== null
+            ? (int) $snapshotHoursPerDay
+            : (int) $configuredHoursPerDay;
+
+        if (
+            $hoursPerDay <= 0 &&
+            preg_match('/(\d+)\s*ч/u', (string) $activity->activity, $matches)
+        ) {
+            $hoursPerDay = (int) ($matches[1] ?? 0);
+        }
+
+        if ($hoursPerDay <= 0) {
+            $hoursPerDay = 8;
+        }
+
+        $calculatedHours = $workingDaysInMonth * $hoursPerDay;
+
+        if (
+            $hoursConfig &&
+            (int) $activity->type_working === WorkPlaceActivity::WORKING_BY_HOURS
+        ) {
+            return (float) $hoursConfig->hours_for_person;
+        }
+
+        if ((int) $activity->type_working === WorkPlaceActivity::WORKING_STANDART) {
+            return (float) $calculatedHours;
+        }
+
+        return (float) $calculatedHours;
+    }
+
+    private function getAllNonWorkingDays(int $month, int $year): array
+    {
+        $specialDays = DB::table('viki_special_days')
+            ->where('date', 'like', sprintf('%04d-%02d-%%', $year, $month))
+            ->pluck('date')
+            ->map(fn ($date) => (int) substr($date, strrpos($date, '-') + 1))
+            ->all();
+
+        $weekendDays = [];
+        foreach (range(1, cal_days_in_month(CAL_GREGORIAN, $month, $year)) as $day) {
+            if (date('N', strtotime(sprintf('%d-%02d-%02d', $year, $month, $day))) >= 6) {
+                $weekendDays[] = $day;
+            }
+        }
+
+        foreach ($specialDays as $specialDay) {
+            if (!in_array($specialDay, $weekendDays, true)) {
+                $weekendDays[] = $specialDay;
+            }
+        }
+
+        return $weekendDays;
     }
 
     /**
@@ -441,6 +544,7 @@ class ReportsService
     {
         $user = Auth::user();
         $keyData = [
+            'version' => 'monthly-presence-aligned-v2',
             'user_id' => $user->id,
             'user_roles' => $user->roles->pluck('name')->sort()->implode(','),
             'filters' => $filters
