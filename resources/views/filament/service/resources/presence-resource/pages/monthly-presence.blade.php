@@ -359,9 +359,17 @@
                                                     {{-- Locked month: show read-only value (color indicates vacation) --}}
                                                     <span class="locked-hours">{{ $currentValue ?: '-' }}</span>
                                                 @else
-                                                    {{-- Editable: show input field (color indicates vacation) --}}
+                                                    {{-- Editable: show input field (color indicates vacation).
+                                                         Using wire:model.blur to commit only on focus loss avoids
+                                                         per-keystroke roundtrips that previously caused the table
+                                                         to morph mid-typing (values jumping rows, rows disappearing,
+                                                         workers reappearing). Yellow "unsaved" feedback is handled
+                                                         locally via Alpine for instant visual response. --}}
                                                     <input type="number"
-                                                           wire:model.live="hoursData.{{ $activityId }}.{{ $workerId }}.{{ $day }}"
+                                                           wire:key="hour-input-{{ $activityId }}-{{ $workerId }}-{{ $day }}"
+                                                           wire:model.blur="hoursData.{{ $activityId }}.{{ $workerId }}.{{ $day }}"
+                                                           wire:loading.attr="disabled"
+                                                           x-on:input="$el.closest('td').classList.add('unsaved-cell')"
                                                            min="0" max="24" step="0.5"
                                                            placeholder="-">
                                                 @endif
