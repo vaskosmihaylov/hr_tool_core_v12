@@ -4,6 +4,7 @@ namespace App\Filament\Service\Resources\PresenceResource\Pages;
 
 use App\Filament\Service\Resources\PresenceResource;
 use App\Filament\Service\Resources\WorkPlaceResource;
+use App\Services\Presence\MonthlyPresenceWorkerRemovalService;
 use App\Services\Presence\PresenceConfigurationService;
 use Filament\Resources\Pages\Page;
 use Filament\Actions;
@@ -167,47 +168,29 @@ class MonthlyPresence extends Page
         }
     }
 
-    public function removeWorkerFromMonth($workerId): void
+    public function removeWorkerFromMonth($workerId, $activityId = null): void
     {
         try {
             $this->ensureMonthIsUnlocked();
 
-            DB::beginTransaction();
+            if (! $activityId) {
+                $this->showErrorNotification(
+                    "Не е избрана дейност за премахване на работника."
+                );
 
-            // Delete worker hours records
-            $this->deleteWorkerRecords($workerId);
+                return;
+            }
 
-            // Remove worker from pivot tables for this specific month
-            $monthStart = $this->getMonthStartDate()->toDateString();
-
-            // Remove from workplace pivot
-            DB::table("viki_work_place_worker")
-                ->where("work_place_id", $this->workplace)
-                ->where("worker_id", $workerId)
-                ->where("date", $monthStart)
-                ->delete();
-
-            // Remove from activity pivots for this workplace and month
-            $activityIds = WorkPlaceActivity::where(
-                "work_place_id",
-                $this->workplace
-            )
-                ->whereNull("date")
-                ->where("copied", WorkPlaceActivity::NOT_COPIED_ACTIVITY)
-                ->pluck("id");
-
-            DB::table("viki_work_place_activity_worker")
-                ->where("worker_id", $workerId)
-                ->whereIn("work_place_activity_id", $activityIds)
-                ->where("date", $monthStart)
-                ->delete();
-
-            DB::commit();
+            app(MonthlyPresenceWorkerRemovalService::class)->removeWorkerFromActivity(
+                workplaceId: $this->workplace,
+                activityId: (int) $activityId,
+                workerId: (int) $workerId,
+                month: $this->getMonthStartDate(),
+            );
 
             $this->reloadData();
             $this->showSuccessNotification("Работникът е премахнат успешно.");
         } catch (\Exception $e) {
-            DB::rollBack();
             $this->showErrorNotification(
                 "Грешка при премахване: " . $e->getMessage()
             );
@@ -936,16 +919,6 @@ class MonthlyPresence extends Page
                 }
             }
         }
-    }
-
-    private function deleteWorkerRecords($workerId): void
-    {
-        $dateRange = $this->getMonthDateRange();
-
-        WorkerRecord::where("worker_id", $workerId)
-            ->where("work_place_id", $this->workplace)
-            ->whereBetween("date", $dateRange)
-            ->delete();
     }
 
     private function createOrUpdateRecord(

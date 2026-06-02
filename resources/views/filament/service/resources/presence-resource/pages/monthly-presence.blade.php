@@ -289,10 +289,10 @@
                                             <div class="flex items-center justify-between">
                                                 <span class="font-medium text-gray-900 dark:text-gray-100">{{ $data['worker']->name }}</span>
                                                 @if(!$isLocked)
-                                                    <button wire:click="removeWorkerFromMonth({{ $data['worker']->id }})"
-                                                            wire:confirm="Сигурни ли сте, че искате да премахнете {{ $data['worker']->name }} {{ $data['worker']->family_name }} от {{ $this->getMonthName() }}?"
+                                                    <button wire:click="removeWorkerFromMonth({{ $data['worker']->id }}, {{ $activityId }})"
+                                                            wire:confirm="Сигурни ли сте, че искате да премахнете {{ $data['worker']->name }} {{ $data['worker']->family_name }} от тази дейност за {{ $this->getMonthName() }}?"
                                                             class="ml-2 p-0.5 text-red-400 hover:text-red-600"
-                                                            title="Премахни от месеца">
+                                                            title="Премахни от дейността">
                                                         <x-heroicon-o-x-mark class="w-3 h-3" />
                                                     </button>
                                                 @endif
