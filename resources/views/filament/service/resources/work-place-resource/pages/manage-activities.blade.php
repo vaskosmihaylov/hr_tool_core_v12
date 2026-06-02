@@ -22,7 +22,7 @@
             <div class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
                 <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/60 px-3 py-1 text-emerald-700 dark:text-emerald-200">
                     <span aria-hidden="true">💰</span>
-                    {{ number_format($this->record->budget ?? 0, 2, ',', ' ') }} лв
+                    {{ number_format($this->record->budget ?? 0, 2, ',', ' ') }} €
                 </span>
                 <a href="{{ \App\Filament\Service\Resources\WorkPlaceResource::getUrl('edit', ['record' => $this->record]) }}"
                    class="inline-flex items-center gap-2 rounded-md border border-primary-200 dark:border-primary-700 px-3 py-2 text-primary-700 dark:text-primary-200 text-sm font-semibold hover:bg-primary-50 dark:hover:bg-primary-900/30">

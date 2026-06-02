@@ -18,7 +18,7 @@
                             </div>
                         </div>
                         <div class="card" id="datatableWrapper" style="opacity: 0.0">
-                            <div class="card-header">Архив на присъствена форма за <strong><span id='today'></span></strong> месец. <span>Бюджет на обекта : <strong><span id="totalUsedBudget">{{$tableData[array_key_first($tableData)]['workPlaceTotalUsedBudget']}}</span> / {{$tableData[array_key_first($tableData)]['workPlaceBudget']}} лв</strong></span> </div>
+                            <div class="card-header">Архив на присъствена форма за <strong><span id='today'></span></strong> месец. <span>Бюджет на обекта : <strong><span id="totalUsedBudget">{{$tableData[array_key_first($tableData)]['workPlaceTotalUsedBudget']}}</span> / {{$tableData[array_key_first($tableData)]['workPlaceBudget']}} €</strong></span> </div>
                             <div class="card-body col-lg-12 presence-table">
                                 <table id="presence" class="table table-bordered stripe">
                                     <thead class="thead-dark">

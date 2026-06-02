@@ -112,7 +112,7 @@
                 <div class="flex flex-wrap items-center gap-3 text-sm">
                     <span class="font-medium text-gray-700 dark:text-gray-200">Бюджет на обекта:</span>
                     <span class="{{ $workplaceBudgetSummary['exceeded'] ? 'text-red-700 dark:text-red-300' : 'text-gray-900 dark:text-gray-100' }} font-semibold">
-                        {{ $formatPresenceNumber($workplaceBudgetSummary['paid']) }} / {{ $formatPresenceNumber($workplaceBudgetSummary['budget']) }} лв
+                        {{ $formatPresenceNumber($workplaceBudgetSummary['paid']) }} / {{ $formatPresenceNumber($workplaceBudgetSummary['budget']) }} €
                     </span>
                 </div>
             </div>

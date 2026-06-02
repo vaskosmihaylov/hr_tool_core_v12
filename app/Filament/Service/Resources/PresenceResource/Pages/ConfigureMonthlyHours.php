@@ -105,7 +105,7 @@ class ConfigureMonthlyHours extends Page implements HasForms
                             ->numeric()
                             ->minValue(0)
                             ->step(0.0001) // Allow 4 decimal places to match database
-                            ->suffix("лв/час")
+                            ->suffix("€/час")
                             ->required()
                             ->helperText("Нето цена за един час работа")
                             ->live() // Make it live to update salary calculation
@@ -126,12 +126,12 @@ class ConfigureMonthlyHours extends Page implements HasForms
                                 if ($hours > 0 && $rate > 0) {
                                     $calculatedSalary = $hours * $rate;
                                     return number_format($calculatedSalary, 4) .
-                                        " лв";
+                                        " €";
                                 }
                                 return number_format(
                                     $activity->neto_salary,
                                     4
-                                ) . " лв";
+                                ) . " €";
                             })
                             ->columnSpan(1),
                     ]),

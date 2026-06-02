@@ -3,8 +3,11 @@
 namespace App\Filament\Service\Resources\WorkerResource\RelationManagers;
 
 use App\Filament\Service\Resources\WorkerResource\Pages\ViewWorker;
+use App\Services\VacationOverlapService;
+use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -86,8 +89,10 @@ class VacationsRelationManager extends RelationManager
                         if ($record->start_date && $record->end_date) {
                             $start = \Carbon\Carbon::parse($record->start_date);
                             $end = \Carbon\Carbon::parse($record->end_date);
+
                             return $start->diffInDays($end) + 1;
                         }
+
                         return $record->day_count ?? 0;
                     })
                     ->suffix(' дни'),
@@ -95,7 +100,7 @@ class VacationsRelationManager extends RelationManager
                 Tables\Columns\BadgeColumn::make('type')
                     ->label('Тип отпуска')
                     ->getStateUsing(function ($record) {
-                        return match($record->type) {
+                        return match ($record->type) {
                             1 => 'платена отпуска',
                             2 => 'неплатена отпуска',
                             3 => 'болничен',
@@ -116,7 +121,7 @@ class VacationsRelationManager extends RelationManager
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Статус')
                     ->getStateUsing(function ($record) {
-                        return match($record->status) {
+                        return match ($record->status) {
                             0 => 'Чакаща',
                             1 => 'Одобрена',
                             2 => 'Отказана',
@@ -142,7 +147,7 @@ class VacationsRelationManager extends RelationManager
                         1 => 'Одобрена',
                         2 => 'Отказана',
                     ]),
-                
+
                 Tables\Filters\SelectFilter::make('type')
                     ->label('Тип отпуска')
                     ->options([
@@ -173,13 +178,16 @@ class VacationsRelationManager extends RelationManager
 
                         // Vacations created by HR are auto-approved
                         $data['status'] = 1;
-                        
+
                         // Handle nullable comment
                         if (isset($data['comment']) && trim($data['comment']) === '') {
                             $data['comment'] = null;
                         }
-                        
+
                         return $data;
+                    })
+                    ->before(function (Tables\Actions\CreateAction $action, array $data): void {
+                        $this->haltIfVacationOverlaps($action, $data);
                     }),
             ])
             ->actions([
@@ -208,6 +216,9 @@ class VacationsRelationManager extends RelationManager
                         $data['status'] = 1;
 
                         return $data;
+                    })
+                    ->before(function (Tables\Actions\EditAction $action, array $data, Vacation $record): void {
+                        $this->haltIfVacationOverlaps($action, $data, $record);
                     }),
                 Tables\Actions\DeleteAction::make()
                     ->label('Изтриване'),
@@ -228,6 +239,46 @@ class VacationsRelationManager extends RelationManager
         }
 
         return parent::isReadOnly();
+    }
+
+    private function haltIfVacationOverlaps(
+        Tables\Actions\Action $action,
+        array $data,
+        ?Vacation $record = null
+    ): void {
+        $worker = $this->getOwnerRecord();
+
+        if (! $worker || ! isset($data['start_date'], $data['end_date'])) {
+            return;
+        }
+
+        $overlap = app(VacationOverlapService::class)->findOverlap(
+            $worker->id,
+            $data['start_date'],
+            $data['end_date'],
+            $record?->getKey()
+        );
+
+        if (! $overlap) {
+            return;
+        }
+
+        $this->sendVacationOverlapNotification($overlap);
+
+        $action->halt();
+    }
+
+    private function sendVacationOverlapNotification(Vacation $vacation): void
+    {
+        $startDate = Carbon::parse($vacation->start_date)->format('d.m.Y');
+        $endDate = Carbon::parse($vacation->end_date)->format('d.m.Y');
+
+        Notification::make()
+            ->title('Дублирана отпуска')
+            ->body("Избраният период се припокрива със съществуваща отпуска от {$startDate} до {$endDate}. Моля, изберете период без дублирани дни.")
+            ->danger()
+            ->persistent()
+            ->send();
     }
 
     protected static function canSupervisorManageWorker(?Model $ownerRecord): bool
