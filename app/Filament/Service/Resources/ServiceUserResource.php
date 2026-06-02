@@ -24,6 +24,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class ServiceUserResource extends Resource implements HasShieldPermissions
 {
+    private const SERVICE_USER_ROLE_LABELS = [
+        'manager' => 'Мениджър',
+        'supervisor' => 'Супервайзор',
+        'hr' => 'HR',
+    ];
+
     protected static ?string $model = User::class;
 
     protected static ?string $slug = 'users';
@@ -49,6 +55,21 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
             'update',
             'delete',
         ];
+    }
+
+    public static function getServiceUserRoleOptions(): array
+    {
+        return self::SERVICE_USER_ROLE_LABELS;
+    }
+
+    public static function getServiceUserRoleNames(): array
+    {
+        return array_keys(self::SERVICE_USER_ROLE_LABELS);
+    }
+
+    private static function getServiceUserRoleLabel(?string $roleName): string
+    {
+        return self::SERVICE_USER_ROLE_LABELS[$roleName] ?? (string) $roleName;
     }
 
     public static function form(Form $form): Form
@@ -97,10 +118,7 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
                     ->schema([
                         Forms\Components\Select::make('user_role')
                             ->label('Роля')
-                            ->options([
-                                'manager' => 'Мениджър',
-                                'supervisor' => 'Супервайзор',
-                            ])
+                            ->options(static::getServiceUserRoleOptions())
                             ->required()
                             ->live()
                             ->afterStateUpdated(function (Set $set) {
@@ -155,16 +173,15 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
                     ->label('Роля')
                     ->colors([
                         'danger' => 'admin',
-                        'warning' => 'manager', 
+                        'warning' => 'manager',
                         'success' => 'supervisor',
+                        'info' => 'hr',
                     ])
                     ->formatStateUsing(function ($state) {
-                        return match($state) {
+                        return match ($state) {
                             'admin' => 'Администратор',
-                            'manager' => 'Мениджър',
-                            'supervisor' => 'Супервайзор',
                             'super_admin' => 'Супер админ',
-                            default => $state,
+                            default => static::getServiceUserRoleLabel($state),
                         };
                     }),
                     
@@ -378,9 +395,9 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
      */
     protected static function applyRoleBasedFiltering(Builder $query): Builder
     {
-        // Only show manager and supervisor users
+        // Only show roles managed through the service users screen
         $query->whereHas('roles', function (Builder $q) {
-            $q->whereIn('name', ['manager', 'supervisor']);
+            $q->whereIn('name', static::getServiceUserRoleNames());
         });
         
         $user = Auth::user();
@@ -390,7 +407,7 @@ class ServiceUserResource extends Resource implements HasShieldPermissions
         
         $userRoles = $user->roles->pluck('name')->toArray();
         
-        // Admin and Super Admin see all manager/supervisor users
+        // Admin and Super Admin see all service-manageable users
         if (in_array('admin', $userRoles) || in_array('super_admin', $userRoles)) {
             return $query;
         }
