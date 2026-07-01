@@ -97,7 +97,18 @@ secret_*.json
 .rspec
 .rubocop.json
 .claude
+.codex
+.mcp.json
 AGENTS.MD
+AGENTS.md
+CLAUDE.md
+**/AGENTS.md
+**/CLAUDE.md
+docs/agents/
+/Makefile
+/scripts/agent-lint.sh
+/scripts/agent-test.sh
+/scripts/agent-validate.py
 
 # Node.js
 /node_modules

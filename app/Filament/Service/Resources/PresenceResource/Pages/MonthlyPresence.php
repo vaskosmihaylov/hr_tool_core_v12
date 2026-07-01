@@ -1613,7 +1613,7 @@ class MonthlyPresence extends Page
             $overrideHoursPerDay
         );
 
-        if ($workPlaceActivityWorkingHours === 0) {
+        if ($workPlaceActivityWorkingHours <= 0) {
             return 0;
         }
 
